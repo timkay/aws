@@ -12,6 +12,9 @@ Notes:
 	  it a change-acl or a put-stdin-with-acl?  I have decided that it means the
 	  latter, so I no longer add ?acl automatically.
 
+*** Switching to github: http://github.com/timkay/aws
+Future changes will be tracked there.
+
 aws-1.32
 	* support for reserved instances
 	* fixed confirm-product-instance and describe-image-attributes
