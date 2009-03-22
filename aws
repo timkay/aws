@@ -12,8 +12,8 @@
 # LIABILITY OF SELLER OR MANUFACTURE IS LIMITED EXCLUSIVELY TO REFUND
 # OF THE PURCHASE PRICE.
 
-$program_version = "1.31";
-$aws_version = "2008-12-01";
+$program_version = "1.32";
+$aws_version = "2009-03-01";
 
 
 
@@ -82,7 +82,7 @@ $aws_version = "2008-12-01";
 								  ]],
 	["ec2", "confirm-product-instance", ConfirmProductInstance, [
 								     ["", ProductCode],
-								     ["-i", InstanceId],
+								     ["i", InstanceId],
 								     ]],
 	["ec2", "create-snapshot csnap", CreateSnapshot, [["", VolumeId]]],
 	["ec2", "create-volume cvol", CreateVolume, [
@@ -100,11 +100,11 @@ $aws_version = "2008-12-01";
 	["ec2", "describe-groups dgrp", DescribeSecurityGroups, [["", GroupNameN]]],
 	["ec2", "describe-image-attribute", DescribeImageAttribute, [
 								       ["", ImageId],
-								       ["-l", launchPermission],
-								       ["-p", productCodes],
-								       ["--kernel", "kernel"],
-								       ["--ramdisk", "ramdisk"],
-								       ["-B", "blockDeviceMapping"],
+								       ["l", launchPermission],
+								       ["p", productCodes],
+								       ["kernel", "kernel"],
+								       ["ramdisk", "ramdisk"],
+								       ["B", "blockDeviceMapping"],
 								       ]],
 	["ec2", "describe-images dim", DescribeImages, [
 							["", ImageIdN],
@@ -114,11 +114,25 @@ $aws_version = "2008-12-01";
 	["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
 	["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
 	["ec2", "describe-regions dreg", DescribeRegions],
+	["ec2", "describe-reserved-instances", DescribeReservedInstances, [
+									   ["", ReservedInstanceIdN],
+									   ]],
+	["ec2", "describe-reserved-instances-offerings", DescribeReservedInstancesOfferings, [
+											      ["offering", ReservedInstancesOfferingIdN],
+											      ["instance-type", InstanceType],
+											      ["availability-zone", AvailabilityZone],
+											      ["z", AvailabilityZone],
+											      ["description", ProductDescription],
+											      ]],
 	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [["", SnapshotId]]],
 	["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
 	["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
 	["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
 	["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
+	["ec2", "purchase-reserved-instance-offering", PurchaseReservedInstancesOffering, [
+											  ["offering-id", ReservedInstancesOfferingId],
+											  ["instance-count", InstanceCount],
+											  ]],
 	["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
 	["ec2", "release-address rad", ReleaseAddress, [["", PublicIp]]],
 	["ec2", "register-image register", RegisterImage, [["", ImageLocation]]],
@@ -135,19 +149,19 @@ $aws_version = "2008-12-01";
 						       ["s", CidrIp],
 						       ]],
 	["ec2", "run-instances run-instance run", RunInstances, [
-						   ["", ImageId, "ami-5647a33f"],
-						   ["i", InstanceType, "m1.small"],
-						   ["a", AddressingType, "public"],
-						   ["n", MinCount, 1],
-						   ["n", MaxCount, 1],
-						   ["g", SecurityGroupN, "default"],
-						   ["k", KeyName, "default"],
-						   ["z", "Placement.AvailabilityZone"],
-						   ["kernel", KernelId],
-						   ["ramdisk", RamdiskId],
-						   ["d", UserData, undef, sub {encode_base64($_[0], "")}],
-						   ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
-						   ]],
+								 ["", ImageId, "ami-5647a33f"],
+								 ["i", InstanceType, "m1.small"],
+								 ["a", AddressingType, "public"],
+								 ["n", MinCount, 1],
+								 ["n", MaxCount, 1],
+								 ["g", SecurityGroupN, "default"],
+								 ["k", KeyName, "default"],
+								 ["z", "Placement.AvailabilityZone"],
+								 ["kernel", KernelId],
+								 ["ramdisk", RamdiskId],
+								 ["d", UserData, undef, sub {encode_base64($_[0], "")}],
+								 ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
+								 ]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
 
 	["s3", "ls", LS],
@@ -165,13 +179,14 @@ $home = get_home_directory();
 # make a hash of aws keywords (%keyword), which are not treated as meta-parameters
 
 {
-	for (@cmd)
+    for (@cmd)
+    {
+	for (@{$_->[3]})
 	{
-		for (@{$_->[3]})
-		{
-			$keyword{$_->[0]} = undef;
-		}
+	    (my $key = $_->[0]) =~ s/-/_/g;
+	    $keyword{$key} = undef;
 	}
+    }
 }
 
 
@@ -836,7 +851,7 @@ sub xml2tab
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
 			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse)$/x
-	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item|ipPermissions-item|keySet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item)$/
+	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item|ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item)$/
 	    || $i == @xml)
 	{
 	    $depth = $depth[$i];
