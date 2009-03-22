@@ -1,0 +1,220 @@
+To Do:
+	* pass sensitive data to curl via File::Temp::tempfile()
+
+Notes:
+	* note the difference between
+		aws put --public s3.timkay.com/tim2.jpg tim.jpg
+	  and
+		aws put --public s3.timkay.com/tim2.jpg
+	  In the first case, it should upload tim.jpg, named as tim2.jpg, and set the
+	  acl to public-read.  In the second case, should it add ?acl to the target to
+	  change the acl, or should it read a new file from stdin?  In other words, is
+	  it a change-acl or a put-stdin-with-acl?  I have decided that it means the
+	  latter, so I no longer add ?acl automatically.
+
+aws-1.32
+	* support for reserved instances
+	* fixed confirm-product-instance and describe-image-attributes
+
+aws-1.31
+	* error messages were incorrectly suppressed on some put (acl, logging) operations
+
+aws-1.30
+	* check to see if curl supports --retry or disable --retry
+
+aws-1.29
+	* added --max-time=N to cancel and retry after N seconds (Thanks, Tiago Fischer!)
+	* reworked curl options
+	* --curl-options="blah"
+
+aws-1.28
+	* close STDOUT in END {}
+	* curl to retry 3 times in most cases
+	* exit with curl exit code when --fail on failure, so it can be scripted better
+	* exit code if md5 fails when --fail
+	* fixed quoting wrt +
+	* return code 22 on on 2xx HTTP status (just like --fail, but error is displayed)
+
+aws-1.27
+	* fixed --wait display of IP address (displayed on wrong line)
+	* fixed --wait when --region is specified
+	* added --md5 to check the checksum of PUT and GET files
+	* added curl -q to prevent curl from reading .curlrc
+
+aws-1.26
+	* added --cut (and --emacs) to cut output to terminal width
+
+aws-1.25 2009-01-11
+	* support PUT from STDIN via File::Temp
+	* add --cmd0 to use command-line command even when aws was run via a symlink,
+	  so that, for example, ec2din --wait can run aws using $0 and specify a command
+	* added --set-acl, --public and --private
+	* define $bucket for --exec (and remove definitions of $_ and @_)
+	* removed default for CidrIp (0.0.0.0/0)
+
+aws-1.24 2009-01-02
+	* slight change to COPY, so that it works on Windows (on Windows,
+	  curl refuses to upload an empty file from /dev/null)
+	* improved processing of output from copy
+	* added --simple output for "aws run"
+	* added --wait=SEC for "aws run", which polls until instances leave
+	  "pending" state
+	* update copyright notice to include 2009 (Happy New Year!)
+
+aws-1.23 2008-12-18
+	* added --progress option to show a progress bar (Thanks, Jim Dannemiller!)
+	* Signature Version 2 (still using SHA1, not SHA256) (Thanks, Chanchal James!)
+	* changed default AMI (fedora-8-i386-base-v1.08)
+
+aws-1.22 2008-11-19, 2008-12-17
+	* use EC2 protocol version 2008-12-01
+	* add describe-regions
+	* add --region=eu (or us, eu-west-1, us-east-1)
+	* added -S to enable better curl error reporting
+	* for addkey, output just the new key, so it can be redirected into the key file
+	* for get-console-output, display just the output
+	* make Time::Local optional (it is missing on some systems), possibly disabling
+	  clock skew sanity check
+	* make --request and --expire-time (output signed request but don't issue it)
+	  work for EC2 too
+	* added test for --install to see that old /usr/bin/aws was successfully removed
+
+aws-1.21 2008-10-24, 2008-11-10
+	* update to protocol version 2008-08-08
+	* added support for setting Cache-Control (Thanks, Ming!)
+	* added support for Range: and If-*: (Thanks, Stephen Kwong!)
+	* --verbose (level 1) now clears $verbose variable
+	* changed --install to copy to /usr/bin (not symlink) (Thanks, Greg Higgins!)
+	* changed --secretsfile to --secrets-file
+	* added --limit-rate=N (eg., 200K, 3m, 1G) (Thanks, Dan Colish!)
+
+aws-1.20 2008-10-13, 2008-10-14 (Thanks, Nilesh Patel!)
+	* added --expire-time=\d+{m,h,d,w,mo,y}
+	* added --dns-alias indicates to use bucket name as a host name
+	* added --http to use http rather than https
+	* quoted space (%20) and hash (%23) - hash is quoted for --request
+
+aws-1.19 2008-10-09
+	* automatically pretty print xml if no output is generated
+	* add --secretsfile option to specify path to secret file
+
+aws-1.18 2008-09-22
+	* added --exec option
+
+aws-1.17 2008-09-15
+	* swapped order of processing @ARGV and ~/.awsrc
+
+aws-1.16 2008-09-09, 2008-09-14, 2008-09-15
+	* added -l, -t, -r, --simple (e.g., "aws ls -l test681")
+	* allow - parameters to be combined (e.g., "-ltr")
+	* applied same ls options to bucket listings (e.g., "aws ls -l")
+	* fixed sha1_sha1, which was setting $t globally
+	* disable sanity check warnings when not a tty
+	* updated documentation
+	* fixed quoting, so headers work under Windows
+	* added --insecure-signing to replace --insecure
+
+aws-1.15 2008-09-03, 2008-09-05
+	* added support for more than 1,000 objects (Thanks, Aaron Nall!)
+	* warn about ~/.awssecret existence and permissions
+	* warn if SSL certs don't work
+	* added ls method to support prefix: "aws ls BUCKET PREFIX"
+	* added --simple ls-style output
+
+aws-1.14 2008-08-21, 2008-08-22, 2008-08-27
+	* added support for EBS
+	* added ~/.awsrc support
+	* added --fail for scripting, so that it suppresses error documents
+	* added --sanity-check to check for timing problems
+	* fixed parameter name for describe-snapshots, so you can specify a
+	  specific snapshot (Thanks, Chanchal James!)
+	* took out default parameter for -P (was "tcp"), so that
+	  "aws authorize mygroup -u 12345 -o mygroup" will work
+	  (Thanks again, Chanchal James!)
+
+aws-1.13 2008-08-15, 2008-08-17
+	* replaced MIME::Base64 with Gisle Aas' encode_base64().  (Thanks,
+	  Jim Dannemiller!)
+	* added "aws copy TARGET SOURCE"
+	* display version number when -v
+
+aws-1.12 2008-07-21
+	* pretty print --xml output
+	* automatically sets Content-Type header from mime.types file
+
+aws-1.11 2008-07-14 (Thanks, Christian Hagenah!)
+	* fixed passing headers when operating on buckets
+	* automatically add a slash to the bucket name in certain cases
+	* add support for virtual hosting-style access, so that buckets
+	  located elsewhere (e.g., Europe) can be accessed.  Falls back
+	  to path-style access if bucket name isn't compatible.
+	* added --location (curl redirection), in support of virtual
+	  hosting-style access
+	* added ability to do CreateBucketConfiguration by making "mkdir"
+	  separate from "put"
+	* added "get" with directory targets
+
+aws-1.10 2008-05-16
+	* parse $0 on \ as well as /, so it works on Windows
+	* change quoting of curl command line to be compatible on Windows
+	* add get_home_directory() to also handle Windows (uses
+	  HOMEDRIVE/HOMEPATH or else C:\)
+	* add support for env vars AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+	  AWS_SIGN_URL, and use .awssecret if these vars aren't set
+	* fixed $sigurl --> $signurl (thanks, Steve!)
+
+aws-1.9 2008-04-16
+	* added URL to timkay.com/aws in header (thanks, Wes!)
+	* added register - not tested - reported to work
+	* added "run-instances" (and left "run-instance", which is
+	  incorrect, for backward compatibility)
+	* fixed:  if you add standard headers, not amz- headers, it
+	  was adding a blank line to what got signed (thanks to Daniel
+	  Mueller)
+
+aws-1.8  2008-03-27
+	* change to "2008-02-01" protocol
+	* update parsing to allow full-word ec2 parameters through
+	* kernel and ramdisk:  added support in "run"
+	* availability zones:  added "daz" and support in "run"
+	* addresses:  added "allad", "aad", "dad", "disad", "rad"
+
+aws-1.7  2008-03-03
+	* added --insecureall to make all requests ignore server auth
+	  (--insecure only affects remote signing mode)
+
+aws-1.6  2008-01-17, 2008-02-10
+	* added --insecure option, so signing can work with self-signed certificates
+	* changed defaults for auth:  -P tcp -s 0.0.0.0/0, so that it matches the
+	  getting started guide
+
+aws-1.5  2007-10-31
+	* added support for non-x-amz headers.  Specifically, Content-Type
+	  is now supported.  (Thanks, Jeff Koftinoff!)
+
+aws-1.4  2007-10-18
+	* added -i and -a to ec2run, to take advantage of new instance
+	  types and to default to public addressing, anticipating the
+	  going away of direct addressing.
+	* fixed headers support, so that you can specify more than one
+	  custom header.  (Thanks, Russ Ross!)
+
+aws-1.3  2007-10-02
+	* fixed output for ec2dkey
+
+aws-1.2
+	* made it work on 64-bit systems by adding "& 0xffffffff"
+
+aws-1.1
+	* Added ability to specify x-amz- headers to S3, so that
+	  uploads can be made publicly readable, etc.  (Thanks,
+	  Etienne James Pollard!)
+	* Enhanced --sign option to use it to specify the string to be
+	  signed.  This way, the wrapper can read the content, make
+	  decsions about what is allowed, and then pass the content on
+	  to aws.
+	  	* Fixed a bug in parsing parameters containing \n
+	* Added version string to the top of the code.
+
+aws-1.0
+	* First release

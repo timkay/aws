@@ -1,0 +1,580 @@
+<html>
+<head>
+<title>aws - HowTo - simple access to Amazon EC2 and S3</title>
+<meta name="viewport" content="width=320; initial-scale=1.0; maximum-scale=1.0; user-scalable=1;"/>
+<style>
+@import url("../style.css");
+</style>
+</head>
+<body>
+<h2 style="background-color: #082466; color: #fff">&nbsp;aws - HowTo - simple access to Amazon EC2 and S3</h2>
+<p>
+<img align=absmiddle src=http://s3.timkay.com/timeyes.gif> &nbsp; <a href=../>timkay.com</a> &#187; <a href=../tools/>tools</a> &#187; <a href=.>aws</a> &#187; how to
+<p>
+aws is a command-line tool that gives you easy access to Amazon EC2
+and Amazon S3.  aws is designed to be simple to install and simple to
+use.
+<p>
+This document shows you how to do various tasks using "aws".
+<ol>
+<li>
+</li>
+  <b>Get started with EC2.</b>
+  <p>
+  <ol>
+  <li>Create a key pair.  <code>aws addkey KN</code>, where <code>KN</code> is the name of the keypair.</li>
+  <li>Create private key file.  Copy everything between (and including) <code>-----BEGIN ...</code> and <code>----END ...</code> to a file <code>~/.ssh/KN.key</code>.  Then <code>chmod og-rwx ~/.ssh/KN.key</code>.</li>
+  <li>Create a security group.  <code>aws addgrp GN -d DESC</code>, where <code>GN</code> is the name of the group, and <code>DESC</code> is a description.</li>
+  <li>Allow ssh.  <code>aws auth GN -P tcp -p 22 -s 0.0.0.0/0</code> to allow any host to access port 22 (ssh).</li>
+  <li>Run an instance.  <code>aws run IMAGE -k KN -g GN</code>, where <code>IMAGE</code> is an image chosen from <code>aws dim -o amazon</code>.</li>
+  <li>Wait.  Run <code>aws din</code> repeatedly, until you see the instance is running, and you see <code>dnsName</code>.</li>
+  <li>Access the instance.  <code>ssh -i ~/.ssh/KN.key root@DNSNAME</code>.</li>
+  </ol>
+  <p>
+  <blockquote><xmp>$ aws addkey key1
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEArtdamr7NtT/qQU3fVlPD8MOsZ8HME8PUCeJSQiT8DqKgIdAM4S5Q7txHtfUx
+ONw25VhSy              ...                                      CP+kivmWmfhS
+j9Zhyi9WQWtT7irrrBjpeWkzTi7/bIXPuqFyO7fHdWGwEqtrEb4akzHziY/sQnwrvvrWwQ==
+-----END RSA PRIVATE KEY-----
+(copy-paste to ~/.ssh/key1.key)
+$ chmod og-rwx ~/.ssh/key1.key
+$ aws addgrp sec1 -d "Security Group 1"
+$ aws auth sec1 -P tcp -p 22 -s 0.0.0.0/0
+$ aws dgrp sec1
++--------------+-----------+------------------+------------+----------+--------+------------------------+
+|   ownerId    | groupName | groupDescription | ipProtocol | fromPort | toPort |        ipRanges        |
++--------------+-----------+------------------+------------+----------+--------+------------------------+
+| 262088988105 | sec1      | Security Group 1 |            |          |        |                        |
+|              |           |                  | tcp        | 22       | 22     | item= cidrIp=0.0.0.0/0 |
++--------------+-----------+------------------+------------+----------+--------+------------------------+
+$ aws run -g sec1 -k key1
+$ aws din |cut -b -150
+(repeat until you see dnsName)
++------------+--------------+----------------------+-------------------------------------------+--------------------------------------------+---------
+| instanceId |   imageId    |    instanceState     |              privateDnsName               |                  dnsName                   | keyName
++------------+--------------+----------------------+-------------------------------------------+--------------------------------------------+---------
+| i-df72c1b6 | ami-23b6534a | code=16 name=running | domU-12-31-39-00-51-01.compute-1.internal | ec2-75-101-208-212.compute-1.amazonaws.com | key1
++------------+--------------+----------------------+-------------------------------------------+--------------------------------------------+---------
+$ ssh -i ~/.ssh/key1.key ec2-75-101-208-212.compute-1.amazonaws.com.
+The authenticity of host 'ec2-75-101-208-212.compute-1.amazonaws.com. (75.101.208.212)' can't be established.
+RSA key fingerprint is 23:82:0f:f6:12:f2:6e:61:fb:3d:50:7c:23:61:82:66.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'ec2-75-101-208-212.compute-1.amazonaws.com.,75.101.208.212' (RSA) to the list of known hosts.
+timkaytw@ec2-75-101-208-212.compute-1.amazonaws.com.'s password:
+
+bash-3.00$ ssh -i ~/.ssh/key1.key root@ec2-75-101-208-212.compute-1.amazonaws.com.
+
+         __|  __|_  )  Rev: 2
+         _|  (     /
+        ___|\___|___|
+
+ Welcome to an EC2 Public Image
+                       :-)
+#</xmp></blockquote>
+<p>
+</li>
+<li>
+  <b>Use the CopyObject function to copy an Amazon S3 object without having to download it first.</b>
+  <p>
+  The new "copy" (v1.13) command works like this:
+  <blockquote><code>aws copy test681/tim2.jpg tim.jpg</blockquote>
+  to copy the object on the right to the object on the left.  It is equivalent to the following, which has been available in previous versions:
+  <blockquote><code>aws put "x-amz-copy-source: /test681/tim.jpg" test681/tim2.jpg /dev/null</code></blockquote>
+  You can use all the documented COPY Object features, including conditional copying and replacing the metadata.  See the S3 documentation: <a href=http://docs.amazonwebservices.com/AmazonS3/2006-03-01/index.html?RESTObjectCOPY.html>REST COPY Object</a>.
+  <p>
+  Remember that meta-data is copied by default (see the REPLACE directive), but that the acl isn't copied.  You can copy an object and keep it readable this way:
+  <blockquote><code>aws copy "x-amz-acl: public-read" test681/tim2.jpg tim.jpg</code></blockquote>
+  <p>
+  If your source and target names are not fully specificied, the following processing happens:
+  <p>
+  <table style="font-face: courier-new">
+  <tr><th>command</th><th>effect</th><th>comment</th></tr>
+  <tr><td>aws copy target source</td><td>target/source <-- target/source</td><td>nonsense, unless you use the REPLACE directive to replace metadata</td></tr>
+  <tr><td>aws copy target /bucket/source</td><td>target/source <-- /bucket/source &nbsp;</td><td>target ends with / (or contains no /), so copy filename to target</td></tr>
+  <tr><td>aws copy target/dest source</td><td>target/dest <-- /target/source</td><td>source doesn't start with /, so copy object to source</td></tr>
+  <tr><td>aws copy target/dest /bucket/source &nbsp;</td><td>target/dest <-- /bucket/source</td><td>names are absolute; nothing to combine</td></tr>
+  </table>
+  <p>
+</li>
+<li>
+  <b>How to run "aws" on Windows Vista</b>
+<p>Running AWS on Windows Vista
+<br>From: Roger &lt;******@gmail.com>
+<br>Date: Tue, Jul 8, 2008 at 8:56 PM
+<br>To: timkay@not.com
+<p>
+Hi Tim,
+<p>
+I thought you might like to know I got AWS working on Windows Vista. I basically followed your Windows Download and Configuration steps.  I got the following error when I tried to run curl.
+<p>
+The application has failed to start because its side-by-side configuration is incorrect.
+<p>
+I looked in the Windows Logs/Applications, and found this error message:
+<p>
+Activation context generation failed for "C:\S3\curl.exe". Dependent Assembly Microsoft.VC90.CRT,processorArchitecture="x86",publicKeyToken="1fc8b3b9a1e18e3b",type="win32",version="9.0.21022.8" could not be found. Please use sxstrace.exe for detailed diagnosis.
+<p>
+It turns out in XP and Vista, Microsoft has implemented something called "SxS.com with mainifest" to overcome "dll-hell", so that programs can run "side-by-side".  Long story short, after researching around a bit, I found that the "VC90.CRT" object was missing, and that going to the website listed below, and downloading and running "vcredist_x86.exe" installed the missing "VC90.CRT" object.  After running this program, AWS now runs on Vista.
+<p>
+Brief Description
+<p>
+The Microsoft Visual C++ 2008 Redistributable Package (x86) installs runtime components of Visual C++ Libraries required to run applications developed with Visual C++ on a computer that does not have Visual C++ 2008 installed.
+<p>
+File Name:   vcredist_x86.exe
+<p>
+http://www.microsoft.com/downloads/details.aspx?familyid=9B2DA534-3E03-4391-8A4D-074B9F2BC1BF&displaylang=en
+<p>
+Hope that helps any of your "Vista-istas".  FWIW, I am running Vista Home Premium on a 32-bit Dell Inspirion 530 with Intel Core 2 Duo processor.
+<br>Regards,
+<br>Roger Matthews</xmp>
+  <p>
+</li>
+<li>
+<b>How do I put multiple files to S3?</b>
+<p>
+The current "aws" stays pretty faithful to the features provided by
+the original Amazon implementation.  I am trying to figure out how I
+want to extend it to handle multiple files and other things.
+<p>
+To do what you want, you can, for example, use a single line of Perl.
+<blockquote><code>
+  perl -e 'system("aws put bucketname/ $_") for @ARGV' file-*
+</code></blockquote>
+That's all there is to it.  Why does it work?
+<p>
+"-e" tells perl that the next argument on the command line is the script.  In this case, the script is
+<blockquote><code>
+  system("aws put bucketname/ $_") for @ARGV
+</code></blockquote>
+which tells Perl to construct the command "aws put bucketname/ $_" for
+each command line argument (which are stored in the array "@ARGV"),
+and run it as a linux command.  The special variable "$_" gets
+replaced by the current command line argument.  Thus,
+<blockquote><code>
+perl -e 'system("aws put bucketname/ $_") for @ARGV' my name is Tim
+</code></blockquote>
+would run the sequence of linux commands:
+<blockquote><xmp>aws put bucketname/ my
+aws put bucketname/ name
+aws put bucketname/ is
+aws put bucketname/ Tim
+</xmp></blockquote>
+If that doesn't make sense, then you should think about it more.  If it still doesn't make sense, then I need to apologize, as it's a bit on the sophisticated side for many users.
+<p>
+Conveniently, I just updated "aws" to do the right thing in this case:  if the target is a bucket with no file name (or if it ends in "/"), then use the filename as both the source filename and also as the target object name.  Thus, the files my, name, is, and Tim would all get uploaded to S3 as bucketname/my, bucketname/name, bucketname/is, and bucketname/Tim.
+<p>
+</li>
+<li>
+<b>How do I remove files older than 6 days old?</b>
+<p>
+The old way:
+<blockquote><code>
+perl -ne 'chop; split(/\t/); system("aws rm test681/$_[2]") if $_[1] lt "2008-06"' 'aws ls --simple test681|'
+</code></blockquote>
+As cool as that is, the new <code>--exec</code> parameter makes it much easier.  You can use <code>--exec</code>, for example, to list the contents of all your buckets:
+<blockquote><code>aws ls --exec='system("aws ls $key")'</code></blockquote>.
+To remove files older than 6 days old:
+<blockquote><code>
+aws ls test681 --exec='system("aws rm test681/$key") if $mod lt "2008-06"'
+</code></blockquote>
+The --exec parameter lets you specify arbitrary Perl code that is to
+be run once for each result of the "ls" command.  It works for the
+list of objects within a bucket, and it works for the list of buckets.
+<p>
+The available variables are $size (of file in bytes), $mod (modification date), and $key (name of file).  To be compatible with the old way, $_ and @_ are also available.
+<p>
+Please be careful, so that you don't delete files that you need.
+(Obviously, I take no responsibility for "aws".)  I'll suggest that
+you can copy the S3 object to a "trash" bucket before you delete the
+original.
+<p>
+</li>
+<li>
+  <b>View and Modify S3 Sub-resources (acl, location, logging, etc.)</b>
+<blockquote><xmp>$ aws get test681?acl
++-------------------------------------------------------------------------------------------+--------------+
+|                                          Grantee                                          |  Permission  |
++-------------------------------------------------------------------------------------------+--------------+
+| ID=c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c DisplayName=timkay681 | FULL_CONTROL |
++-------------------------------------------------------------------------------------------+--------------+
+$ aws --xml get test681?acl
+<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Owner>
+                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                <DisplayName>timkay681</DisplayName>
+        </Owner>
+        <AccessControlList>
+                <Grant>
+                        <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
+                                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                                <DisplayName>timkay681</DisplayName>
+                        </Grantee>
+                        <Permission>FULL_CONTROL</Permission>
+                </Grant>
+        </AccessControlList>
+</AccessControlPolicy>
+$ aws --xml get test681?acl >acl.xml
+</xmp></blockquote>
+Now edit the acl.xml file, and
+<blockquote><xmp>aws put test681?acl acl.xml
+</xmp></blockquote>
+Note that the above example changed the ACL for a bucket.  The same procedure works to change the ACL for an object.
+  <p>
+</li>
+<li>
+<b>How do I enable S3 Server Access Logging</b>
+<p>
+S3 can deliver access logs to some <code>TargetBucket</code>.  First, you must grant that <code>TargetBucket</code> <code>WRITE</code> and <code>READ_ACP</code> permission for the log-delivery group.
+<blockquote><xmp>$ aws --xml get logging.timkay.com?acl
+<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Owner>
+                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                <DisplayName>timkay681</DisplayName>
+        </Owner>
+        <AccessControlList>
+                <Grant>
+                        <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
+                                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                                <DisplayName>timkay681</DisplayName>
+                        </Grantee>
+                        <Permission>FULL_CONTROL</Permission>
+                </Grant>
+        </AccessControlList>
+</AccessControlPolicy>
+$ aws --xml get logging.timkay.com?acl >acl.xml
+</xmp></blockquote>
+Note that we redirect to <code>acl.xml</code> (with &gt;) rather than as the target file (no &gt;), so that the XML pretty printer gets invoked.
+<p>
+Next, edit <code>acl.xml</code>, then
+<blockquote><xmp>$ cat acl.xml
+<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Owner>
+                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                <DisplayName>timkay681</DisplayName>
+        </Owner>
+        <AccessControlList>
+                <Grant>
+                        <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
+                                <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+                                <DisplayName>timkay681</DisplayName>
+                        </Grantee>
+                        <Permission>FULL_CONTROL</Permission>
+                </Grant>
+                <Grant>
+                        <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Group">
+                                <URI>http://acs.amazonaws.com/groups/s3/LogDelivery</URI>
+                        </Grantee>
+                        <Permission>WRITE</Permission>
+                </Grant>
+                <Grant>
+                        <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Group">
+                                <URI>http://acs.amazonaws.com/groups/s3/LogDelivery</URI>
+                        </Grantee>
+                        <Permission>READ_ACP</Permission>
+                </Grant>
+        </AccessControlList>
+</AccessControlPolicy>
+$ aws put logging.timkay.com?acl acl.xml
+bash-3.00$ aws get logging.timkay.com?acl
++-------------------------------------------------------------------------------------------+--------------+
+|                                          Grantee                                          |  Permission  |
++-------------------------------------------------------------------------------------------+--------------+
+| ID=c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c DisplayName=timkay681 | FULL_CONTROL |
+| URI=http://acs.amazonaws.com/groups/s3/LogDelivery                                        | WRITE        |
+| URI=http://acs.amazonaws.com/groups/s3/LogDelivery                                        | READ_ACP     |
++-------------------------------------------------------------------------------------------+--------------+
+</xmp></blockquote>
+Next, modify the ?logging attribute for the bucket.
+<blockquote><xmp>$ aws --xml get test681?logging
+<BucketLoggingStatus xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+<!--<LoggingEnabled>
+        <TargetBucket>myLogsBucket</TargetBucket>
+        <TargetPrefix>add/this/prefix/to/my/log/files/access_log-</TargetPrefix>
+</LoggingEnabled>
+-->
+</BucketLoggingStatus>
+$ aws --xml get test681?logging >logging.xml
+</xmp></blockquote>
+edit <code>logging.xml</code>, and then
+<blockquote><xmp>$ cat logging.xml
+<BucketLoggingStatus xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+<LoggingEnabled>
+        <TargetBucket>logging.timkay.com</TargetBucket>
+        <TargetPrefix>s3.timkay.com-</TargetPrefix>
+</LoggingEnabled>
+</BucketLoggingStatus>
+$ aws put test681?logging logging.xml
+</xmp></blockquote>
+  <p>
+For information on log delivery, see the <a href="http://docs.amazonwebservices.com/AmazonS3/latest/index.html?LogDelivery.html">Amazon documentation</a>.
+  <p>
+</li>
+<li>
+  <b>What if I have more than one AWS account?  How do I switch credentials?</b>
+  <p>
+  "aws" looks at enviroment variables <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SIGN_URL</code> before it decides to read <code>~/.awssecret</code>.  If any of those variables is defined, then it will use those credentials and ignore <code>~/.awssecret</code>.  For example
+  <blockquote><code>AWS_ACCESS_KEY_ID=A3CJPJF87DHEJAAG2 AWS_SECRET_ACCESS_KEY=asDc5FD68d7JaIHEuhfLAziplY+ywNTkXq6/8UiO9 aws ls</code></blockquote>
+  <p>
+</li>
+<li>
+<b>How do I list only some S3 objects from a bucket?</b>
+<p>
+The TMP bucket has several thousand files in it:
+<blockquote><xmp>$ aws ls -1 TMP
+aws#1001
+aws#1002
+  ...
+aws#3003
+aws#3004</xmp></blockquote>
+To list a selection of them, use BUCKET/PREFIX:
+<blockquote><xmp>$ aws ls -1 TMP/aws#176
+aws#1760
+aws#1761
+aws#1762
+aws#1763
+aws#1764
+aws#1765
+aws#1766
+aws#1767
+aws#1768
+aws#1769</xmp></blockquote>
+Add a prefix to the bucket, and "aws" will return return only those objects that match the prefix.  If your bucket has more than 1,000 objects, "aws" automatically issues multiple requests to list them all.
+<p>
+</li>
+<li>
+  <b>What if I have more than one AWS account?  How do I switch credentials?</b>
+  <p>
+  "aws" looks at enviroment variables <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SIGN_URL</code> before it decides to read <code>~/.awssecret</code>.  If any of those variables is defined, then it will use those credentials and ignore <code>~/.awssecret</code>.  For example
+  <blockquote><code>AWS_ACCESS_KEY_ID=A3CJPJF87DHEJAAG2 AWS_SECRET_ACCESS_KEY=asDc5FD68d7JaIHEuhfLAziplY+ywNTkXq6/8UiO9 aws ls</code></blockquote>
+  <p>
+</li>
+<li>
+<a name=expires>
+<b>How do I generate an S3 request with a long expiration time?</b>
+<p>
+(As of <code>aws-1.20</code>.)
+<blockquote><xmp>$ aws --request --expire-time=1y get s3.timkay.com/tim.jpg
+https://s3.timkay.com.s3.amazonaws.com/tim.jpg?AWSAccessKeyId=1B5JPHYQCXW13GWKHAG2&Expires=1255481603&Signature=wxkJ4NqjUgFr2jX25we1SN7ZIF0%3D</xmp></blockquote>
+<code>--request</code> prints out the request rather than issuing it, so you can use it multiple times.
+<br><code>--expire-time=TIME</code> sets the expiration time.  The default is 30 seconds.  With no units, indicates seconds.  Units can be <code>h</code>, <code>m</code>, <code>d</code>, <code>w</code>, <code>mo</code>, <code>y</code> to indicate hours, minutes, days, weeks, months, or years.
+<p>
+</li>
+<li>
+<b>How do I use my domain name to access S3 buckets?</b>
+<p>
+You can create links that use your domain name (and have an extended expiration time, as above).  (As of <code>aws-1.20</code>.)
+<p>
+<blockquote><xmp>$ aws --dns-alias --http --request --expire-time=1y get s3.timkay.com/tim.jpg
+http://s3.timkay.com/tim.jpg?AWSAccessKeyId=1B5JPHYQCXW13GWKHAG2&Expires=1255481684&Signature=6yHAzdF%2F7q68B0lb%2BDh0Cjl6kTQ%3D</xmp></blockquote>
+<code>--dns-alias</code> indicates that the bucket name is also a DNS alias (CNAME) pointing to s3.amazonaws.com.
+<br><code>--http</code> uses http rather than https.	 https would cause certificate mismatch errors.
+<p>
+</li>
+<li>
+<a name=cache>
+<b>How do I store an S3 object with cache control information?</b>
+<p>
+To send additional headers with any <code>aws put</code> request, simply add the header to the command.  The Cache-Control header is supported as of <code>aws-1.21</code>.
+<p>
+First, without the Cache-Control header:
+<blockquote><xmp>$ ./aws-1.21 put "x-amz-acl: public-read" test681 tim.jpg
+$ curl --head test681.s3.amazonaws.com/tim.jpg
+HTTP/1.1 200 OK
+x-amz-id-2: RsyUBxRZ9Aqp3CYGJfBhdhCsUFonLEt3yMZjsZNHsrVcfh5pToadXuCfwBLj406s
+x-amz-request-id: 749D1DB1A0CF46B3
+Date: Mon, 27 Oct 2008 14:10:38 GMT
+Last-Modified: Mon, 27 Oct 2008 14:10:35 GMT
+ETag: "c9d5f75d358df75bef47ea11ed3c9f6f"
+Content-Type: image/jpg
+Content-Length: 37260
+Server: AmazonS3
+</xmp></blockquote>
+Now with the Cache-Control header.  Notice that the resulting header contains Cache-Control:
+<blockquote><xmp>$ ./aws-1.21 put "x-amz-acl: public-read" "Cache-Control: off" test681 tim.jpg
+$ curl --head test681.s3.amazonaws.com/tim.jpg
+HTTP/1.1 200 OK
+x-amz-id-2: mHZVBuWp8ICRgqN7sUHdFTlzE9tYgwREk08Fwd6yTYz4P1bFFUxPCOBax9n5HXuO
+x-amz-request-id: 52D891B26432EFB6
+Date: Mon, 27 Oct 2008 14:10:46 GMT
+Cache-Control: off
+Last-Modified: Mon, 27 Oct 2008 14:10:43 GMT
+ETag: "c9d5f75d358df75bef47ea11ed3c9f6f"
+Content-Type: image/jpg
+Content-Length: 37260
+Server: AmazonS3
+</xmp></blockquote>
+<p>
+</li>
+<li>
+<a name=eu>
+<b>How do I use the EU availability zone for EC2?</b>
+<p>
+Use the <code>--region=eu</code> option (as of <a href=aws-1.22>v1.22</a>).
+<blockquote><xmp>$ ./aws-1.22 --region=eu-west-1 dim -o amazon |cut -b -60
++--------------+--------------------------------------------
+|   imageId    |                               imageLocation
++--------------+--------------------------------------------
+| aki-540d2520 | ec2-public-images-eu/vmlinuz-2.6.18-xenU-ec
+| aki-550d2521 | ec2-public-images-eu/vmlinuz-2.6.18-xenU-ec
+| aki-6a0d251e | ec2-public-images-eu/vmlinuz-2.6.20-1.3002.
+| aki-780d250c | ec2-public-images-eu/ec2-vmlinuz-2.6.21.7-2
+| aki-7e0d250a | ec2-public-images-eu/ec2-vmlinuz-2.6.21.7-2
+| ami-2a0f275e | ec2-public-images-eu/fedora-8-i386-base-v1.
+| ami-2e0f275a | ec2-public-images-eu/fedora-8-x86_64-base-v
+| ami-520d2526 | ec2-public-images-eu/fedora-8-i386-base-v1.
+| ami-5d0d2529 | ec2-public-images-eu/demo-paid-AMI-v1.07.ma
+| ami-e40f2790 | ec2-public-images-eu/getting-started.manife
+| ari-6b0d251f | ec2-public-images-eu/initrd-2.6.20-1.3002.f
+| ari-7d0d2509 | ec2-public-images-eu/ec2-initrd-2.6.21.7-2.
+| ari-7f0d250b | ec2-public-images-eu/ec2-initrd-2.6.21.7-2.
++--------------+--------------------------------------------
+</xmp></blockquote>
+Add <code>--region=eu-west-1</code> to <code>~/.awsrc</code> to make it the default.
+<p>
+Regsion names <code>eu</code> and <code>us</code> are synonyms for <code>eu-west-1</code> and <code>us-east-1</code>, so <code>--region=eu</code> is a short way to request the European availability zone.
+<p>
+</li>
+<li>
+<b>How do I get progress bars for long S3 transfers?</b>
+<p>
+Use --progress.
+<blockquote><xmp>$ aws --progress ls
+######################################################################## 100.0%
+        0       2007-03-04 22:29:34     3.14
+        0       2007-02-28 18:14:58     3.14159
+</xmp></blockquote>
+<p>
+</li>
+<li>
+<a name=subd>
+<b>How do I create a subdirectory within a S3 bucket?</b>
+<p>
+S3 doesn't support subdirectories.  However, you can use "prefixes" to make something that seems a lot like a subdirectories.  Simply  add components to the object names that look like subdirectories.  Then you can operate on them as though they are subdirectories.
+<blockquote><xmp>$ mkdir subd
+$ echo hello >subd/hello.txt
+$ echo hello, world >subd/world.txt
+$ echo not a subdirectory > subd.txt
+$ aws put test681 subd/hello.txt
+$ aws put test681 subd/world.txt
+$ aws put test681 subd.txt
+$ aws put test681 /tmp/subd/hello.txt
+$ aws ls test681
++---------+--------+--------+---------+-------------+---------------------+--------------------------+----------+--------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |       Key           |       LastModified       |   Size   | StorageClass |
++---------+--------+--------+---------+-------------+---------------------+--------------------------+----------+--------------+
+| test681 |        |        | 1000    | false       |                     |                          |          |              |
+|         |        |        |         |             | /tmp/subd/hello.txt | 2008-12-29T15:24:26.000Z | 6        | STANDARD     |
+|         |        |        |         |             | subd/hello.txt      | 2008-12-29T15:10:20.000Z | 6        | STANDARD     |
+|         |        |        |         |             | subd/world.txt      | 2008-12-29T15:10:27.000Z | 13       | STANDARD     |
+|         |        |        |         |             | test.txt      	  | 2008-09-14T19:20:51.000Z | 179557   | STANDARD     |
+|         |        |        |         |             | tim.jpg       	  | 2008-10-27T14:10:43.000Z | 37260    | STANDARD     |
+|         |        |        |         |             | tim2.jpg      	  | 2008-08-15T19:52:10.000Z | 37260    | STANDARD     |
+|         |        |        |         |             | tim3.jpg      	  | 2008-08-15T18:20:52.000Z | 37260    | STANDARD     |
+|         |        |        |         |             | tim4.jpg      	  | 2008-08-15T18:23:02.000Z | 37260    | STANDARD     |
+|         |        |        |         |             | timeyes.gif   	  | 2008-12-27T23:43:52.000Z | 4410     | STANDARD     |
++---------+--------+--------+---------+-------------+---------------------+--------------------------+----------+--------------+
+</xmp></blockquote>
+Note that <code>aws put</code>, when used with no object name, uses the source file name as the object name verbatim.  For example, <code>aws put test681 subd/hello.txt</code> and <code>aws put test681 /tmp/subd/hello.txt</code> use <code>subd/hello.txt</code> and <code>/tmp/subd/hello.txt</code> as the object names.  (To specify the object name explicitely, try something like <code>aws put test681/hello.txt subd/hello.txt</code>.)
+<blockquote><xmp>$ aws ls test681/subd/
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |      Key       |       LastModified       | Size | StorageClass |
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+| test681 | subd/  |        | 1000    | false       |                |                          |      |              |
+|         |        |        |         |             | subd/hello.txt | 2008-12-29T15:10:20.000Z | 6    | STANDARD     |
+|         |        |        |         |             | subd/world.txt | 2008-12-29T15:10:27.000Z | 13   | STANDARD     |
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+</xmp></blockquote>
+This example shows that the semantics of prefixes does not match the semantics of subdirectories.
+<blockquote><xmp>$ aws ls test681/subd
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |      Key       |       LastModified       | Size | StorageClass |
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+| test681 | subd   |        | 1000    | false       |                |                          |      |              |
+|         |        |        |         |             | subd.txt       | 2008-12-29T15:28:18.000Z | 19   | STANDARD     |
+|         |        |        |         |             | subd/hello.txt | 2008-12-29T15:10:20.000Z | 6    | STANDARD     |
+|         |        |        |         |             | subd/world.txt | 2008-12-29T15:10:27.000Z | 13   | STANDARD     |
++---------+--------+--------+---------+-------------+----------------+--------------------------+------+--------------+
+</xmp></blockquote>
+If you want behavior similar to subdirectories, make sure to include a trailing slash, as in the <code>/subd/</code> example.  Some more examples with prefixes follow.
+<blockquote><xmp>$ aws ls test681/tim
++---------+--------+--------+---------+-------------+-------------+--------------------------+-------+--------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |     Key     |       LastModified       | Size  | StorageClass |
++---------+--------+--------+---------+-------------+-------------+--------------------------+-------+--------------+
+| test681 | tim    |        | 1000    | false       |             |                          |       |              |
+|         |        |        |         |             | tim.jpg     | 2008-10-27T14:10:43.000Z | 37260 | STANDARD     |
+|         |        |        |         |             | tim2.jpg    | 2008-08-15T19:52:10.000Z | 37260 | STANDARD     |
+|         |        |        |         |             | tim3.jpg    | 2008-08-15T18:20:52.000Z | 37260 | STANDARD     |
+|         |        |        |         |             | tim4.jpg    | 2008-08-15T18:23:02.000Z | 37260 | STANDARD     |
+|         |        |        |         |             | timeyes.gif | 2008-12-27T23:43:52.000Z | 4410  | STANDARD     |
++---------+--------+--------+---------+-------------+-------------+--------------------------+-------+--------------+
+$ aws ls test681/tmp
++---------+--------+--------+---------+-------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |
++---------+--------+--------+---------+-------------+
+| test681 | tmp    |        | 1000    | false       |
++---------+--------+--------+---------+-------------+
+$ aws ls test681//tmp/s
++---------+--------+--------+---------+-------------+---------------------+--------------------------+------+--------------+
+|  Name   | Prefix | Marker | MaxKeys | IsTruncated |         Key         |       LastModified       | Size | StorageClass |
++---------+--------+--------+---------+-------------+---------------------+--------------------------+------+--------------+
+| test681 | /tmp/s |        | 1000    | false       |                     |                          |      |              |
+|         |        |        |         |             | /tmp/subd/hello.txt | 2008-12-29T15:24:26.000Z | 6    | STANDARD     |
++---------+--------+--------+---------+-------------+---------------------+--------------------------+------+--------------+
+</xmp></blockquote>
+<p>
+</li>
+<li>
+<b>How do I get return codes, so I can use <code>aws</code> in scripts?</b>
+<p>
+Normally, when you issue a request to S3, and the request fails (such as "not authorized", or "does not exist"), S3 sets a return code and also returns an error document.  "aws" is a wrapper for "curl", and curl handles the actual transaction.  In the case that a GET transaction failed, "curl" would return an error document, which would get stored as the requested file.  This is not good behavior.  The original solution was for "aws" to issue a HEAD request to determine if the GET would succeed.  If the HEAD indicated that the GET would proceed, "aws" printed an error message.  If so, it would issue the GET, which would write the file.  This way, the error document would be avoided.
+<p>
+Then we discovered that "curl" has a "--fail" option, which tells it to discard any error documents.  This is much better behavior.  With the --fail option, the HEAD operation is avoided.  The GET proceeds, and, in the case of errors, $? is set, because "curl" is run via exec.
+<blockquote><xmp>$ ./aws-1.28 --fail get test681/hello.txt ; echo $?
+hello, world
+0
+$ ./aws-1.28 --fail get test681/hello.txtx ; echo $?
+curl: (22) The requested URL returned error: 404
+22
+</xmp></blockquote>
+For other things like listing bucket contents, it's more complicated, and I need to make a pass through the code to see what I can do.
+<p>
+I am debating making --fail the default.
+<p>&nbsp;
+</li>
+</ol>
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;
+<p>&nbsp;

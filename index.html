@@ -1,0 +1,837 @@
+<html>
+<head>
+<title>aws - simple access to Amazon EC2 and S3</title>
+<meta name="viewport" content="width=320; initial-scale=1.0; maximum-scale=1.0; user-scalable=1;"/>
+<style>
+@import url("../style.css");
+</style>
+</head>
+<body>
+<h2 style="background-color: #082466; color: #fff">&nbsp;aws - simple access to Amazon EC2 and S3</h2>
+<p>
+<img align=absmiddle src=http://s3.timkay.com/timeyes.gif> &nbsp; <a href=../>timkay.com</a> &#187; <a href=../tools/>tools</a> &#187; aws
+<p>
+aws is a command-line tool that gives you easy access to Amazon EC2
+and Amazon S3.  aws is designed to be simple to install and simple to
+use.
+<p>
+Thanks to your feedback (<a href=timkay@not.com>timkay@not.com</a>), aws is the top-rated "community code"
+for all of Amazon EC2 and S3!  See the ratings and reviews at
+<a href=http://developer.amazonwebservices.com/connect/entry.jspa?externalID=739&categoryID=85>EC2</a> and
+<a href=http://developer.amazonwebservices.com/connect/entry.jspa?externalID=739&categoryID=47>S3</a>.  They make me blush!  Thank you!
+<p>
+This document describes the basic features.  For additional examples, see the <a href=howto.html>HowTo document</a>.
+<p>
+<table width=80% align=center bgcolor=black cellspacing=2 cellpadding=4><tr bgcolor=white><td>
+<ul>
+<li>
+Some new options (as of <a href=download.html><code>v1.29</code></a>):
+<p>
+<table>
+<tr><td>--simple</td><td>simplified output for some commands</td></tr>
+<tr><td>--wait=SEC</td><td>wait for EC2 instances to start</td></tr>
+<tr><td>--cut</td><td>truncate output to screen width</td></tr>
+<tr><td>--md5</td><td>verify MD5 checksums</td></tr>
+<tr><td>--max-time=N</td><td>time out after N seconds (will retry up to 3 times)</td></tr>
+<tr><td>--fail</td><td>suppress error message display (but sets $?)</td></tr>
+<tr><td>--curl-options="blah" &nbsp; </td><td>specify additional curl options</td></tr>
+<tr><td>--set-acl<br> &nbsp; --public<br> &nbsp; &nbsp; --private</td><td>set or change ACL</td></tr>
+</table>
+<p>
+Sets $? correctly in more cases.  Retries all requests up to 3 times.
+<p>
+s3put will read from stdin (creating a temp file, which is then uploaded).
+<p>
+</li>
+<li>
+<p>
+Regions support (as of <a href=download.html><code>v1.23</code></a>), as well as support for Signing Version 2, --progress indicator, better error messages, better formatting, and some small bug fixes.  See the <a href=Changes.txt>change log</a>.
+<p>
+Many, many changes (as of <a href=download.html><code>v1.21</code></a>).  ~/.awsrc file support, --exec option to iterate over results, --secrets-file, --expire-time, --limit-rate, Cache-Control:, Range: and If-*: support.  And a few bug fixes/tweaks.
+</li>
+</li>
+</ul>
+</td></tr></table>
+<p>
+See the <a href=Changes.txt>change log</a>.
+
+<h3>Download</h3>
+
+This section describes how to install aws on Linux and other *ix systems.  To install on Windows, see <a href=#windows>Windows Download and Configuration</a>.
+
+aws has only one dependency (curl), in addition to perl, which is often pre-installed on Linux.
+<p>
+To use aws, follow these steps:
+<ol>
+<li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)
+<li>Download <a href=download.html>aws</a> to your computer <blockquote><tt>curl
+timkay.com/aws/aws -o aws</tt></blockquote></li>
+<li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.  Just make sure to set "aws" to be executable:  "<code>chmod +x aws</code>".
+<p>
+Perform the optional install it with
+<blockquote><tt>perl aws --install</tt></blockquote>
+(This step sets <tt>aws</tt> to be executable, copies it
+to /usr/bin if you are root, and then symlinks the aliases, the same as
+<tt>aws --link</tt> does.)</li>
+<p>
+<li>Put your AWS credentials in <tt>~/.awssecret</tt>:  the Access Key
+ID on the first line and the Secret Access Key on the second line.  Example:  <blockquote><tt>1B5JYHPQCXW13GWKHAG2<br>2GAHKWG3+1wxcqyhpj5b1Ggqc0TIxj21DKkidjfz</tt></blockquote></li>
+</ol>
+<p>
+If you are logged in as root, aws will be installed in /usr/bin.
+Otherwise, it will be installed in the current directory.
+<p>
+You are ready to use Amazon EC2 and Amazon S3.  Try the following
+example.  You'll need to provide your own BUCKET_NAME, unique from
+all other bucket names.
+<blockquote><pre><tt>s3mkdir BUCKET_NAME
+s3put BUCKET_NAME/aws-backup /usr/bin/aws
+s3ls BUCKET_NAME
+s3get BUCKET_NAME/aws-backup
+s3delete BUCKET_NAME/aws-backup
+s3delete BUCKET_NAME
+
+ec2run
+ec2din
+ec2tin INSTANCEID
+</tt></pre></blockquote>
+<p>
+As a security measure, make sure that ~/.awssecret is not readable by group or other (<tt>chmod -go ~/.awssecret</tt>).
+
+<a name=windows></a>
+<h3>Windows Download and Configuration</h3>
+
+As of <code>v1.10</code>, aws runs on Windows.  Currently, client authentication
+isn't supported, until I figure out where to put the cert.  (Hence the
+--insecure-aws setting.)
+<p>
+To download and configure, follow these steps:
+<ol>
+<li>Install <tt>curl</tt>.  Search for "curl download".  The first
+result should be <a
+href=http://curl.haxx.se/download.html>http://curl.haxx.se/download.html</a>.
+In the "Win32 Generic" section, choose the "Win32" binary with SSL.
+The download is a .zip file.  Extract curl.exe and place in the
+C:\Windows directory, or some other place that is in the path.  Test
+by opening a cmd window, then do "cd \" and "curl".  It should find
+curl.</li>
+<li>Download ActivePerl from <a href=http://www.activestate.com/store/download.aspx?prdGUID=81fbce82-6bd5-49bc-a915-08d58c2648ca>ActiveState</a>.</li>
+<li>Download the latest <a href=download.html>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
+<li>Put your AWS credentials in C:\Documents and Settings\&lt;YOUR
+NAME&gt;\.awssecret (see the example file in the above Download section).</li>
+<li>Try <tt>aws.pl --insecure-aws ls</tt> -- you should get a list of
+your S3 buckets.</li>
+</ol>
+
+To run on Windows, you need to use the --insecure-aws flag, unless you
+figure out where to install the certificate that comes with Curl for
+Windows.
+<p>
+The following command will list your S3 buckets:
+
+<blockquote><xmp>aws.pl --insecure-aws ls</xmp></blockquote>
+
+If you prefer to use environment variables to set the secrets rather
+than the .awssecret file, you can create this batch file, replacing
+XXX with your keys, of course:
+
+<blockquote><xmp>set AWS_ACCESS_KEY_ID=XXX
+set AWS_SECRET_ACCESS_KEY=XXX
+aws.pl --insecure-aws %1 %2 %3 %4 %5 %6 %7 %8 %9</xmp></blockquote>
+
+<h3>Overview</h3>
+
+Do you want to use Amazon EC2 and Amazon S3 but are intimidated
+by how difficult they are to use?  Do you find it cumbersome (and ironic) that a web service requires you to install Java?  If so, aws is for you.
+<p>
+aws is a very simple, light weight interface to Amazon EC2 and Amazon S3, that implements basic commands like <tt>ec2run</tt> and <tt>s3ls</tt>.
+<p>
+The command-line interface works like this:
+<p>
+<blockquote><tt>aws ACTION [PARAMETERS]</tt></blockquote>
+<p>
+For example, you can start an EC3 server instance:
+<p>
+<blockquote>aws run</blockquote>
+<p>
+Or, you can store a file named <tt>file7.txt</tt> to S3 in bucket
+<tt>mybucket</tt>, object <tt>sample.txt</tt>:
+<p>
+<blockquote><tt>aws put mybucket/sample.txt file7.txt</tt></blockquote>
+<p>
+If you like, you can have aws create command-line aliases, such as
+<tt>ec2run</tt> and <tt>s3put</tt>, so that you don't have to prepend
+"aws" to each command.  aws can create its own aliases as follows.
+This step was done for you if you installed with --install.
+<blockquote><tt>aws --link</tt></blockquote>
+<p>
+Then you can perform the operations without the "aws" prefix:
+<blockquote><tt>ec2run</tt><br><tt>s3put mybucket/sample.txt file7.txt</tt></blockquote>
+
+<h3>~/.awssecret File Format</h3>
+
+aws needs access to a pair of strings called the Access Key ID and the
+Secret Access Key.  By default, aws looks for these secrets in a file
+~/.awssecret, but a different file can be specified using --secret-file=FILE.  The secrets are stored in this file separated by white space, as in the
+following example:
+<blockquote><tt>1B5JYHPQCXW13GWKHAG2<br>2GAHKWG3+1wxcqyhpj5b1Ggqc0TIxj21DKkidjfz</tt></blockquote>
+<p>
+Keep in mind that your Secret Access Key must be kept secret; anybody
+with access to that key gets full access to your EC2 and S3 instances
+and files.  If your file permissions are too generous, a warning is generated.
+<p>
+You may use environment variables to specify the secrets rather than
+the .awssecret file.  For example,
+
+<blockquote><xmp>AWS_ACCESS_KEY_ID=XXX AWS_SECRET_ACCESS_KEY=XXX aws ls</xmp></blockquote>
+
+Use of environment variables is not recommended because command lines and environment variables are visible to other users of the same host.
+<p>
+It is possible to configure aws to use a remote signing service (see
+below), enabling your infrastructure to make use of the Secret Access
+Key without having access to it.
+
+<h3>~/.awsrc File Format</h3>
+
+The ~/.awsrc file may contain command-line parameters in the same format that they would appear on the command line, on one line or several.  For example, the following ~/.awsrc file
+sets the --insecure-aws option, so that host authentication is turned off.  (Useful if your host certificates don't work.)  It also sets the --simple option, so that "aws ls" commands generate output that is simple to parse.
+
+<blockquote><pre>--insecure-aws
+--simple
+</pre></blockquote>
+
+The existence of the ~/.awsrc file (even if empty) turns off default sanity checking.  To enable sanity checking when ~/.awsrc exists, add <code>--sanity-check</code> to the ~/.awsrc file.
+
+<h3>Sanity Checking</h3>
+
+When it starts, "aws" checks for Certain common conditions that prevent it from working properly:
+<p>
+<table bgcolor=black cellpadding=4 cellspacing=1>
+<tr bgcolor=white>
+<td>~/.awssecret is missing
+<br>~/.awssecret not readable
+<br><nobr>~/.awssecret has wrong permissions &nbsp;</nobr>
+</td><td>You must create a .awssecret file that contains the access keys for your AWS account.</td></tr>
+<tr bgcolor=white><td><nobr>local host certificates aren't working</nobr></td><td>The curl command is used to access Amazon Web Services.  The connection is secured via TLS (also called SSL or https).  If your host certificates aren't set properly, the TLS connection fails.  Fix the problem or add --insecure-aws to ~/.awsrc.</td></tr>
+<tr bgcolor=white><td>AWS is not reachable</td><td>For some reason, curl could not access <a href=https://s3.amazonaws.com/>https://s3.amazonaws.com/</a></td></tr>
+<tr bgcolor=white><td>local host time is wrong</td><td>If your host's clock is set wrong, then requests might be signed with an invalid timestamp.  The sanity check code will automatically correct for a wrong host clock.</td></tr>
+</table>
+<p>
+For optimal performance, sanity checks should be disabled by creating
+a ~/.awsrc file.  If you have reason to create .awsrc and still
+want sanity checks enabled, add <code><nobr>--sanity-check</nobr></code> to
+~/.awsrc.  If you want the sanity checks enabled (perhaps to correct for a wrong host
+clock), but you want to disable warnings, add
+<code>--sanity-check</code> and <code><nobr>--silent</nobr></code> to ~/.awsrc.
+<p>
+Sanity check warnings will not be displayed if stdin is set to something other than a tty.  Thus, you might not see sanity check warnings when invoking "aws" from within a script.
+
+<h3>S3 Reference Guide</h3>
+
+<table bgcolor=black cellspacing=1 cellpadding=3 style="font: normal 8pt monospace">
+<tr bgcolor=#ccffcc>
+  <th colspan=2>Alternate Syntax</th>
+  <th>Description</th>
+</tr>
+<tr bgcolor=white>
+  <td><strike>aws get</strike>
+  <br>aws ls</td>
+  <td><strike>s3get</strike>
+  <br>s3ls</td>
+  <td>List all buckets.  See options below.</td>
+</tr>
+<tr bgcolor=white>
+  <td valign=top><strike>aws get BUCKET</strike>
+  <br>aws ls [-X] BUCKET[/PREFIX]
+  <br>aws ls [-X] BUCKET [PREFIX]</td>
+  <td valign=top><strike>s3get BUCKET</strike>
+  <br>s3ls [-X] BUCKET[/PREFIX]
+  <br>s3ls [-X] BUCKET [PREFIX]</td>
+  <td>List files in BUCKET, optionally restricted to those files that start with PREFIX.  X is one or more of the following:
+      <table style="font: normal 8pt monospace">
+      <tr><td>-1</font></td><td>(digit "1") displays name in single column</td></tr>
+      <tr><td>-l</td><td>(letter "L") displays data is an "ls -l" format</td></tr>
+      <tr><td>-t</td><td>sorts list by modification time</td></tr>
+      <tr><td>-r</td><td>reverses sort order</td></tr>
+      <tr><td valign=top>--simple</td><td>displays size, date, and key in tab-separated columns, for easy parsing</td></tr>
+      <tr><td valign=top><nobr>--exec=PERL&nbsp;</nobr></td><td>executes PERL for each line of the result.  $size (of file in bytes), $mod (modification date), $key (bucket or object name), $bucket are defined</td></tr>
+      </table>
+      Either a space or slash will work.  NOTE:  S3 has a limit of 1,000 files listed.  "aws" will issue multiple requests, until the list is completed.
+  </td>
+</tr>
+<tr bgcolor=white>
+  <td>aws put BUCKET
+  <br>aws mkdir BUCKET</td>
+  <td>s3put BUCKET
+  <br>s3mkdir BUCKET</td>
+  <td>Create BUCKET.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws put BUCKET/[OBJECT] [FILE]</td>
+  <td>s3put BUCKET/[OBJECT] [FILE]</td>
+  <td>Store FILE to OBJECT in BUCKET.  If OBJECT is omitted, then FILE is used.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws get BUCKET/OBJECT [FILE]
+  <br>aws cat BUCKET/OBJECT [FILE]</td>
+  <td>s3get BUCKET/OBJECT [FILE]
+  <br>s3cat BUCKET/OBJECT [FILE]</td>
+  <td>Retrieve OBJECT from BUCKET, saving to FILE (default stdout).</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws delete BUCKET/OBJECT<br>aws rm BUCKET/OBJECT</td>
+  <td>s3delete BUCKET/OBJECT
+  <br>s3rm BUCKET/OBJECT</td>
+  <td>Delete OBJECT from BUCKET.</td>
+</tr>
+<tr bgcolor=white>
+  <td valign=top>aws copy BUCKET1/OBJECT1 /BUCKET2/OBJECT2<br>aws copy BUCKET1 /BUCKET2/OBJECT2<br>aws copy BUCKET1/OBJECT1 OBJECT2</td>
+  <td valign=top>s3dcopy
+  <br>s3cp</td>
+  <td width=50%>Copies object BUCKET2/OBJECT2 to BUCKET1/OBJECT1 (right-to-left to stay consistent with PUT syntax).  If the source bucket is missing, uses the target bucket.  If the target object name is missing, uses the source object name.
+  <p>Note the leading slash on the source object is required when specifying a source bucket.  Without the leading slash, refers to the object in the same bucket as the target, possibly with slashes in the source object name.
+  <p>Can be used to copy a file to a bucket with a different location constraint.
+  </td>
+</tr>
+</table>
+<p>
+Use <code>--progress</code> to display progress for large S3 transfers.
+<p>
+<font color=red>New!</font>
+<b><code>aws put</code> using STDIN</b>
+<p>
+When using <code>aws put</code> with no source file, or if the source file is <code>-</code>, then a temporary file is created, stdin is copied into the temporary file, and that file is uploaded.  For example,
+<blockquote><code>echo hello, world |aws put test681/hello.txt</code></blockquote>
+creates an object named <code>test681/hello.txt</code>, which contains <code>hello, world\n</code>.
+<p>
+The MIME type is set as appropriate for the target file name.
+<p>
+<b>Using "get" with a Directory Target</b>
+<p>
+If the target of a "get" operation ends with "/", or if the target is a directory, then the file name will be taken from the object name.  Examples:
+<p>
+<blockquote style="font: normal 8pt monospace">
+aws get timkay/aws-1.12 .
+</blockquote>
+will retrieve the object and store it as "aws-1.12" in the current directory.
+<p>
+<blockquote style="font: normal 8pt monospace">
+aws get timkay/aws-1.12 x/y/z/
+</blockquote>
+will retrieve the object and store it as "x/y/z/aws-1.12", relative to the current directory.  As necessary, it will create directories.  Compare to
+<p>
+<blockquote style="font: normal 8pt monospace">
+aws get timkay/aws-1.12 x/y/z
+</blockquote>
+which will retrieve the object and store it as "x/y/z", assuming "x/y/z" isn't already a directory.  (The file is named "z" in the subdirectory "x/y/".)
+<p>
+Note that it is possible to use slashes in object names, such as "x/y/foo".  It would be useful to say
+<p>
+<blockquote style="font: normal 8pt monospace">
+aws get timkay/x/y/foo .
+</blockquote>
+to retrieve the object and store as x/y/foo.  The current implementation will
+store it as file "foo" in the current directory, discarding the object's "path".  It's
+not clear which action is the right one.  If you have an opinion, please
+send feedback.
+<p>
+<b>Specifying <code>x-amz-*:</code> and <code>Content-Type:</code> Headers</b>
+<p>
+It is possible to send <code>x-amz-*:</code> and <code>Content-Type:</code> headers by including them on the <code>aws</code> command line after the verb.  The following example sets the object access policies to be world-readable and also sets the content type as appropriate for a .jpg file:
+<blockquote style="font: normal 8pt monospace">
+aws put "x-amz-acl: public-read" "Content-Type: image/jpg" timkay681 tim.jpg
+</blockquote>
+<p>
+As of <code>v1.12</code>, if it isn't set otherwise, the
+<code>Content-Type:</code> header is automatically set using the
+<code>mime.types</code> file, which is read from both the current
+directory and /etc/, if they exist.
+<p>
+<b>Changing the ACL of an Existing Object</b>
+<font color=red>New!</font>
+<p>
+To change the ACL of an object to a canned access policy, store an empty ACL file and include a header to indicate the desired canned access policy:
+<blockquote><code>aws put "x-amz-acl: public-read" test681/tim2.jpg?acl /dev/null</code></blockquote>
+The <code>--set-acl</code> option does the same thing with a simpler syntax:
+<blockquote><code>aws put test681/tim2.jpg?acl --set-acl=public-read</code></blockquote>
+or even
+<blockquote><code>aws put test681/tim2.jpg?acl --public</code></blockquote>
+<p>
+The choices for --set-acl are <code>private</code>, <code>public-read</code>, <code>public-read-write</code>, and <code>authenticated-read</code>. 
+As of <code>aws-1.25</code>, <code>--public</code> is equivalent to <code>--set-acl=public-read</code>, and <code>--private</code> is equivalent to <code>--set-acl=private</code>.
+<p>
+For more information about canned access policies, see the <a
+href=http://docs.amazonwebservices.com/AmazonS3/latest/index.html?RESTAccessPolicy.html>Amazon S3
+API</a>.  To control the ACL more precisely, see the following section, Setting Access Policies (ACLs).
+<p>
+<b>Setting Access Policies (ACLs)</b>
+<p>
+You can set canned access policies as described in the previous section.
+Otherwise, setting access policies requires that you create an XML file
+containing the access policies.  You might start by retrieving the
+existing policies, modify those policies, then upload the changes, as
+shown in the example below.  You can see that <a
+href=http://public681.s3.amazonaws.com/tim.jpg>the results</a> are
+publicly readable.
+<p>
+<blockquote style="font: normal 8pt monospace"><xmp>bash-3.00$ aws --xml get public681/tim.jpg?acl >acl.xml
+bash-3.00$ xmlpp acl.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Owner>
+    <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+    <DisplayName>timkay681</DisplayName>
+  </Owner>
+  <AccessControlList>
+    <Grant>
+      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
+        <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+        <DisplayName>timkay681</DisplayName>
+      </Grantee>
+      <Permission>FULL_CONTROL</Permission>
+    </Grant>
+  </AccessControlList>
+</AccessControlPolicy>
+bash-3.00$ vi acl.xml
+bash-3.00$ aws put public681/tim.jpg?acl acl.xml
+bash-3.00$ aws --xml get public681/tim.jpg?acl |xmlpp
+<?xml version="1.0" encoding="UTF-8"?>
+<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Owner>
+    <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+    <DisplayName>timkay681</DisplayName>
+  </Owner>
+  <AccessControlList>
+    <Grant>
+      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
+        <ID>c1438ce900acb0db547b3708dc29ca60370d8174ee55305050d2990dcf27109c</ID>
+        <DisplayName>timkay681</DisplayName>
+      </Grantee>
+      <Permission>FULL_CONTROL</Permission>
+    </Grant>
+    <Grant>
+      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Group">
+        <URI>http://acs.amazonaws.com/groups/global/AllUsers</URI>
+      </Grantee>
+      <Permission>READ</Permission>
+    </Grant>
+  </AccessControlList>
+</AccessControlPolicy>
+</xmp></blockquote>
+<p>
+For more information about about setting access policies, see the
+Amazon S3 documentation: "<a
+href=http://docs.amazonwebservices.com/AmazonS3/latest/RESTAccessPolicy.html>Setting
+Access Policy with REST</a>".
+<p>
+Note that some browsers cache the content types of URLs.  If you
+browse a URL then change it's content type, then hit refresh, the
+broswer might not notice the new content type.  To fix this problem,
+you should flush the content cache.  (With FireFox, use Tools/Clear
+Private Data with the "Cache" option checked.)
+<p>
+<b>Sending &lt;CreateBucketConfiguration&gt; Data with "mkdir"</b>
+<p>
+"put" and "mkdir" used to be the same code (you could create buckets with either).  To support configuration options, they
+are now different.  If you don't care about the Location of a bucket, then you can continue to use
+either.  However, if you want to specify Location, then you have to use "mkdir".  ("<tt>aws mkdir foo eu.xml</tt>" and "<tt>aws put foo eu.xml</tt>" do two different things: The first sets the configuration of the new bucket <tt>foo</tt> as per the file <tt>eu.xml</tt>, while the latter stores the file <tt>eu.xml</tt> in bucket <tt>foo</tt>.)
+<ol>
+<li>Create a file with the &lt;CreateBucketConfiguration&gt; XML tag in it.  See <a href=eu.xml>eu.xml</a> as an example.</li>
+<li>Create the bucket with
+<blockquote style="font: normal 8pt monospace">
+aws mkdir BUCKETNAME CONFIGURATIONFILE
+</blockquote>
+For example, you could say
+<blockquote style="font: normal 8pt monospace">
+aws mkdir my-new-bucket eu.xml
+</blockquote>
+</li>
+<li>To see the Location constraint of a bucket, use the ?location attribute:
+<blockquote style="font: normal 8pt monospace">
+aws get BUCKETNAME?location
+</blockquote>
+For example, you could say
+<blockquote style="font: normal 8pt monospace">
+aws --xml get my-new-bucket?location |xmlpp
+</blockquote>
+returns
+<blockquote style="font: normal 8pt monospace"><xmp><?xml version="1.0" encoding="UTF-8"?>
+<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">EU</LocationConstraint>
+</xmp></blockquote>
+Notes: I am using the --xml output format, until I get xml2tab working in this case.  <code>xmlpp</code> is at <a href=/xmlpp/>http://timkay.com/xmlpp/</a>
+</li>
+</ol>
+Remember that buckets naming is more strict when specifying Location constraints.  See the Amazon S3 documentation:
+"<a href=http://docs.amazonwebservices.com/AmazonS3/latest/index.html?BucketConfiguration.html>Bucket Restrictions and Limitations</a>".
+<p>
+
+<h3>EC2 Reference Guide</h3>
+
+The EC2 interface supports the same command line options as Amazon's
+java implementation.  See the Amazon EC2 documentation:
+"<a href=http://docs.amazonwebservices.com/AWSEC2/latest/DeveloperGuide/CLTRG-by-function.html>List of Operations by Function</a>" for details.
+<p>
+Use "aws COMMAND -h" to see the options available for each command.  For example,
+<blockquote style="font: normal 8pt monospace">
+$ ./aws run -h
+<br>$ ./aws run -h
+Usage: aws run-instance run [ImageId (ami-23b6534a)] [-i InstanceType (ml.small)] [-a AddressingType (public)] [-n MinCount (1)] [-n MaxCount (1)] [-g SecurityGroup... (default)] [-k KeyName (default)] [-d UserData] [-f UserData]
+</blockquote>
+Here we see that the <code>run-instance</code> command takes an image id, an instance type, an addressing type, a count of servers, security groups, a key name, and user data.  The defaults are specified in parentheses.
+<p>
+<blockquote>
+Note. The following command groups are now supported, but the following table has not been updated.  The syntax is the same as Amazon's command-line tools.
+<ul>
+<li>registering images</li>
+<li>availability zones</li>
+<li>kernel types</li>
+<li>persistent IP addresses</li>
+</ul>
+</blockquote>
+<p>
+Note: Elastic Block Storage is now supported (as of <a href=download.html>v1.14</a>), but the following table has not yet been updated.  It works the same as the Amazon documentation: <a href=http://docs.amazonwebservices.com/AWSEC2/latest/DeveloperGuide/>Amazon Elastic Compute Cloud</a>.
+<p>
+Type "aws" at the command-line to see a list of supported commands.
+<p>
+<table bgcolor=black cellspacing=1 cellpadding=3 style="font: normal 8pt monospace">
+<tr bgcolor=#ccffcc>
+  <th colspan=2>Alternate Syntax</th>
+  <th>Description</th>
+</tr>
+<tr bgcolor=white>
+  <td>aws add-group GROUP
+  <br>aws addgrp GROUP</td>
+  <td>ec2-add-group GROUP
+  <br>ec2addgrp GROUP</td>
+  <td>Creates a security group named GROUP.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws add-keypair KEYNAME
+  <br>aws addkey KEYNAME</td>
+  <td>ec2-add-keypair KEYNAME
+  <br>ec2addkey KEYNAME</td>
+  <td>Creates a new key pair named KEYNAME and displays the private key.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws allocate-address
+  <br>aws allad</td>
+  <td>ec2-allocate-address
+  <br>ec2allad
+  <td>Allocates a new public IP address.
+</tr>
+<tr bgcolor=white>
+  <td>aws associate-address ...
+  <br>aws aad ...</td>
+  <td>ec2-associate-address
+  <br>ec2aad address -i instance [-d device]
+  <td>Associates an IP address with an instance.
+</tr>
+<tr bgcolor=white>
+  <td>aws authorize ...
+  <br>aws auth ...</td>
+  <td>ec2-authorize ...
+  <br>ec2auth [-P PROTOCOL] [-p PORT_RANGE] [-u USER]
+  <br> &nbsp; &nbsp; &nbsp; [-o SECURITY_GROUP] [-s SOURCE_SUBNET]</td>
+  <td>Creates a new key pair named KEYNAME and displays the private key.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws delete-keypair KEYNAME
+  <br>aws delkey KEYNAME</td>
+  <td>ec2-delete-keypair KEYNAME
+  <br>ec2delkey KEYNAME</td>
+  <td>Deletes the key pair named KEYNAME.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws delete-group GROUP
+  <br>aws delgrp GROUP</td>
+  <td>ec2-delete-group GROUP
+  <br>ec2delgrp GROUP</td>
+  <td>Deletes the security group named GROUP.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws describe-groups [GROUP...]
+  <br>aws dgrp [GROUP...]</td>
+  <td>ec2-describe-group [GROUP...]
+  <br>ec2dgrp [GROUP...]</td>
+  <td>Describe security groups.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws describe-keypairs [KEY...]
+  <br>aws dkey [KEY...]</td>
+  <td>ec2-describe-keypairs [KEY...]
+  <br>ec2key [KEY...]</td>
+  <td>Describe EC2 images.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws describe-images ...
+  <br>aws dim [IMAGE...] [-o OWNER] [-u USER]</td>
+  <td>ec2-describe-images ...
+  <br>ec2dim [IMAGE...] [-o OWNER] [-u USER]</td>
+  <td>Describe EC2 images.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws describe-instances
+  <br>aws din [INSTANCE...]</td>
+  <td>ec2-describe-instances
+  <br>ec2din [INSTANCE...]</td>
+  <td>Describe all EC2 server instances.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws describe-regions
+  <br>aws dreg</td>
+  <td>ec2-describe-regions
+  <br>ec2dreg</td>
+  <td>Describe available EC2 regions.   When issuing EC2 commands specify --region=REGION to indicate a region.</td>
+</tr>
+<tr bgcolor=white>
+  <td>aws reboot-instances INSTANCE [INSTANCE...]
+  <br>aws reboot INSTANCE [INSTANCE...]</td>
+  <td>ec2-reboot-instances INSTANCE [INSTANCE...]
+  <br>ec2reboot INSTANCE [INSTANCE...]</td>
+  <td>Reboot EC2 server instances.
+</tr>
+<tr bgcolor=white>
+  <td>aws run-instances ...
+  <br>aws run</td>
+  <td>ec2-run-instances ...
+  <br>ec2run [--simple] [--wait=SEC]</td>
+  <td>Start N EC2 server instances.
+  <br>--wait=SEC to poll for instances to leave "pending"
+  <br>--simple to display the instanceId's in tab-separated format
+</tr>
+<tr bgcolor=white>
+  <td>aws terminate-instances INSTANCE [INSTANCE...]
+  <br>aws tin INSTANCE [INSTANCE...]</td>
+  <td>ec2-terminate-instances INSTANCE [INSTANCE...]
+  <br>ec2tin INSTANCE [INSTANCE...]</td>
+  <td>Terminate EC2 server instances.</td>
+</tr>
+</table>
+<p>
+<font color=red>New!</font> <b>--wait=SEC</b>
+<p>
+As of <a href=download.html>aws-1.24</a>, the <code>--wait=SEC</code> switch tells <code>ec2run</code> to poll for the status of the new instances (using ec2-describe-instances), waiting for them to leave "pending" status (presumably entering "running" status).  Waits SEC seconds between polling attempts.
+<blockquote><xmp>$ ./aws-1.24 run -k k2 --wait=10
+i-97f276fe      pending
+i-97f276fe      pending
+i-97f276fe      pending
+i-97f276fe      pending
+i-97f276fe      pending
+i-97f276fe      running ec2-75-101-242-20.compute-1.amazonaws.com</xmp></blockquote>
+<p>
+<b>Regions</b>
+<p>
+Use <code>--region=eu-west-1</code> to
+select the European EC2 region.  <code>eu</code> and <code>us</code>
+are synonums for <code>eu-west-1</code> and <code>us-east-1</code>.
+<p>
+Add <code>--region=eu</code> to <code>~/.awsrc</code> to switch the default region.
+<p>
+<h3>Robustness and Scripting</h3>
+
+To interact with EC2 and S3 services, "aws" delegates the core
+functionality to the command line program "curl", which has many
+features and options.  Some of the options are made explicitely
+available via "aws" command line options.  Other curl command line
+options may be set using the --curl-options="..." setting.
+<p>
+To improve the likelihood that a transaction succeeds succeeds, "aws"
+sets the appropriate curl option, so that all failed transactions are
+retried up to 3 times.
+<p>
+The "aws" command --max-time=N indicates the maximum number of seconds
+to allow a given try to succeed.  If the timeout is exceeded, it is
+terminated and retried up to 3 times.  (By default, there is no
+timeout, so a transaction can potentially hang forever.)
+<p>
+As of <a href=download.html><code>v1.28</code></a>, the --md5 option
+computes the MD5 checksum for all objects and generates an error when
+a mismatch occurs.
+<p>
+Also as of <a href=download.html><code>v1.28</code></a>, $? is set
+correctly in most cases, so that scripts can tell if an "aws"
+transaction completes successfully.
+<p>
+<h3>Remote Signature Mode</h3>
+
+A user gets only one Secret Access Key.  It should be kept secret, but
+it is needed to sign requests.  Thus, any EC2 instances that need to pull
+data from S3 need to have access to the secret.
+<p>
+It's not always a good idea to store your key on any server that needs
+access to Amazon Web Services.  For example, when an EC2 instance is
+terminated, <a href="http://sa.muel.org/go/index.php/2006/10/02/24-whose-turn-is-it-to-clean-up-the-bits">the disk is not scrubbed</a>, so any data stored on that
+instance is potentially visible to the next EC2 customer who happens
+to get that instance.  Thus it's a security flaw to put the secret on
+an EC2 instance.  (UPDATE:  Amazon is being cagey about the issue, but the flaw <a href="http://developer.amazonwebservices.com/connect/thread.jspa?messageID=42962">might have been fixed</a>.)
+<p>
+So how does an EC2 instance access S3 data without using the Secret
+Access Key?  By using aws in remote signature mode.  Remote signature
+mode is a web service that signs EC2 and S3 requests remotely.  The
+Secret Access Key is stored only on the server(s) that provide the
+signing service.
+<p>
+aws can then run on an EC2 instance, performing all operations as it
+normally would, except that it signs its requests using a remote call
+to the web service.
+<p>
+The web service can be protected with a password, by restricting
+access to known IP addresses, and/or by limiting what requests are
+allowed.
+<p>
+To use remote signature mode, two things have to happen.  First, the
+web service needs to be configured by following these steps on the
+server that is to host it.
+<p>
+<ol>
+
+<li>Make sure that aws runs properly at the command line when logged
+in as the user that apache runs as.  (Log in as www-data, and do
+<tt>aws ls</tt>, for example, to see that aws and ~/.awssecret are
+properly configured.</li>
+
+<li>Create a CGI that contains just this one line:<blockquote><xmp>#!/usr/bin/env aws</xmp></blockquote> and configure the
+web server, so that the script is password (or otherwise) protected
+and executable.  It is also a good idea to use SSL (https) to access this service, so that the password is encrypted.  To use a self-signed certificate, see the --insecure-signing setting.
+<p>
+The following PHP code implements a remote signing service:<blockquote><xmp><?
+  list($head, $body) = explode("\n\n", shell_exec("aws --sign=" . file_get_contents("php://input")));
+  header("Content-type: text/plain");
+  echo $body;
+?></xmp></blockquote>Make sure that aws is in the web server's path, or else add the explicit path (probably /usr/bin/aws) to the script.
+</li>
+
+<li>Test this remote signing service by pointing your browser to the
+URL.  It should display something like
+<blockquote><tt>VKL5xvaVRCTAsBTF63dCr5zc3I4=</tt>.</blockquote>(This
+particular string is the empty string, signed by my Secret Access
+Key.)
+</li>
+
+</ol>
+
+You now have a aws remote signing service.
+<p>
+Next, you need to configure the client to use the remote signing
+service:
+
+<ol>
+
+<li>Create ~/.awssecret like
+this:<blockquote><tt>_<br>_<br>https://user:pass@timkay.com/aws/sign/</tt></blockquote>The
+first line two lines contains underscore ("_") characters where your
+Access Key ID and Secret Access Key would normally go.  The third line
+contains the URL of the signing service.  If the service is password
+protected, the URL should contain the username and password, as
+indicated.</li>
+
+<li>Test the remote signing by running "<tt>aws -v ls</tt>".  You should
+see a message like this, followed by the output from the "ls" command.
+<blockquote><tt>signing [GET\n\n\n1172520135\n/] via https://******:******@timkay.com/aws/sign/</tt></blockquote>
+
+</ol>
+
+Be careful securing your remote signing service: if you use HTTP Basic
+Authentication, then your password is sent in clear text and can be
+sniffed.  You'll create a situation where your AWS credentials are
+secure but can still be used by an unauthorized 3rd party.  To
+mitigate the risk, you can use basic authentication combined with SSL
+by specifying a https URL (instead of http) in the ~/.awssecret file.
+The URL format is https://USER:PASS@www.DOMAIN.com/ETC/.  The server
+hosting your signing service then needs to be configured to support
+SSL.  If you use a self-signed certificate, remote signing will still fail
+because the server cannot be properly authenticated (due to the self-signed nature of the certificate).  The --insecure-signing option
+tells aws to ignore this particular error.  Using https with
+--insecure-signing is better than simply using http because the connection is
+encrypted, which prevents the basic authentication password from being
+sniffed.
+
+
+<h3>Changes</h3>
+
+See <a href=Changes.txt>Changes.txt</a>
+
+<h3>Implementation</h3>
+
+aws is written in pure perl.  It consists of a <a href=download.html>single
+file</a> (roughly 1,500 lines).  The core functions are ec2() and
+s3(), which are about 25 and 150 lines.
+<p>
+The rest of the program contains the command-line interface, the
+pretty-printer, and HMAC and SHA1 code, none of which is needed when
+calling ec2() or s3() from your program.  In that case, use
+Digest::SHA1 (or Digest::SHA1::PurePerl) and parse the XML however you
+like.  (I have no idea if ec2() and s3() can be run in isolation any more.)
+
+<a name=s3_dir>
+<h3>export S3_DIR=bucket</h3>
+
+If you work primarily with a single bucket, you can
+<blockquote><tt>export S3_DIR=bucket</tt></blockquote>
+aws will prepend bucket/ to any name you specify in any command.
+<p>
+Thus, you can do the following sorts of operations:
+<blockquote><pre><tt>
+export S3_DIR=timkay
+s3put foo		# put file foo to object timkay/foo
+s3ls			# list objects in bucket timkay
+s3cat foo		# display object timkay/foo
+s3rm foo		# remove object timkay/foo
+</pre></tt></blockquote>
+
+To deactivate S3_DIR, use
+<blockquote><tt>export -n S3_DIR</tt></blockquote>
+
+<a name=bugs>
+<h3>Bugs</h3>
+
+aws does not yet support ec2 Images and Image Attributes functionality, only because I have no need for them.  Everything else is there.
+<p>
+Occasionally, system certificates are misconfigured, so that SSL to
+Amazon fails at the server authentication step.  (Note that this is a
+different problem than when using self-signed certificates for remote
+signing mode.)  The option --insecure-aws tells aws to continue anyway.
+If aws isn't working, you can test for this problem with
+<blockquote>
+<xmp>curl -vv https://s3.amazonaws.com/
+curl -vv --insecure-aws https://s3.amazonaws.com/</xmp>
+</blockquote>
+If the first fails and the second
+succeeds, you should fix your system's certificates.  Or you can use
+the --insecure-aws option.
+<p>
+Things to do:
+<ul>
+<li>The XML output is converted to a tabular format.  This code is
+small but doesn't give me exactly what I want.  (In fact, I'm not even sure how it works anymore!)  Do I replace it with
+something substantially more complicated?</li>
+<li>add support for remaining commands and options</li>
+</ul>
+<p>
+HMAC and SHA1 functions have been included, so that no perl modules
+need be installed.  The SHA1 function has not been thoroughly tested
+and might fail under certain circumstances.  (It has been tested on
+x86 and x86/64, but there are many other possibilities.)
+<p>
+If SHA1 fails, use Digest::SHA1 or Digest::SHA::PurePerl instead.  Use
+CPAN to install one, uncomment the relevant "use" statement, and
+remove the included sha1() function.
+<p>
+aws supports streaming, even if Amazon S3 does not.  The following
+incredibly useful command would work if Amazon were to add streaming
+support:
+<blockquote><tt>tar czf . - |s3put timkay/backup.tgz -</tt></blockquote>
+
+<h3>Feedback</h3>
+I want to hear from you!  I constantly improve this code, and I want to know what you need.  I typically respond to emails within a few hours.  My email address is in the copyright notice below.
+
+<h3>Copyright</h3>
+Copyright 2007-2009 Timothy Kay (<a href=timkay@not.com>timkay@not.com</a>)
+<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+</script>
+<script type="text/javascript">
+_uacct = "UA-1777501-1";
+urchinTracker();
+</script>
+</body>
+</html>
