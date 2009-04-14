@@ -12,8 +12,9 @@
 # LIABILITY OF SELLER OR MANUFACTURE IS LIMITED EXCLUSIVELY TO REFUND
 # OF THE PURCHASE PRICE.
 
-$program_version = "1.32";
-$aws_version = "2009-03-01";
+$program_version = "1.34";
+$ec2_version = "2009-03-01";
+$sqs_version = "2009-02-01";
 
 
 
@@ -170,31 +171,27 @@ $aws_version = "2009-03-01";
 	["s3", "put", PUT],
 	["s3", "delete rmdir rm", DELETE],
 	["s3", "copy cp", COPY],
+
+	["sqs", "create-queue cq", CreateQueue, [
+						 [name => QueueName],
+						 [timeout => DefaultVisibilityTimeout],
+						 ]],
 	);
 
 
 $home = get_home_directory();
 
 
-# make a hash of aws keywords (%keyword), which are not treated as meta-parameters
-
-{
-    for (@cmd)
-    {
-	for (@{$_->[3]})
-	{
-	    (my $key = $_->[0]) =~ s/-/_/g;
-	    $keyword{$key} = undef;
-	}
-    }
-}
+# Figure out $cmd.  If the program is run as other than "aws", then $0 contains
+# the command.  This way, you can link aws to the command names (with or without
+# ec2 or s3 prefix) and not have to type "aws".
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.*?)$/;
 
 
 # parse meta-parameters, leaving parameters in @argv
 
 for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
 {
-
     if (/^--([\w\-]+?)(?:=(.*))?$/s)
     {
 	my($key, $val) = ($1, $2);
@@ -206,6 +203,8 @@ for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
 	else
 	{
 	    $ {$key} = defined $val? $val: 1;
+	    # --cmd0 is used to call self but without getting the command from $0
+	    undef $cmd if $key eq "cmd0" && $val;
 	}
     }
     elsif (/^-(\w+)$/)
@@ -225,7 +224,38 @@ for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
     }
     else
     {
-	push @argv, $_;
+	if ($cmd)
+	{
+	    push @argv, $_;
+	}
+	else
+	{
+	    $cmd = $_;
+	    print STDERR "cmd = $cmd\n";
+
+	    # moved this code here, so that arguments to specific ec2, s3, and sqs commands
+	    # are active only if the particular command is indicated
+
+	    for (@cmd)
+	    {
+		my($service, $cmd) = @$_;
+		my @cmd = split(" ", $cmd);
+		@cmd{@cmd} = ($_) x @cmd;
+	    }
+
+	    # make a hash of aws keywords (%keyword), which are not treated as meta-parameters
+
+	    {
+		for ($cmd{$cmd})
+		{
+		    for (@{$_->[3]})
+		    {
+			(my $key = $_->[0]) =~ s/-/_/g;
+			$keyword{$key} = undef;
+		    }
+		}
+	    }
+	}
     }
 }
 
@@ -250,7 +280,7 @@ if ($cut)
 END {close STDOUT}
 
 
-print STDERR "aws version: v$program_version  (protocol version $aws_version)\n" if $v;
+print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -309,7 +339,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure $fail --dump-header - $scheme://s3.amazonaws.com/];
+	$aws = qx[curl -q -s --insecure $fail --dump-header - $scheme://s3.amazonaws.com/connection/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -456,24 +486,6 @@ sub make_links
 }
 
 
-{
-    # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
-    # the command.  This way, you can link aws to the command names (with or without
-    # ec2 or s3 prefix) and not have to type "aws".
-
-    ($cmd = $0) =~ s/^.*[\\\/](?:(?:ec2|s3)-?)?//;
-    $cmd = shift @argv if $cmd =~ /^l?aws/ || $cmd0;
-}
-
-
-for (@cmd)
-{
-    my($service, $cmd) = @$_;
-    my @cmd = split(" ", $cmd);
-    @cmd{@cmd} = ($_) x @cmd;
-}
-
-
 if (!exists $cmd{$cmd})
 {
     my $output = "$cmd: unknown command\n" if $cmd;
@@ -484,7 +496,7 @@ if (!exists $cmd{$cmd})
 	$output .= " $cmd";
     }
     $output .= "\n";
-    $output .= "aws version: v$program_version  (protocol version $aws_version)\n";
+    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version)\n";
     die $output;
 }
 
@@ -577,6 +589,10 @@ if (!exists $cmd{$cmd})
 	    last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
 	    $last_marker = $marker;
 	}
+    }
+    elsif ($service eq "sqs")
+    {
+	
     }
     else
     {
@@ -1146,7 +1162,13 @@ sub s3
 
     my $header = join(" --header ", undef, map {cq($_)} @header);
 
-    if ($isGETobj && !$md5)
+
+    # exec() is used because we can, but it doesn't work under Windows:
+    # curl.exe runs asynchronously, and control is returned to the caller
+    # before the file transfer request is complete.  Thus, for Windows,
+    # no exec().
+
+    if ($isGETobj && !$md5 && $ENV{OS} !~ /windows/i)
     {
 	my $cmd = qq[curl $curl_options $insecureaws --header "Expect: " $header --request $verb $content --location @{[cq($url)]}];
 	print STDERR "exec $cmd\n" if $v;
@@ -1205,7 +1227,7 @@ sub ec2
 
     my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset + $expire_time);
     my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
-    my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $aws_version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $ec2_version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     my $endpoint = {eu => "eu-west-1", us => "us-east-1"}->{lc $region} || $region;
     $endpoint .= "." if $endpoint;
@@ -1388,8 +1410,6 @@ sub hmac
 #
 # Conversion from Javascript
 # Copyright 2007 Timothy Kay
-#
-# This code has not been tested on 64-bit processors and may fail.
 #
 
 sub sha1_sha1
