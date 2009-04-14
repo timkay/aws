@@ -185,7 +185,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.*?)$/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.*?)$/ && $1 !~ /^l?aws$/;
 
 
 # parse meta-parameters, leaving parameters in @argv
@@ -231,27 +231,26 @@ for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
 	else
 	{
 	    $cmd = $_;
-	    print STDERR "cmd = $cmd\n";
 
 	    # moved this code here, so that arguments to specific ec2, s3, and sqs commands
 	    # are active only if the particular command is indicated
 
-	    for (@cmd)
-	    {
-		my($service, $cmd) = @$_;
-		my @cmd = split(" ", $cmd);
-		@cmd{@cmd} = ($_) x @cmd;
-	    }
-
 	    # make a hash of aws keywords (%keyword), which are not treated as meta-parameters
 
+	  CMDLAST:
+	    for (@cmd)
 	    {
-		for ($cmd{$cmd})
+		for my $c (split(" ", $_->[1]))
 		{
-		    for (@{$_->[3]})
+		    if ($cmd eq $c)
 		    {
-			(my $key = $_->[0]) =~ s/-/_/g;
-			$keyword{$key} = undef;
+			$cmd_data = $_;
+			for (@{$cmd_data->[3]})
+			{
+			    (my $key = $_->[0]) =~ s/-/_/g;
+			    $keyword{$key} = undef;
+			}
+			last CMDLAST;
 		    }
 		}
 	    }
@@ -486,7 +485,7 @@ sub make_links
 }
 
 
-if (!exists $cmd{$cmd})
+if (!$cmd_data)
 {
     my $output = "$cmd: unknown command\n" if $cmd;
     $output .= "Usage: aws ACTION [--help]\n\twhere ACTION is one of\n\t";
@@ -502,7 +501,7 @@ if (!exists $cmd{$cmd})
 
 
 {
-    my($service, $cmd, $action, $param) = @{$cmd{$cmd}};
+    my($service, $cmd, $action, $param) = @$cmd_data;
 
     if ($h)
     {
