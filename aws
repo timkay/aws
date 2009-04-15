@@ -17,28 +17,6 @@ $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
 
-
-
-
-###############################################################
-###############################################################
-###############################################################
-###
-###
-###  FOR DOCUMENTATION, SEE
-###
-###	http://timkay.com/aws/
-###
-###
-###############################################################
-###############################################################
-###############################################################
-
-
-
-
-
-
 #
 # Need to implement:
 #
@@ -172,10 +150,64 @@ $sqs_version = "2009-02-01";
 	["s3", "delete rmdir rm", DELETE],
 	["s3", "copy cp", COPY],
 
+	["sqs", "add-permission addperm", AddPermission, [
+							  ["" => QueueUri],
+							  [label => Label],
+							  [account => AWSAccountIdN],
+							  [action => ActionNameN],
+							  ]],
+
+	["sqs", "change-message-visibility cmv", ChangeMessageVisibility, [
+									   ["" => QueueUri],
+									   [handle => ReceiptHandle],
+									   [timeout => VisibilityTimeout],
+									   ]],
+
 	["sqs", "create-queue cq", CreateQueue, [
-						 [name => QueueName],
+						 ["" => QueueName],
 						 [timeout => DefaultVisibilityTimeout],
 						 ]],
+
+	["sqs", "delete-message dm", DeleteMessage, [
+						     ["" => QueueUri],
+						     [handle => ReceiptHandle],
+						     ]],
+
+	["sqs", "delete-queue dq", DeleteQueue, [
+						 ["" => QueueUri],
+						 ]],
+
+	["sqs", "get-queue-attributes gqa", GetQueueAttributes, [
+							["" => QueueUri],
+							[attribute => AttributeNameN],
+							]],
+
+	["sqs", "list-queues lq", ListQueues, [
+						 ["" => QueueNamePrefix],
+						 ]],
+
+	["sqs", "receive-message recv", ReceiveMessage, [
+							 ["" => QueueUri],
+							 [attribute => AttributeNameN],
+							 [n => MaxNumberOfMessages],
+							 [timeout => VisibilityTimeout],
+							 ]],
+
+	["sqs", "remove-permission remperm", RemovePermission, [
+								["" => QueueUri],
+								[label => Label],
+								]],
+
+	["sqs", "send-message send", SendMessage, [
+						   ["" => QueueUri],
+						   [message => MessageBody, "", sub {encode_url($_[0])}],
+						   ]],
+
+	["sqs", "set-queue-attributes sqa", SetQueueAttributes, [
+								 ["" => QueueUri],
+								 [attribute => "Attribute.Name"],
+								 [value => "Attribute.Value"],
+								 ]],
 	);
 
 
@@ -488,13 +520,23 @@ sub make_links
 if (!$cmd_data)
 {
     my $output = "$cmd: unknown command\n" if $cmd;
-    $output .= "Usage: aws ACTION [--help]\n\twhere ACTION is one of\n\t";
+    $output .= "Usage: aws ACTION [--help]\n\twhere ACTION is one of\n";
+    my(%output);
     for (@cmd)
     {
 	my($service, $cmd, $action, $param) = @$_;
-	$output .= " $cmd";
+	$output{$service} .= " $cmd";
     }
-    $output .= "\n";
+    for my $service (sort keys %output)
+    {
+	$output .= "\t$service";
+	while ($output{$service} =~ /\s*(.{1,80})(?:\s|$)/g)
+	{
+	    my($one) = ($1);
+	    $output .= "\t" if $output =~ /\n$/;
+	    $output .= "\t\t$one\n";
+	}
+    }
     $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version)\n";
     die $output;
 }
@@ -527,7 +569,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2")
+    if ($service eq "ec2" || $service eq "sqs")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -573,7 +615,7 @@ if (!$cmd_data)
 
 	print STDERR "ec2(@{[join(', ', @list)]})\n" if $v;
 
-	$result = ec2(@list);
+	$result = ec2($service, @list);
     }
     elsif ($service eq "s3")
     {
@@ -588,10 +630,6 @@ if (!$cmd_data)
 	    last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
 	    $last_marker = $marker;
 	}
-    }
-    elsif ($service eq "sqs")
-    {
-	
     }
     else
     {
@@ -741,12 +779,117 @@ if (!$cmd_data)
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
 	}
     }
+    elsif ($result =~ /<ListQueuesResult/)
+    {
+	print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+    }
+    elsif ($result =~ /<ReceiveMessageResult/)
+    {
+	my $ary = xml2ary(Message, $result);
+	if ($simple)
+	{
+	    my($handle, $body);
+	    for (@$ary)
+	    {
+		$handle = $_->[1] if $_->[0] eq "ReceiptHandle";
+		$body = decode_url($_->[1]) if $_->[0] eq "Body";
+	    }
+	    print "$handle\t$body\n";
+	}
+	else
+	{
+	    print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
+	}
+    }
+    elsif ($result =~ /<GetQueueAttributesResponse/)
+    {
+	print ary2tab(xml2ary(GetQueueAttributesResult, $result, {key => Name, value => Value}), {title => "Attributes", empty => "no attributes\n"});
+    }
     else
     {
 	print xml2tab($result) || xmlpp($result);
     }
 
     exit $exit_code;
+}
+
+
+sub xml2ary
+{
+    my($tag, $result, $param, @result) = @_;
+    for ($result =~ /<$tag.*?>(.*?)<\/$tag>/sg)
+    {
+	while (/<(.*?)>(.*?)<\/\1>/sg)
+	{
+	    my($key, $val1) = ($1, $2);
+	    my($val);
+	    while ($val1 =~ /<(.+?)>(.*?)<\/\1>/sg)
+	    {
+		if ($1 eq $param->{key})
+		{
+		    $key = $2;
+		}
+		elsif ($1 eq $param->{value})
+		{
+		    $val = $2;
+		}
+		else
+		{
+		    $val .= " " if $val;
+		    $val .= "$1=$2";
+		}
+	    }
+	    $val ||= $val1;
+	    push @result, [$key, $val];
+	}
+    }
+    \@result;
+}
+
+
+sub ary2tab
+{
+    my($ary, $param) = @_;
+    return $param->{empty} if exists $param->{empty} && !@$ary;
+    my(@width);
+    for (@$ary)
+    {
+	if (ref $_ eq SCALAR)
+	{
+	    $_ = [$_];
+	}
+
+	if (ref $_ eq ARRAY)
+	{
+	    for (my $i = 0; $i < @$_; $i++)
+	    {
+		$width[$i] = length($_->[$i]) if $width[$i] < length($_->[$i]);
+	    }
+	}
+    }
+    if ($param->{title})
+    {
+	my $width = -1;
+	$width += 2 + $_ for @width;
+	my $l = int(($width - length($param->{title})) / 2);
+	my $r = $width - length($param->{title}) - $l;
+	$output .= "+" . "-" x (@width - 1);
+	$output .= "-" x (2 + $_) for @width;
+	$output .= "+\n";
+	$output .= "| " . " " x $l . $param->{title} . " " x $r  . " |\n";
+    }
+    $output .= "+" . "-" x (2 + $_) for @width;
+    $output .= "+\n";
+    for (@$ary)
+    {
+	for (my $i = 0; $i < @width; $i++)
+	{
+	    $output .= "| " . $_->[$i] . " " x (1 + $width[$i] - length($_->[$i]));
+	}
+	$output .= "|\n";
+    }
+    $output .= "+" . "-" x (2 + $_) for @width;
+    $output .= "+\n";
 }
 
 
@@ -865,8 +1008,13 @@ sub xml2tab
 			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateSnapshotResponse|CreateVolumeResponse
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
-			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse)$/x
-	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item|ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item)$/
+			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
+			   |CreateQueueResponse|ResponseMetadata
+			   )$/x
+	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
+			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
+			   |ReceiveMessageResult-Message
+			   )$/x
 	    || $i == @xml)
 	{
 	    $depth = $depth[$i];
@@ -1222,27 +1370,49 @@ sub s3
 
 sub ec2
 {
+    my $service = shift;
+
     $expire_time ||= 30;	# force it to use Expires rather than Timestamp, so it expires more quickly
 
     my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset + $expire_time);
     my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
-    my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $ec2_version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
-    my $endpoint = {eu => "eu-west-1", us => "us-east-1"}->{lc $region} || $region;
-    $endpoint .= "." if $endpoint;
-    $endpoint .= "ec2.amazonaws.com";
+    my($version);
+    $version .= $ec2_version if $service eq "ec2";
+    $version .= $sqs_version if $service eq "sqs";
+
+    my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+
+    if ($service eq "ec2")
+    {
+	$endpoint = {eu => "eu-west-1", us => "us-east-1"}->{lc $region} || $region;
+	$endpoint .= "." if $endpoint;
+	$endpoint .= "ec2.amazonaws.com";
+    }
+
+    if ($service eq "sqs")
+    {
+	$endpoint = "queue.amazonaws.com";
+    }
+
+    $queue ||= "/";
 
     my($url);
 
     for (sort keys %data)
     {
+	if ($service eq "sqs" && $_ eq "QueueUri")
+	{
+	    $queue = $data{$_};
+	    next;
+	}
 	$url .= "&" if $url;
 	$url .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my($sig, $awskey) = sign("GET\n$endpoint\n/\n$url");
+    my($sig, $awskey) = sign("GET\n$endpoint\n$queue\n$url");
     $url =~ s/(AWSAccessKeyId=?)_/$1$awskey/;
-    $url = "$scheme://$endpoint/?Signature=@{[encode_url($sig)]}&$url";
+    $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     qx[curl $curl_options $insecureaws @{[cq($url)]}];
@@ -1253,6 +1423,13 @@ sub encode_url
 {
     my($s) = @_;
     $s =~ s/([^\-\.0-9a-z\_\~])/%@{[uc unpack(H2,$1)]}/ig;
+    $s;
+}
+
+sub decode_url
+{
+    my($s) = @_;
+    $s =~ s/%(..)/@{[uc pack(H2,$1)]}/ig;
     $s;
 }
 
