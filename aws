@@ -794,7 +794,7 @@ if (!$cmd_data)
 		$handle = $_->[1] if $_->[0] eq "ReceiptHandle";
 		$body = decode_url($_->[1]) if $_->[0] eq "Body";
 	    }
-	    print "$handle\t$body\n";
+	    print "$handle\t$body\n" if $handle;
 	}
 	else
 	{
