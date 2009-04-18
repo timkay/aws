@@ -1192,6 +1192,9 @@ sub s3
 
     if ($verb eq PUT && ($file eq "-" || $file eq "" && $name !~ /\?acl$/))
     {
+	# and not when a terminal
+	die "$0: will not to read from terminal (use \"-\" for filename to force)\n" if -t && $file ne "-";
+
 	($temp_fh, $file) = tempfile(UNLINK => 1);
 	while (STDIN->read(my $buf, 16_384))
 	{
