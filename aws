@@ -1251,10 +1251,10 @@ sub s3
     if ($isGETobj && !$fail && !$request)
     {
 	my $data = "HEAD\n\n\n$expires\n/$name";
-	$data =~ s/([\+\ \#\[\]])/%@{[unpack(H2,$1)]}/g;
+	$data =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 	my($sig, $awskey) = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	$url =~ s/([\+\ \#\[\]])/%@{[unpack(H2,$1)]}/g;
+	$url =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 	my $cmd = qq[curl $curl_options $insecureaws --header "Expect: " --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -1284,14 +1284,14 @@ sub s3
 
     my $header = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
     my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header/$name";
-    $data =~ s/([\+\ \#\[\]])/%@{[unpack(H2,$1)]}/g;
+    $data =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 
     my($sig, $awskey) = sign($data);
 
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
     $url .= "&marker=$marker" if $marker;
     $url .= "&prefix=$prefix" if $prefix;
-    $url =~ s/([\+\ \#\[\]])/%@{[unpack(H2,$1)]}/g;
+    $url =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 
     return $url if $request;
 
