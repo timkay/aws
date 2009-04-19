@@ -561,6 +561,7 @@ if (!$cmd_data)
 
 	    $help .= " [$x$name$ddd$def]";
 	}
+	$help .= " TARGET [SOURCE]" if $service eq "s3";
 	$help .= "\n";
 	print STDERR $help;
 	exit;
