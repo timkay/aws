@@ -1244,7 +1244,7 @@ sub s3
     }
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent))?$/s;
-    my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq;
+    my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($v >= 2)
     {
