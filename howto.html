@@ -138,7 +138,7 @@ want to extend it to handle multiple files and other things.
 <p>
 To do what you want, you can, for example, use a single line of Perl.
 <blockquote><code>
-  perl -e 'system("aws put bucketname/ $_") for @ARGV' file-*
+  perl -e 'system("aws put bucketname/ $_") for @ARGV' *.gif *.jpg *.png
 </code></blockquote>
 That's all there is to it.  Why does it work?
 <p>
@@ -161,7 +161,68 @@ aws put bucketname/ Tim
 </xmp></blockquote>
 If that doesn't make sense, then you should think about it more.  If it still doesn't make sense, then I need to apologize, as it's a bit on the sophisticated side for many users.
 <p>
-Conveniently, I just updated "aws" to do the right thing in this case:  if the target is a bucket with no file name (or if it ends in "/"), then use the filename as both the source filename and also as the target object name.  Thus, the files my, name, is, and Tim would all get uploaded to S3 as bucketname/my, bucketname/name, bucketname/is, and bucketname/Tim.
+One more point:  if you specify the target as a bucket name and no file name (or if the target ends in "/"), then aws uses the filename as both the source filename and also as the target object name.  Thus, the files "my", "name", "is", and "Tim" all get uploaded to S3 as bucketname/my, bucketname/name, bucketname/is, and bucketname/Tim.
+<p>
+Also, see the entry below about filenames with funny characters interacting with the shell.
+<p>
+</li>
+<li>
+<b>How do I do such scripting when my file names have funny chacracters in them?</b>
+<p>
+If your files have funny characters in them, such as apostrophe (&apos;), then you should use Perl's system() function in a way that doesn't involve the shell.  Here are examples:
+<blockquote><xmp>$ perl -e 'do {print "putting $_\n"; system (qw(aws put test681), $_)} for @ARGV' ascii/*.txt
+putting ascii/char_20_ .txt
+putting ascii/char_21_!.txt
+putting ascii/char_22_".txt
+putting ascii/char_23_#.txt
+putting ascii/char_24_$.txt
+putting ascii/char_25_%.txt
+putting ascii/char_26_&.txt
+putting ascii/char_27_'.txt
+putting ascii/char_28_(.txt
+putting ascii/char_29_).txt
+putting ascii/char_2a_*.txt
+putting ascii/char_2b_+.txt
+putting ascii/char_2c_,.txt
+putting ascii/char_2d_-.txt
+putting ascii/char_2e_..txt
+putting ascii/char_30_0.txt
+$ aws ls -l test681/ascii/
+-rw-------  1 timkay681         2 2009-04-19 00:57:28 ascii/char_20_ .txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:29 ascii/char_21_!.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:29 ascii/char_22_".txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:29 ascii/char_23_#.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:30 ascii/char_24_$.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:30 ascii/char_25_%.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:30 ascii/char_26_&.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:31 ascii/char_27_'.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:31 ascii/char_28_(.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:31 ascii/char_29_).txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:31 ascii/char_2a_*.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:32 ascii/char_2b_+.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:32 ascii/char_2c_,.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:32 ascii/char_2d_-.txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:33 ascii/char_2e_..txt
+-rw-------  1 timkay681         2 2009-04-19 00:57:33 ascii/char_30_0.txt
+</xmp></blockquote>
+This command runs the code in the <code>do {...} for @ARGV</code> once for each file <code>ascii/*.txt</code>.  For each file, the text "putting" is displayed, followed by the filename, and then the <code>aws</code> is run with arguments "put", "test681", and the filename.  The list form of <code>system()</code> runs <code>aws</code> directly, without involving the shell.  Thus, we avoid the shell mucking with special characters.
+<blockquote><xmp>$ aws ls test681/ascii/ --exec='print "copying $key...\n"; system qw(aws copy test682), "/$bucket/$key"'
+copying ascii/char_20_ .txt...
++--------------------------+
+|       LastModified       |
++--------------------------+
+| 2009-04-19T01:05:52.000Z |
++--------------------------+
+
+   ...
+
+copying ascii/char_30_0.txt...
++--------------------------+
+|       LastModified       |
++--------------------------+
+| 2009-04-19T01:05:57.000Z |
++--------------------------+
+</xmp></blockquote>
 <p>
 </li>
 <li>
@@ -169,7 +230,7 @@ Conveniently, I just updated "aws" to do the right thing in this case:  if the t
 <p>
 The old way:
 <blockquote><code>
-perl -ne 'chop; split(/\t/); system("aws rm test681/$_[2]") if $_[1] lt "2008-06"' 'aws ls --simple test681|'
+$ perl -ne 'chop; split(/\t/); system("aws rm test681/$_[2]") if $_[1] lt "2008-06"' 'aws ls --simple test681|'
 </code></blockquote>
 As cool as that is, the new <code>--exec</code> parameter makes it much easier.  You can use <code>--exec</code>, for example, to list the contents of all your buckets:
 <blockquote><code>aws ls --exec='system("aws ls $key")'</code></blockquote>.
@@ -190,7 +251,7 @@ original.
 <p>
 </li>
 <li>
-  <b>View and Modify S3 Sub-resources (acl, location, logging, etc.)</b>
+  <b>View and Modify S3 Sub-resources (acl, bittorrent, location, and logging)</b>
 <blockquote><xmp>$ aws get test681?acl
 +-------------------------------------------------------------------------------------------+--------------+
 |                                          Grantee                                          |  Permission  |
@@ -342,13 +403,6 @@ Add a prefix to the bucket, and "aws" will return return only those objects that
 <p>
 </li>
 <li>
-  <b>What if I have more than one AWS account?  How do I switch credentials?</b>
-  <p>
-  "aws" looks at enviroment variables <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SIGN_URL</code> before it decides to read <code>~/.awssecret</code>.  If any of those variables is defined, then it will use those credentials and ignore <code>~/.awssecret</code>.  For example
-  <blockquote><code>AWS_ACCESS_KEY_ID=A3CJPJF87DHEJAAG2 AWS_SECRET_ACCESS_KEY=asDc5FD68d7JaIHEuhfLAziplY+ywNTkXq6/8UiO9 aws ls</code></blockquote>
-  <p>
-</li>
-<li>
 <a name=expires>
 <b>How do I generate an S3 request with a long expiration time?</b>
 <p>
@@ -368,6 +422,9 @@ You can create links that use your domain name (and have an extended expiration 
 http://s3.timkay.com/tim.jpg?AWSAccessKeyId=1B5JPHYQCXW13GWKHAG2&Expires=1255481684&Signature=6yHAzdF%2F7q68B0lb%2BDh0Cjl6kTQ%3D</xmp></blockquote>
 <code>--dns-alias</code> indicates that the bucket name is also a DNS alias (CNAME) pointing to s3.amazonaws.com.
 <br><code>--http</code> uses http rather than https.	 https would cause certificate mismatch errors.
+<p>
+Of course, if your bucket is marked publicly readable, then you can simply use the path name without authentication information:
+<blockquote><code>http://s3.timkay.com/tim.jpg</code></blockquote>
 <p>
 </li>
 <li>
@@ -536,9 +593,7 @@ $ ./aws-1.28 --fail get test681/hello.txtx ; echo $?
 curl: (22) The requested URL returned error: 404
 22
 </xmp></blockquote>
-For other things like listing bucket contents, it's more complicated, and I need to make a pass through the code to see what I can do.
-<p>
-I am debating making --fail the default.
+For other things like listing bucket contents, it's more complicated, but it should work.  Let me know if I missed any cases.
 <p>&nbsp;
 </li>
 </ol>
