@@ -677,10 +677,10 @@ if (!$cmd_data)
 
 	my(@result);
 
-	while ($result =~ /<(?:Contents|Bucket)>\s*(.*?)\s*<\/(?:Contents|Bucket)>/g)
+	while ($result =~ /<(?:Contents|Bucket)>\s*(.*?)\s*<\/(?:Contents|Bucket)>/sg)
 	{
 	    my($item) = ($1);
-	    my($key) = $item =~ /<(?:Key|Name)>(.*?)<\/(?:Key|Name)>/s;
+	    my $key = dentity($item =~ /<(?:Key|Name)>(.*?)<\/(?:Key|Name)>/s);
 	    my($size) = $item =~ /<Size>(.*?)<\/Size>/s;
 	    my($mod) = $item =~ /<(?:LastModified|CreationDate)>(.*?)<\/(?:LastModified|CreationDate)>/s;
 	    my($owner) = $item =~ /<DisplayName>(.*?)<\/DisplayName>/s;
@@ -709,6 +709,7 @@ if (!$cmd_data)
 	    my($item, $key, $size, $mod, $owner) = (@$_);
 	    if ($l)
 	    {
+		$key =~ s/[\x00-\x1f\x7f]/\?/sg;
 		if ($isdir)
 		{
 		    print "drwx------  2 $owner   0 $mod $key\n";
@@ -1242,19 +1243,29 @@ sub s3
 	$verb = GET;
     }
 
-    my($vhost, $vname) = ("s3.amazonaws.com", $name);
-    ($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $name =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent))?$/s;
+    my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq;
+
+    if ($v >= 2)
+    {
+	print "name = $name\n";
+	print "ub = $ub\n";
+	print "uo = $uo\n";
+	print "uq = $uq\n";
+	print "uname = $uname\n";
+    }
+
+    my($vhost, $vname) = ("s3.amazonaws.com", $uname);
+    ($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
-    my $isGETobj = $verb eq GET && $name =~ /\/./ && $name !~ /\?/;
+    my $isGETobj = $verb eq GET && $uname =~ /\/./ && $uname !~ /\?/;
 
     if ($isGETobj && !$fail && !$request)
     {
-	my $data = "HEAD\n\n\n$expires\n/$name";
-	$data =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
+	my $data = "HEAD\n\n\n$expires\n/$uname";
 	my($sig, $awskey) = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	$url =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 	my $cmd = qq[curl $curl_options $insecureaws --header "Expect: " --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -1283,15 +1294,13 @@ sub s3
     }
 
     my $header = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
-    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header/$name";
-    $data =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
+    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header/$uname";
 
     my($sig, $awskey) = sign($data);
 
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
     $url .= "&marker=$marker" if $marker;
     $url .= "&prefix=$prefix" if $prefix;
-    $url =~ s/([\+\ \#])/%@{[unpack(H2,$1)]}/g;
 
     return $url if $request;
 
@@ -1433,6 +1442,17 @@ sub decode_url
 {
     my($s) = @_;
     $s =~ s/%(..)/@{[uc pack(H2,$1)]}/ig;
+    $s;
+}
+
+sub dentity
+{
+    my($s) = @_;
+    for ($s)
+    {
+	s/&\#x([0-9a-f]{1,2});/pack(C, hex($1))/iseg;
+	s/&(.*?);/{quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;"/seg;
+    }
     $s;
 }
 
