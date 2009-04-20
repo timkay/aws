@@ -217,7 +217,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.*?)$/ && $1 !~ /^l?aws$/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
 
 
 # parse meta-parameters, leaving parameters in @argv
@@ -337,7 +337,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
     {
 	if (!-e $secrets_file)
 	{
-	    warn "sanity-check: \"$secrets_file\": file is missing\n";
+	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
 	}
 	elsif (!-r $secrets_file)
 	{
@@ -561,7 +561,7 @@ if (!$cmd_data)
 
 	    $help .= " [$x$name$ddd$def]";
 	}
-	$help .= " TARGET [SOURCE]" if $service eq "s3";
+	$help .= " BUCKET[/OBJECT] [SOURCE]" if $service eq "s3";
 	$help .= "\n";
 	print STDERR $help;
 	exit;
