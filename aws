@@ -841,7 +841,7 @@ sub xml2ary
 		    $val .= "$1=$2";
 		}
 	    }
-	    $val ||= $val1;
+	    $val = $val1 unless length($val);
 	    push @result, [$key, $val];
 	}
     }
