@@ -378,7 +378,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    die "sanity-check: Problems accessing AWS (not related to SSL certificates).\n";
+	    die "sanity-check: Problems accessing AWS (not related to SSL certificates).  Check that curl is installed.\n";
 	}
     }
 
@@ -710,7 +710,7 @@ if (!$cmd_data)
 	    my($item, $key, $size, $mod, $owner) = (@$_);
 	    if ($l)
 	    {
-		$key =~ s/[\x00-\x1f\x7f]/\?/sg;
+		$key = printable($key);
 		if ($isdir)
 		{
 		    print "drwx------  2 $owner   0 $mod $key\n";
@@ -900,7 +900,6 @@ sub xml2tab
     my($xml) = @_;
     my($output);
     $xml =~ s/^<\?xml.*?>(\r?\n)*//;
-    $xml =~ s/&quot;/\"/g;
     my @xml = grep !/^\s*$/, split(/(<.*?>)/, $xml);
     my(@tag, @depth);
     my $depth = 0;
@@ -944,11 +943,9 @@ sub xml2tab
 
 	if (@head && $i == @xml || $depth[$i] && $depth[$i] < $depth)
 	{
-	    ###unshift @head, "";
-
 	    for (@table)
 	    {
-		$_ = [@$_{@head}];
+		$_ = [map {printable(dentity($_))} @$_{@head}];
 	    }
 
 	    unshift @table, [@head];
@@ -1454,6 +1451,13 @@ sub dentity
 	s/&\#x([0-9a-f]{1,2});/pack(C, hex($1))/iseg;
 	s/&(.*?);/{quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;"/seg;
     }
+    $s;
+}
+
+sub printable
+{
+    my($s) = @_;
+    $s =~ s/[\x00-\x1f\x7f]/\?/sg;
     $s;
 }
 
