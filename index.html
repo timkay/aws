@@ -665,11 +665,7 @@ it is needed to sign requests.  Thus, any EC2 instances that need to pull
 data from S3 need to have access to the secret.
 <p>
 It's not always a good idea to store your key on any server that needs
-access to Amazon Web Services.  For example, when an EC2 instance is
-terminated, <a href="http://sa.muel.org/go/index.php/2006/10/02/24-whose-turn-is-it-to-clean-up-the-bits">the disk is not scrubbed</a>, so any data stored on that
-instance is potentially visible to the next EC2 customer who happens
-to get that instance.  Thus it's a security flaw to put the secret on
-an EC2 instance.  (UPDATE:  Amazon is being cagey about the issue, but the flaw <a href="http://developer.amazonwebservices.com/connect/thread.jspa?messageID=42962">might have been fixed</a>.)
+access to Amazon Web Services.
 <p>
 So how does an EC2 instance access S3 data without using the Secret
 Access Key?  By using aws in remote signature mode.  Remote signature
