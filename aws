@@ -12,7 +12,7 @@
 # LIABILITY OF SELLER OR MANUFACTURE IS LIMITED EXCLUSIVELY TO REFUND
 # OF THE PURCHASE PRICE.
 
-$program_version = "1.36";
+$program_version = "1.37";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
