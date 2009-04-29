@@ -2,17 +2,23 @@
 #
 # Copyright 2007-2009 Timothy Kay
 # http://timkay.com/aws/
-# You are welcome to use this script [without any warranty express or implied]
-# provided you retain my copyright notice and, when possible, a link to my website.
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# THIS PROGRAM IS OFFERED WITHOUT ANY WARRANTY EXPRESSED OR
-# IMPLIED. NO WARRANTY OF FITNESS FOR A PARTICULAR PURPOSE IS OFFERED.
-# THE USER ASSUMES THE ENTIRE RISK OF USING THE PROGRAM.  ANY
-# LIABILITY OF SELLER OR MANUFACTURE IS LIMITED EXCLUSIVELY TO REFUND
-# OF THE PURCHASE PRICE.
 
-$program_version = "1.38";
+$program_version = "1.39";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
