@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.40";
+$program_version = "1.41";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
@@ -328,6 +328,12 @@ $silent ||= !-t;
 $retry ||= 3;
 
 $secrets_file ||= "$home/.awssecret";
+
+# unfortunately, you can't have a delimiter of "1" this way
+if ($d || $delimiter == 1)
+{
+    $delimiter = "/";
+}
 
 for ([m => 60], [h => 60 * 60], [d => 24 * 60 * 60], [w => 7 * 24 * 60 * 60], [mo => 30 * 24 * 60 * 60], [y => 365.25 * 24 * 60 * 60])
 {
@@ -1305,6 +1311,7 @@ sub s3
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
     $url .= "&marker=$marker" if $marker;
     $url .= "&prefix=$prefix" if $prefix;
+    $url .= "&delimiter=$delimiter" if $delimiter;
 
     return $url if $request;
 
