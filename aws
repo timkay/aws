@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.41";
+$program_version = "1.42";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
@@ -136,12 +136,14 @@ $sqs_version = "2009-02-01";
 	["ec2", "run-instances run-instance run", RunInstances, [
 								 ["", ImageId, "ami-5647a33f"],
 								 ["i", InstanceType, "m1.small"],
+								 ["type", InstanceType],
 								 ["a", AddressingType, "public"],
 								 ["n", MinCount, 1],
 								 ["n", MaxCount, 1],
 								 ["g", SecurityGroupN, "default"],
 								 ["k", KeyName, "default"],
 								 ["z", "Placement.AvailabilityZone"],
+								 ["availability-zone", "Placement.AvailabilityZone"],
 								 ["kernel", KernelId],
 								 ["ramdisk", RamdiskId],
 								 ["d", UserData, undef, sub {encode_base64($_[0], "")}],
