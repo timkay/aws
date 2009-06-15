@@ -25,13 +25,13 @@ This document describes the basic features.  For additional examples, see the <a
 <table width=80% align=center bgcolor=black cellspacing=2 cellpadding=4><tr bgcolor=white><td>
 <ul>
 <li>
-<span style="background: red; color: white; padding: 3px;">SQS support</span>
+SQS support
 <p>
 "aws" now supports Amazon SQS, but there is as yet no documentation.  If you are interested in testing, please let me know.  <a href="mailto:timkay@not.com">timkay@not.com</a>.
 <p>
 </li>
 <li>
-Some new options (as of <a href=download.html><code>v1.29</code></a>):
+Some new options (as of <code>v1.29</code>):
 <p>
 <table>
 <tr><td>--simple</td><td>simplified output for some commands</td></tr>
@@ -51,9 +51,9 @@ s3put will read from stdin (creating a temp file, which is then uploaded).
 </li>
 <li>
 <p>
-Regions support (as of <a href=download.html><code>v1.23</code></a>), as well as support for Signing Version 2, --progress indicator, better error messages, better formatting, and some small bug fixes.  See the <a href=Changes.txt>change log</a>.
+Regions support (as of <code>v1.23</code>), as well as support for Signing Version 2, --progress indicator, better error messages, better formatting, and some small bug fixes.  See the <a href=Changes.txt>change log</a>.
 <p>
-Many, many changes (as of <a href=download.html><code>v1.21</code></a>).  ~/.awsrc file support, --exec option to iterate over results, --secrets-file, --expire-time, --limit-rate, Cache-Control:, Range: and If-*: support.  And a few bug fixes/tweaks.
+Many, many changes (as of <code>v1.21</code>).  ~/.awsrc file support, --exec option to iterate over results, --secrets-file, --expire-time, --limit-rate, Cache-Control:, Range: and If-*: support.  And a few bug fixes/tweaks.
 </li>
 </li>
 </ul>
@@ -70,7 +70,7 @@ aws has only one dependency (curl), in addition to perl, which is often pre-inst
 To use aws, follow these steps:
 <ol>
 <li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)
-<li>Download <a href=download.html>aws</a> to your computer <blockquote><tt>curl
+<li>Download <a href=http://github.com/timkay/aws>aws</a> to your computer <blockquote><tt>curl
 timkay.com/aws/aws -o aws</tt></blockquote></li>
 <li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.  Just make sure to set "aws" to be executable:  "<code>chmod +x aws</code>".
 <p>
@@ -122,7 +122,7 @@ C:\Windows directory, or some other place that is in the path.  Test
 by opening a cmd window, then do "cd \" and "curl".  It should find
 curl.</li>
 <li>Download ActivePerl from <a href=http://www.activestate.com/store/download.aspx?prdGUID=81fbce82-6bd5-49bc-a915-08d58c2648ca>ActiveState</a>.</li>
-<li>Download the latest <a href=download.html>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
+<li>Download the latest <a href=http://github.com/timkay/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
 <li>Put your AWS credentials in C:\Documents and Settings\&lt;YOUR
 NAME&gt;\.awssecret (see the example file in the above Download section).</li>
 <li>Try <tt>aws.pl --insecure-aws ls</tt> -- you should get a list of
@@ -495,7 +495,7 @@ Note. The following command groups are now supported, but the following table ha
 </ul>
 </blockquote>
 <p>
-Note: Elastic Block Storage is now supported (as of <a href=download.html>v1.14</a>), but the following table has not yet been updated.  It works the same as the Amazon documentation: <a href=http://docs.amazonwebservices.com/AWSEC2/latest/DeveloperGuide/>Amazon Elastic Compute Cloud</a>.
+Note: Elastic Block Storage is now supported (as of v1.14), but the following table has not yet been updated.  It works the same as the Amazon documentation: <a href=http://docs.amazonwebservices.com/AWSEC2/latest/DeveloperGuide/>Amazon Elastic Compute Cloud</a>.
 <p>
 Type "aws" at the command-line to see a list of supported commands.
 <p>
@@ -616,7 +616,7 @@ Type "aws" at the command-line to see a list of supported commands.
 <p>
 <font color=red>New!</font> <b>--wait=SEC</b>
 <p>
-As of <a href=download.html>aws-1.24</a>, the <code>--wait=SEC</code> switch tells <code>ec2run</code> to poll for the status of the new instances (using ec2-describe-instances), waiting for them to leave "pending" status (presumably entering "running" status).  Waits SEC seconds between polling attempts.
+As of <code>aws-1.24</code>, the <code>--wait=SEC</code> switch tells <code>ec2run</code> to poll for the status of the new instances (using ec2-describe-instances), waiting for them to leave "pending" status (presumably entering "running" status).  Waits SEC seconds between polling attempts.
 <blockquote><xmp>$ ./aws-1.24 run -k k2 --wait=10
 i-97f276fe      pending
 i-97f276fe      pending
@@ -650,11 +650,11 @@ to allow a given try to succeed.  If the timeout is exceeded, it is
 terminated and retried up to 3 times.  (By default, there is no
 timeout, so a transaction can potentially hang forever.)
 <p>
-As of <a href=download.html><code>v1.28</code></a>, the --md5 option
+As of <code>v1.28</code>, the --md5 option
 computes the MD5 checksum for all objects and generates an error when
 a mismatch occurs.
 <p>
-Also as of <a href=download.html><code>v1.28</code></a>, $? is set
+Also as of <code>v1.28</code>, $? is set
 correctly in most cases, so that scripts can tell if an "aws"
 transaction completes successfully.
 <p>
@@ -755,8 +755,8 @@ See <a href=Changes.txt>Changes.txt</a>
 
 <h3>Implementation</h3>
 
-aws is written in pure perl.  It consists of a <a href=download.html>single
-file</a> (roughly 1,500 lines).  The core functions are ec2() and
+aws is written in pure perl.  It consists of a single
+file (roughly 1,500 lines).  The core functions are ec2() and
 s3(), which are about 25 and 150 lines.
 <p>
 The rest of the program contains the command-line interface, the
