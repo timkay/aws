@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.42";
+$program_version = "1.43";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
 
@@ -378,21 +378,30 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws $fail --dump-header - $scheme://s3.amazonaws.com/connection/test];
+    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://s3.amazonaws.com/connection/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure $fail --dump-header - $scheme://s3.amazonaws.com/connection/test];
+	$aws = qx[curl -q -s --insecure --dump-header - $scheme://s3.amazonaws.com/connection/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
-	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Fix the problem or use --insecure-aws\n" unless $silent;
+	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Try using --insecure-aws\n";
 	}
 	else
 	{
-	    die "sanity-check: Problems accessing AWS (not related to SSL certificates).  Check that curl is installed.\n";
+	    $aws = qx[curl -q -s --insecure --dump-header - http://s3.amazonaws.com/connection/test];
+	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
+	    if ($d)
+	    {
+		die "sanity-check:  Your curl doesn't seem to support SSL.  Try using --http\n";
+	    }
+	    else
+	    {
+		die "sanity-check:  Problems accessing AWS.  Is curl installed?\n";
+	    }
 	}
     }
 
@@ -1446,6 +1455,7 @@ sub ec2
     $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
     return $url if $request;
     local($/);			# return a string regardless of wantarray
+    print "$url\n" if $v >= 2;
     qx[curl $curl_options $insecureaws @{[cq($url)]}];
 }
 
