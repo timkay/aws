@@ -21,6 +21,7 @@
 $program_version = "1.43";
 $ec2_version = "2009-03-01";
 $sqs_version = "2009-02-01";
+$elb_version = "2009-05-15";
 
 
 #
@@ -150,6 +151,44 @@ $sqs_version = "2009-02-01";
 								 ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
 								 ]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
+
+	["elb", "create-lb clb", CreateLoadBalancer, [
+						      ["", LoadBalancerName],
+						      ["availability-zone", "AvailabilityZones.memberN"],
+						      ["protocol", "Listeners.member.1.Protocol"],
+						      ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
+						      ["instanceport", "Listeners.member.1.InstancePort"],
+						      ]],
+	["elb", "delete-lb", DeleteLoadBalancer, [
+						      ["", LoadBalancerName],
+						      ]],
+	["elb", "describe-lbs dlb", DescribeLoadBalancers, [
+							    ["", LoadBalancerNameN],
+							    ]],
+	["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
+										     ["", LoadBalancerName],
+										     ["availability-zone", "AvailabilityZones.memberN"],
+										     ]],
+	["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["availability-zone", "AvailabilityZones.memberN"],
+										       ]],
+	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["instance", "Instances.memberN"],
+										       ]],
+	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesWithLoadBalancer, [
+											   ["", LoadBalancerName],
+											   ["instance", "Instances.memberN"],
+											   ]],
+	["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
+								   ["", LoadBalancerName],
+								   ["target", "HealthCheck.Target"],
+								   ["healthy-threshold", "HealthCheck.HealthyThreshold"],
+								   ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
+								   ["interval", "HealthCheck.Interval"],
+								   ["timeout", "HealthCheck.Timoout"],
+								   ]],
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
@@ -319,7 +358,7 @@ if ($cut)
 END {close STDOUT}
 
 
-print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version)\n" if $v;
+print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -388,7 +427,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
-	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Try using --insecure-aws\n";
+	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Try using --insecure-aws (e.g., aws --insecure-aws ls)\n";
 	}
 	else
 	{
@@ -396,7 +435,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
-		die "sanity-check:  Your curl doesn't seem to support SSL.  Try using --http\n";
+		die "sanity-check:  Your curl doesn't seem to support SSL.  Try using --http (e.g., aws --http ls)\n";
 	    }
 	    else
 	    {
@@ -560,7 +599,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version)\n";
+    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version)\n";
     die $output;
 }
 
@@ -593,7 +632,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs")
+    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -1420,6 +1459,7 @@ sub ec2
     my($version);
     $version .= $ec2_version if $service eq "ec2";
     $version .= $sqs_version if $service eq "sqs";
+    $version .= $elb_version if $service eq "elb";
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -1433,6 +1473,11 @@ sub ec2
     if ($service eq "sqs")
     {
 	$endpoint = "queue.amazonaws.com";
+    }
+
+    if ($service eq "elb")
+    {
+	$endpoint = "elasticloadbalancing.amazonaws.com";
     }
 
     $queue ||= "/";
