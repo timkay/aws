@@ -19,7 +19,7 @@
 
 
 $program_version = "1.43";
-$ec2_version = "2009-03-01";
+$ec2_version = "2009-08-15";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
 
@@ -70,7 +70,10 @@ $elb_version = "2009-05-15";
 								     ["", ProductCode],
 								     ["i", InstanceId],
 								     ]],
-	["ec2", "create-snapshot csnap", CreateSnapshot, [["", VolumeId]]],
+	["ec2", "create-snapshot csnap", CreateSnapshot, [
+							  ["", VolumeId],
+							  ["description", Description],
+							  ]],
 	["ec2", "create-volume cvol", CreateVolume, [
 						     ["size", Size],
 						     ["zone", AvailabilityZone],
@@ -110,7 +113,26 @@ $elb_version = "2009-05-15";
 											      ["z", AvailabilityZone],
 											      ["description", ProductDescription],
 											      ]],
-	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [["", SnapshotId]]],
+	["ec2", "describe-snapshot-attribute dsa", DescribeSnapshotAttribute, [
+									       ["", SnapshotIdN],
+									       ["attribute", Attribute],
+									       ]],
+	["ec2", "reset-snapshot-attribute rsa", ResetSnapshotAttribute, [
+									 ["", SnapshotIdN],
+									 ["attribute", Attribute],
+									 ]],
+	["ec2", "modify-snapshot-attribute msa", ModifySnapshotAttribute, [
+									   ["", SnapshotId],
+									   ["user", UserId],
+									   ["group", UserGroup],
+									   ["attribute", Attribute],
+									   ["type", OperationType],
+									   ]],
+	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [
+								["", SnapshotId],
+								["owner", Owner, "self"],
+								["restorableby", RestorableBy],
+								]],
 	["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
 	["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
 	["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
@@ -1070,11 +1092,13 @@ sub xml2tab
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
 			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
-			   |CreateQueueResponse|ResponseMetadata
+			   |CreateQueueResponse|ResponseMetadata|DescribeSnapshotAttributeResponse|ModifySnapshotAttributeResponse|ResetSnapshotAttributeResponse
+			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
+			   |LoadBalancerDescriptions-member
 			   )$/x
 	    || $i == @xml)
 	{
