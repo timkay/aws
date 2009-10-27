@@ -129,7 +129,7 @@ $elb_version = "2009-05-15";
 									   ["type", OperationType],
 									   ]],
 	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [
-								["", SnapshotId],
+								["", SnapshotIdN],
 								["owner", Owner, "self"],
 								["restorableby", RestorableBy],
 								]],
