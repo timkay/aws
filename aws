@@ -1422,7 +1422,7 @@ sub s3
 
     # for a PUT, disable the "Expect: 100-Continue" header if the file is small
     my($accept);
-    $accept = "--header 'Expect: '" if $verb eq PUT && (-s $file) < 10;
+    $accept = "--header \"Expect: \"" if $verb eq PUT && (-s $file) < 10_000;
 
     my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
 
