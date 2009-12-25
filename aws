@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.44";
+$program_version = "1.45";
 $ec2_version = "2009-08-15";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -214,6 +214,7 @@ $elb_version = "2009-05-15";
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
+	["s3", "head", HEAD],
 	["s3", "mkdir", MKDIR],
 	["s3", "put", PUT],
 	["s3", "delete rmdir rm", DELETE],
@@ -1343,7 +1344,7 @@ sub s3
     ($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
-    my $isGETobj = $verb eq GET && $uname =~ /\/./ && $uname !~ /\?/;
+    my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
 
     if ($isGETobj && !$fail && !$request)
     {
@@ -1362,6 +1363,12 @@ sub s3
 	{
 	    print STDERR "$code\n" unless $v;
 	    $exit_code = 22;
+	    return;
+	}
+
+	if ($verb eq HEAD)
+	{
+	    print $head;
 	    return;
 	}
     }
@@ -1549,7 +1556,7 @@ sub dentity
     for ($s)
     {
 	s/&\#x([0-9a-f]{1,2});/pack(C, hex($1))/iseg;
-	s/&(.*?);/{quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;"/seg;
+	s/&(.*?);/({quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;")/seg;
     }
     $s;
 }
