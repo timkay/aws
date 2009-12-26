@@ -18,9 +18,10 @@
 #
 
 
-$program_version = "1.43";
-$ec2_version = "2009-03-01";
+$program_version = "1.45";
+$ec2_version = "2009-08-15";
 $sqs_version = "2009-02-01";
+$elb_version = "2009-05-15";
 
 
 #
@@ -69,7 +70,10 @@ $sqs_version = "2009-02-01";
 								     ["", ProductCode],
 								     ["i", InstanceId],
 								     ]],
-	["ec2", "create-snapshot csnap", CreateSnapshot, [["", VolumeId]]],
+	["ec2", "create-snapshot csnap", CreateSnapshot, [
+							  ["", VolumeId],
+							  ["description", Description],
+							  ]],
 	["ec2", "create-volume cvol", CreateVolume, [
 						     ["size", Size],
 						     ["zone", AvailabilityZone],
@@ -109,7 +113,26 @@ $sqs_version = "2009-02-01";
 											      ["z", AvailabilityZone],
 											      ["description", ProductDescription],
 											      ]],
-	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [["", SnapshotId]]],
+	["ec2", "describe-snapshot-attribute dsa", DescribeSnapshotAttribute, [
+									       ["", SnapshotIdN],
+									       ["attribute", Attribute],
+									       ]],
+	["ec2", "reset-snapshot-attribute rsa", ResetSnapshotAttribute, [
+									 ["", SnapshotIdN],
+									 ["attribute", Attribute],
+									 ]],
+	["ec2", "modify-snapshot-attribute msa", ModifySnapshotAttribute, [
+									   ["", SnapshotId],
+									   ["user", UserId],
+									   ["group", UserGroup],
+									   ["attribute", Attribute],
+									   ["type", OperationType],
+									   ]],
+	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [
+								["", SnapshotIdN],
+								["owner", Owner, "self"],
+								["restorableby", RestorableBy],
+								]],
 	["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
 	["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
 	["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
@@ -151,8 +174,47 @@ $sqs_version = "2009-02-01";
 								 ]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
 
+	["elb", "create-lb clb", CreateLoadBalancer, [
+						      ["", LoadBalancerName],
+						      ["availability-zone", "AvailabilityZones.memberN"],
+						      ["protocol", "Listeners.member.1.Protocol"],
+						      ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
+						      ["instanceport", "Listeners.member.1.InstancePort"],
+						      ]],
+	["elb", "delete-lb", DeleteLoadBalancer, [
+						      ["", LoadBalancerName],
+						      ]],
+	["elb", "describe-lbs dlb", DescribeLoadBalancers, [
+							    ["", LoadBalancerNameN],
+							    ]],
+	["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
+										     ["", LoadBalancerName],
+										     ["availability-zone", "AvailabilityZones.memberN"],
+										     ]],
+	["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["availability-zone", "AvailabilityZones.memberN"],
+										       ]],
+	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["instance", "Instances.memberN"],
+										       ]],
+	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesWithLoadBalancer, [
+											   ["", LoadBalancerName],
+											   ["instance", "Instances.memberN"],
+											   ]],
+	["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
+								   ["", LoadBalancerName],
+								   ["target", "HealthCheck.Target"],
+								   ["healthy-threshold", "HealthCheck.HealthyThreshold"],
+								   ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
+								   ["interval", "HealthCheck.Interval"],
+								   ["timeout", "HealthCheck.Timoout"],
+								   ]],
+
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
+	["s3", "head", HEAD],
 	["s3", "mkdir", MKDIR],
 	["s3", "put", PUT],
 	["s3", "delete rmdir rm", DELETE],
@@ -319,7 +381,7 @@ if ($cut)
 END {close STDOUT}
 
 
-print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version)\n" if $v;
+print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -388,7 +450,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
-	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Try using --insecure-aws\n";
+	    warn "sanity-check: Your host SSL certificates are not working for curl.exe.  Try using --insecure-aws (e.g., aws --insecure-aws ls)\n";
 	}
 	else
 	{
@@ -396,7 +458,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
-		die "sanity-check:  Your curl doesn't seem to support SSL.  Try using --http\n";
+		die "sanity-check:  Your curl doesn't seem to support SSL.  Try using --http (e.g., aws --http ls)\n";
 	    }
 	    else
 	    {
@@ -560,7 +622,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version)\n";
+    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version)\n";
     die $output;
 }
 
@@ -593,7 +655,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs")
+    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -1031,11 +1093,13 @@ sub xml2tab
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
 			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
-			   |CreateQueueResponse|ResponseMetadata
+			   |CreateQueueResponse|ResponseMetadata|DescribeSnapshotAttributeResponse|ModifySnapshotAttributeResponse|ResetSnapshotAttributeResponse
+			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
+			   |LoadBalancerDescriptions-member
 			   )$/x
 	    || $i == @xml)
 	{
@@ -1280,7 +1344,7 @@ sub s3
     ($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
-    my $isGETobj = $verb eq GET && $uname =~ /\/./ && $uname !~ /\?/;
+    my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
 
     if ($isGETobj && !$fail && !$request)
     {
@@ -1299,6 +1363,12 @@ sub s3
 	{
 	    print STDERR "$code\n" unless $v;
 	    $exit_code = 22;
+	    return;
+	}
+
+	if ($verb eq HEAD)
+	{
+	    print $head;
 	    return;
 	}
     }
@@ -1359,7 +1429,7 @@ sub s3
 
     # for a PUT, disable the "Expect: 100-Continue" header if the file is small
     my($accept);
-    $accept = "--header 'Expect: '" if $verb eq PUT && (-s $file) < 10;
+    $accept = "--header \"Expect: \"" if $verb eq PUT && (-s $file) < 10_000;
 
     my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
 
@@ -1420,6 +1490,7 @@ sub ec2
     my($version);
     $version .= $ec2_version if $service eq "ec2";
     $version .= $sqs_version if $service eq "sqs";
+    $version .= $elb_version if $service eq "elb";
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -1433,6 +1504,11 @@ sub ec2
     if ($service eq "sqs")
     {
 	$endpoint = "queue.amazonaws.com";
+    }
+
+    if ($service eq "elb")
+    {
+	$endpoint = "elasticloadbalancing.amazonaws.com";
     }
 
     $queue ||= "/";
@@ -1480,7 +1556,7 @@ sub dentity
     for ($s)
     {
 	s/&\#x([0-9a-f]{1,2});/pack(C, hex($1))/iseg;
-	s/&(.*?);/{quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;"/seg;
+	s/&(.*?);/({quot => '"', amp => "&", apos => "'", lt => "<", gt => ">"}->{$1} || "&$1;")/seg;
     }
     $s;
 }

@@ -596,6 +596,80 @@ curl: (22) The requested URL returned error: 404
 For other things like listing bucket contents, it's more complicated, but it should work.  Let me know if I missed any cases.
 <p>&nbsp;
 </li>
+<li>
+<a name=elb>
+<b>How do I use Elastic Load Balancer (ELB)?</b>
+<p>
+ELB has been implemented but not tested.  If you can help with examples, please send them along.
+<p>
+<blockquote><xmp>$ ./aws clb testlb --availability-zone us-east-1b --protocol HTTP --loadbalancerport 80 --instanceport 80
++------------------------------------------------------+--------------------------------------+
+|               CreateLoadBalancerResult               |              RequestId               |
++------------------------------------------------------+--------------------------------------+
+| DNSName=testlb-295803881.us-east-1.elb.amazonaws.com |                                      |
+|                                                      | 4083c40f-b356-11de-8d59-05ca308ff9c0 |
++------------------------------------------------------+--------------------------------------+
+$ aws dlb
++-----------------------------------------------------------+--------------------------+------------------+----------------------------------------------+------------------------------------------------------------------------------+-------------------+
+|                         Listeners                         |       CreatedTime        | LoadBalancerName |                   DNSName                    |                                 HealthCheck                                  | AvailabilityZones |
++-----------------------------------------------------------+--------------------------+------------------+----------------------------------------------+------------------------------------------------------------------------------+-------------------+
+| member= Protocol=HTTP LoadBalancerPort=80 InstancePort=80 | 2009-10-07T15:33:41.580Z | testlb           | testlb-107942808.us-east-1.elb.amazonaws.com | Interval=30 Target=TCP:80 HealthyThreshold=10 Timeout=5 UnhealthyThreshold=2 | member=us-east-1b |
++-----------------------------------------------------------+--------------------------+------------------+----------------------------------------------+------------------------------------------------------------------------------+-------------------+
++--------------------------------------+
+|              RequestId               |
++--------------------------------------+
+| 30f4ce68-b357-11de-991b-a51ca0e65945 |
++--------------------------------------+
+$ aws delete-lb testlb
++--------------------------------------+
+|              RequestId               |
++--------------------------------------+
+|                                      |
+| 7aeca7c8-b357-11de-9187-09f9bb192ed3 |
++--------------------------------------+
+</xmp></blockquote>
+
+Additional commands are implemented: enable-zones-for-lb (elbz),
+disable-zones-for-lb (dlbz), register-instances-with-lb (rlbi)
+deregister-instances-with-lb (dlbi) configure-healthcheck (ch).  See
+the code for parameter names.
+<p>&nbsp;
+</li>
+<li>
+<a name=shareebs>
+<b>How do I share Elastic Block Store EBS snapshots?</b>
+<blockquote><xmp>$ aws dsa snap-fa3bdc93 --attribute createVolumePermission
++--------------------------------------+---------------+
+|              requestId               |  snapshotId   |
++--------------------------------------+---------------+
+| c2b6e95d-a2c7-4455-a76a-675a747ed502 | snap-fa3bdc93 |
++--------------------------------------+---------------+
+$ aws msa snap-fa3bdc93 --attribute createVolumePermission --type add --user 262088988105
++--------------------------------------+--------+
+|              requestId               | return |
++--------------------------------------+--------+
+| 941942f0-881e-43af-b62c-1ec091f07e35 | true   |
++--------------------------------------+--------+
+$ aws dsa snap-fa3bdc93 --attribute createVolumePermission
++--------------------------------------+---------------+---------------------------+
+|              requestId               |  snapshotId   |  createVolumePermission   |
++--------------------------------------+---------------+---------------------------+
+| 29a4280e-ee2d-4943-ac80-4ee03630755a | snap-fa3bdc93 | item= userId=262088988105 |
++--------------------------------------+---------------+---------------------------+
+$ aws rsa snap-fa3bdc93 --attribute createVolumePermission
++--------------------------------------+--------+
+|              requestId               | return |
++--------------------------------------+--------+
+| 3ed20378-3aef-43b2-b4a3-de2ee4a3b45d | true   |
++--------------------------------------+--------+
+$ aws dsa snap-fa3bdc93 --attribute createVolumePermission
++--------------------------------------+---------------+
+|              requestId               |  snapshotId   |
++--------------------------------------+---------------+
+| a4f79542-13c3-487a-b4bf-2b107d4f511d | snap-fa3bdc93 |
++--------------------------------------+---------------+
+</xmp></blockquote>
+</li>
 </ol>
 <p>&nbsp;
 <p>&nbsp;
