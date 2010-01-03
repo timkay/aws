@@ -111,6 +111,15 @@ As of <code>v1.10</code>, aws runs on Windows.  Currently, client authentication
 isn't supported, until I figure out where to put the cert.  (Hence the
 --insecure-aws setting.)
 <p>
+Kenzo writes:
+<blockquote>
+Curl checks the directory that curl.exe runs from, followed by all the directories in the PATH, searching for the file "curl-ca-bundle.crt".
+<p>
+So, folks need to rename ca-bundle.crt to curl-ca-bundle.crt, and then place it in the directory where they installed curl.
+<p>
+There is probably a way to configure curl to look for the certificate file elsewhere; I found that curl attempted to open %appdata%\_curlrc, so a configuration file could likely be placed here that specifies another location.  However, I didn't experiment with this, as I was satisfied with keeping it with the executable (although this is mildly less secure).
+</blockquote>
+<p>
 To download and configure, follow these steps:
 <ol>
 <li>Install <tt>curl</tt>.  Search for "curl download".  The first

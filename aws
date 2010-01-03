@@ -1341,7 +1341,10 @@ sub s3
     }
 
     my($vhost, $vname) = ("s3.amazonaws.com", $uname);
-    ($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
+    if (!$no_vhost)
+    {
+	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
+    }
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
     my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
