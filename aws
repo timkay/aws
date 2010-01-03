@@ -381,6 +381,10 @@ if ($cut)
 END {close STDOUT}
 
 
+$s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
+$ec2host ||= $ENV{EC2_URL} || "ec2.amazonaws.com";
+
+
 print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
@@ -440,13 +444,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://s3.amazonaws.com/connection/test];
+    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://$s3host/connection/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://s3.amazonaws.com/connection/test];
+	$aws = qx[curl -q -s --insecure --dump-header - $scheme://$s3host/connection/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -454,7 +458,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://s3.amazonaws.com/connection/test];
+	    $aws = qx[curl -q -s --insecure --dump-header - http://$s3host/connection/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1340,7 +1344,7 @@ sub s3
 	print "uname = $uname\n";
     }
 
-    my($vhost, $vname) = ("s3.amazonaws.com", $uname);
+    my($vhost, $vname) = ($s3host, $uname);
     if (!$no_vhost)
     {
 	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
@@ -1501,7 +1505,7 @@ sub ec2
     {
 	$endpoint = {eu => "eu-west-1", us => "us-east-1"}->{lc $region} || $region;
 	$endpoint .= "." if $endpoint;
-	$endpoint .= "ec2.amazonaws.com";
+	$endpoint .= $ec2host;
     }
 
     if ($service eq "sqs")
