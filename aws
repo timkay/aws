@@ -1494,7 +1494,7 @@ sub ec2
     my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset + $expire_time);
     my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
 
-    my($version);
+    my($version, $endpoint);
     $version .= $ec2_version if $service eq "ec2";
     $version .= $sqs_version if $service eq "sqs";
     $version .= $elb_version if $service eq "elb";
@@ -1615,6 +1615,11 @@ sub sign
     my($data) = @_;
 
     my($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
+
+    unless ($awskey || $secret || $signurl)
+    {
+	($awskey, $secret) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY)};
+    }
 
     unless ($awskey || $secret || $signurl)
     {
