@@ -281,8 +281,8 @@ $elb_version = "2009-05-15";
 	);
 
 
+$isUnix = guess_is_unix();
 $home = get_home_directory();
-
 
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
@@ -423,7 +423,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is not readable\n";
 	}
-	elsif ($ENV{OS} !~ /windows/i)
+	elsif (!$isUnix)
 	{
 	    my $stat = (stat $secrets_file)[2] & 0777;
 	    
@@ -1426,7 +1426,7 @@ sub s3
     # before the file transfer request is complete.  Thus, for Windows,
     # no exec().
 
-    if ($isGETobj && !$md5 && $ENV{OS} !~ /windows/i)
+    if ($isGETobj && !$md5 && $isUnix)
     {
 	my $cmd = qq[curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
 	print STDERR "exec $cmd\n" if $v;
@@ -1602,11 +1602,17 @@ sub load_file_silent
     <$io>;
 }
 
+sub guess_is_unix 
+{
+    return 1 if $ENV{OS} =~ /windows/i && $ENV{OSTYPE} =~ /cygwin/i;
+    return 1 if $ENV{OS} !~ /windows/i;
+    return 0;
+}
 
 sub get_home_directory
 {
-    return "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if $ENV{OS} =~ /windows/i;
-    (getpwuid($<))[7];
+    return "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
+    return (getpwuid($<))[7];
 }
 
 
@@ -1656,7 +1662,7 @@ sub cq
 {
     # quote for sending to curl via shell
     my($s) = @_;
-    return "\"$s\"" if $ENV{OS} =~ /windows/i;
+    return "\"$s\"" if $isUnix;
     $s =~ s/\'/\'\\\'\'/g;
     "'$s'";
 }
@@ -1665,7 +1671,7 @@ sub curlq
 {
     # quote for sending URL to curl via shell
     my($s) = @_;
-    return "\"$s\"" if $ENV{OS} =~ /windows/i;
+    return "\"$s\"" if !$isUnix;
     $s =~ s/[\'\ \+\#]/%@{[unpack(H2, $1)]}/g;
     $s
 }
