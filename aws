@@ -160,6 +160,7 @@ $elb_version = "2009-05-15";
 								 ["", ImageId, "ami-5647a33f"],
 								 ["i", InstanceType, "m1.small"],
 								 ["type", InstanceType],
+								 ["t", InstanceType],
 								 ["a", AddressingType, "public"],
 								 ["n", MinCount, 1],
 								 ["n", MaxCount, 1],
@@ -292,67 +293,84 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.+?)(?:\..+)?$/ 
 
 # parse meta-parameters, leaving parameters in @argv
 
-for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
 {
-    if (/^--([\w\-]+?)(?:=(.*))?$/s)
+    # The %need_arg items must have a value.  If they aren't of the form
+    # --foo=bar, then slurp up the next item as the value.  Thus, for example,
+    #  --region=eu  and  --region eu  both work, with or without the =.
+    my(%need_arg, $key_for_arg);
+    @needs_arg{qw(region)} = undef;
+
+    for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
     {
-	my($key, $val) = ($1, $2);
-	$key =~ s/-/_/g;
-	if (exists $keyword{$key})
+	if ($key_for_arg)
 	{
-	    push @argv, $_;
+	    $ {$key_for_arg} = $_;
+	    undef $key_for_arg;
 	}
-	else
+	elsif (/^--([\w\-]+?)(?:=(.*))?$/s)
 	{
-	    $ {$key} = defined $val? $val: 1;
-	    # --cmd0 is used to call self but without getting the command from $0
-	    undef $cmd if $key eq "cmd0" && $val;
-	}
-    }
-    elsif (/^-(\w+)$/)
-    {
-	if (exists $keyword{$1})
-	{
-	    push @argv, $_;
-	}
-	else
-	{
-	    for (split(//, $1))
+	    my($key, $val) = ($1, $2);
+	    $key =~ s/-/_/g;
+	    if (exists $needs_arg{$key} && !defined $val)
 	    {
-		s/^(\d)$/d$1/;
-		$ {$_}++;
+		$key_for_arg = $key;
+	    }
+	    elsif (exists $keyword{$key})
+	    {
+		push @argv, $_;
+	    }
+	    else
+	    {
+		$ {$key} = defined $val? $val: 1;
+		# --cmd0 is used to call self but without getting the command from $0
+		undef $cmd if $key eq "cmd0" && $val;
 	    }
 	}
-    }
-    else
-    {
-	if ($cmd)
+	elsif (/^-(\w+)$/)
 	{
-	    push @argv, $_;
+	    if (exists $keyword{$1})
+	    {
+		push @argv, $_;
+	    }
+	    else
+	    {
+		for (split(//, $1))
+		{
+		    s/^(\d)$/d$1/;
+		    $ {$_}++;
+		}
+	    }
 	}
 	else
 	{
-	    $cmd = $_;
-
-	    # moved this code here, so that arguments to specific ec2, s3, and sqs commands
-	    # are active only if the particular command is indicated
-
-	    # make a hash of aws keywords (%keyword), which are not treated as meta-parameters
-
-	  CMDLAST:
-	    for (@cmd)
+	    if ($cmd)
 	    {
-		for my $c (split(" ", $_->[1]))
+		push @argv, $_;
+	    }
+	    else
+	    {
+		$cmd = $_;
+
+		# moved this code here, so that arguments to specific ec2, s3, and sqs commands
+		# are active only if the particular command is indicated
+
+		# make a hash of aws keywords (%keyword), which are not treated as meta-parameters
+
+	      CMDLAST:
+		for (@cmd)
 		{
-		    if ($cmd eq $c)
+		    for my $c (split(" ", $_->[1]))
 		    {
-			$cmd_data = $_;
-			for (@{$cmd_data->[3]})
+			if ($cmd eq $c)
 			{
-			    (my $key = $_->[0]) =~ s/-/_/g;
-			    $keyword{$key} = undef;
+			    $cmd_data = $_;
+			    for (@{$cmd_data->[3]})
+			    {
+				(my $key = $_->[0]) =~ s/-/_/g;
+				$keyword{$key} = undef;
+			    }
+			    last CMDLAST;
 			}
-			last CMDLAST;
 		    }
 		}
 	    }
@@ -395,7 +413,7 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry ||= 3;
 
-$secrets_file ||= "$home/.awssecret";
+$secrets_file ||= "$home/.awssecret" || "$home/.s3cfg";
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
@@ -423,7 +441,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is not readable\n";
 	}
-	elsif (!$isUnix)
+	elsif ($isUnix)
 	{
 	    my $stat = (stat $secrets_file)[2] & 0777;
 	    
@@ -1629,7 +1647,18 @@ sub sign
 
     unless ($awskey || $secret || $signurl)
     {
-	($awskey, $secret, $signurl) = split(' ', load_file($secrets_file));
+	if ($secrets_file =~ /s3cfg$/)
+	{
+	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	    # 	(can be tested with --secrets-file=s3cfg)
+	    # Poor man's ini parser
+	    my $s3cfg = load_file($secrets_file);
+	    ($awskey, $secret) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+	}
+	else
+	{
+	    ($awskey, $secret, $signurl) = split(' ', load_file($secrets_file));
+	}
     }
 
     die if $signurl =~ /\'/;
