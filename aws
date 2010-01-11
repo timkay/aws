@@ -19,7 +19,7 @@
 
 
 $program_version = "1.46";
-$ec2_version = "2009-08-15";
+$ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
 
@@ -66,6 +66,9 @@ $elb_version = "2009-05-15";
 								  ["o", SourceSecurityGroupName],
 								  ["s", CidrIp],
 								  ]],
+	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
+									   ["", SpotInstanceRequestIdN],
+									   ]],								  
 	["ec2", "confirm-product-instance", ConfirmProductInstance, [
 								     ["", ProductCode],
 								     ["i", InstanceId],
@@ -74,6 +77,15 @@ $elb_version = "2009-05-15";
 							  ["", VolumeId],
 							  ["description", Description],
 							  ]],
+	["ec2", "describe-spot-instance-requests dsir", DescribeSpotInstanceRequests, [
+										       ["", SpotInstanceRequestIdN],
+										       ]],
+	["ec2", "describe-spot-price-history dsph", DescribeSpotPriceHistory, [
+									       ["start", StartTime],
+									       ["end", EndTime],
+									       ["instance-type", InstanceType, "m1.small"],
+									       ["description", ProductDescription, "Linux/UNIX"],
+									       ]],									   
 	["ec2", "create-volume cvol", CreateVolume, [
 						     ["size", Size],
 						     ["zone", AvailabilityZone],
@@ -144,6 +156,21 @@ $elb_version = "2009-05-15";
 	["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
 	["ec2", "release-address rad", ReleaseAddress, [["", PublicIp]]],
 	["ec2", "register-image register", RegisterImage, [["", ImageLocation]]],
+	["ec2", "request-spot-instances req-spot rsi", RequestSpotInstances, [
+								 ["", "LaunchSpecification.ImageId", "ami-5647a33f"],
+								 ["p", SpotPrice],
+								 ["t", Type, "one-time"],
+								 ["i", "LaunchSpecification.InstanceType", "m1.small"],
+								 ["a", "LaunchSpecification.AddressingType", "public"],
+								 ["n", InstanceCount, 1],
+								 ["g", "LaunchSpecification.SecurityGroupN", "default"],
+								 ["k", "LaunchSpecification.KeyName", "default"],
+								 ["z", "LaunchSpecification.Placement.AvailabilityZone"],
+								 ["kernel", "LaunchSpecification.KernelId"],
+								 ["ramdisk", "LaunchSpecification.RamdiskId"],
+								 ["d", "LaunchSpecification.UserData", undef, sub {encode_base64($_[0], "")}],
+								 ["f", "LaunchSpecification.UserData", undef, sub {encode_base64(load_file($_[0]))}],
+								 ]],
 	["ec2", "revoke", RevokeSecurityGroupIngress, [
 						       ["", GroupName],
 						       ["P", IpProtocol],
@@ -1117,11 +1144,13 @@ sub xml2tab
 			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
 			   |CreateQueueResponse|ResponseMetadata|DescribeSnapshotAttributeResponse|ModifySnapshotAttributeResponse|ResetSnapshotAttributeResponse
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
+			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
 			   |LoadBalancerDescriptions-member
+			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
 			   )$/x
 	    || $i == @xml)
 	{
