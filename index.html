@@ -185,6 +185,8 @@ Then you can perform the operations without the "aws" prefix:
 
 <h3>~/.awssecret File Format</h3>
 
+<blockquote>Note: support for s3cmd's ~/.s3cfg format has been added.  If that file exists (and ~/.awssecret does not), the keys will be read from there.</blockquote>
+
 aws needs access to a pair of strings called the Access Key ID and the
 Secret Access Key.  By default, aws looks for these secrets in a file
 ~/.awssecret, but a different file can be specified using --secrets-file=FILE.  The secrets are stored in this file separated by white space, as in the
