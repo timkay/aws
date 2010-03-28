@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.46";
+$program_version = "1.47";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -921,20 +921,45 @@ if (!$cmd_data)
     }
     elsif ($result =~ /<ReceiveMessageResult/)
     {
-	my $ary = xml2ary(Message, $result);
-	if ($simple)
+	if ($exec)
 	{
-	    my($handle, $body);
-	    for (@$ary)
+	    print xmlpp($result) if $v;
+	    my($handle) = $result =~ /<ReceiptHandle>(.*?)<\/ReceiptHandle>/;
+	    my $body = decode_url($result =~ /<Body>(.*?)<\/Body>/);
+	    if ($handle && $body)
 	    {
-		$handle = $_->[1] if $_->[0] eq "ReceiptHandle";
-		$body = decode_url($_->[1]) if $_->[0] eq "Body";
+		$exec = 'system "$body"' if $exec == 1;
+		my $rc = eval $exec;
+		if ($rc)
+		{
+		    print "exec evaluated to non-zero ($rc): message not deleted from queue\n";
+		}
+		else
+		{
+		    my $cmd = qq[$0 dm $argv[0] --handle $handle];
+		    print "$cmd\n" if $v;
+		    my $dm = qx[$cmd];
+		    print "$dm\n" if $v;
+		}
 	    }
-	    print "$handle\t$body\n" if $handle;
 	}
 	else
 	{
-	    print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
+	    my $ary = xml2ary(Message, $result);
+	    if ($simple)
+	    {
+		my($handle, $body);
+		for (@$ary)
+		{
+		    $handle = $_->[1] if $_->[0] eq "ReceiptHandle";
+		    $body = decode_url($_->[1]) if $_->[0] eq "Body";
+		}
+		print "$handle\t$body\n" if $handle;
+	    }
+	    else
+	    {
+		print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
+	    }
 	}
     }
     elsif ($result =~ /<GetQueueAttributesResponse/)
