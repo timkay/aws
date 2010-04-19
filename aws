@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.47";
+$program_version = "1.48";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -225,11 +225,11 @@ $elb_version = "2009-05-15";
 										       ]],
 	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
 										       ["", LoadBalancerName],
-										       ["instance", "Instances.memberN"],
+										       ["instance", "Instances.member.N.InstanceId"],
 										       ]],
 	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesWithLoadBalancer, [
 											   ["", LoadBalancerName],
-											   ["instance", "Instances.memberN"],
+											   ["instance", "Instances.member.N.InstanceId"],
 											   ]],
 	["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
 								   ["", LoadBalancerName],
@@ -239,6 +239,24 @@ $elb_version = "2009-05-15";
 								   ["interval", "HealthCheck.Interval"],
 								   ["timeout", "HealthCheck.Timoout"],
 								   ]],
+	["elb", "create-app-cookie-stickiness-policy cacsp", CreateAppCookieStickinessPolicy, [
+											       ["", LoadBalancerName],
+											       ["policy-name", PolicyName],
+											       ["cookie-name", CookieName],
+											       ]],
+	["elb", "create-lb-cookie-stickiness-policy clbcsp", CreateLBCookieStickinessPolicy, [
+											      ["", LoadBalancerName],
+											      ["policy-name", PolicyName],
+											      ["expiration-period", "policy-name", PolicyName],
+											      ]],
+	["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
+											  ["", LoadBalancerName],
+											  ["policy-name", PolicyNames.memberN],
+											  ]],
+	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
+								    ["", LoadBalancerName],
+								    ["policy-name", PolicyName],
+								    ]],
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
@@ -731,6 +749,7 @@ if (!$cmd_data)
 		next if $b ne $a;
 		my $count = ++$key{$key};
 		$key =~ s/N$/\.$count/;
+		$key =~ s/\.N\./\.$count\./;
 		my $data = $argv[$i];
 		$data = $cref->($data) if $cref;
 		push @list, $key => $data;
