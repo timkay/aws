@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.48";
+$program_version = "1.49";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -227,7 +227,7 @@ $elb_version = "2009-05-15";
 										       ["", LoadBalancerName],
 										       ["instance", "Instances.member.N.InstanceId"],
 										       ]],
-	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesWithLoadBalancer, [
+	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesFromLoadBalancer, [
 											   ["", LoadBalancerName],
 											   ["instance", "Instances.member.N.InstanceId"],
 											   ]],
