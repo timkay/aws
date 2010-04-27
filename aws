@@ -1361,6 +1361,9 @@ sub s3
     $set_acl = "private"	if $private;
     push @header, "x-amz-acl: $set_acl" if $verb eq PUT && $set_acl;
 
+    $requester = "requester" if $requester == 1;
+    push @header, "x-amz-request-payer: $requester" if $requester;
+
     # read from stdin when
     #	aws put target
     #	aws put target -
@@ -1423,7 +1426,7 @@ sub s3
 	$verb = GET;
     }
 
-    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent))?$/s;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent|requestPayment))?$/s;
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($v >= 2)
