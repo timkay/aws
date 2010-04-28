@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.50";
+$program_version = "1.51";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -778,6 +778,11 @@ if (!$cmd_data)
 	for (;;)
 	{
 	    my $r = s3($action, $marker, (grep(!/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv))[0, 1], grep(/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv));
+	    if ($r !~ /^\?xml/)
+	    {
+		print $r;
+		exit;
+	    }
 	    $r =~ s/<\?xml.*?>\r?\s*//;
 	    $result .= $r;
 	    ($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
@@ -1298,8 +1303,6 @@ sub s3
 {
     my($verb, $marker, $name, $file, @header) = @_;
 
-    my $expires = time + ($expire_time || 30) + $time_offset;
-
     $file ||= $name if $verb eq PUT && $ENV{S3_DIR};
     $name = "$ENV{S3_DIR}/$name" if $ENV{S3_DIR};
     $name =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs;
@@ -1446,6 +1449,7 @@ sub s3
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
     my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
+    my $expires = time + ($expire_time || 30) + $time_offset;
 
     if ($isGETobj && !$fail && !$request)
     {
