@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.51";
+$program_version = "1.52";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -778,7 +778,7 @@ if (!$cmd_data)
 	for (;;)
 	{
 	    my $r = s3($action, $marker, (grep(!/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv))[0, 1], grep(/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv));
-	    if ($r !~ /^\?xml/)
+	    if ($r !~ /^<\?xml/)
 	    {
 		print $r;
 		exit;
