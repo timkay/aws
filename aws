@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.52";
+$program_version = "1.53";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -875,7 +875,7 @@ if (!$cmd_data)
 		}
 		else
 		{
-		    printf "-rw-------  1 $owner %9d $mod $key\n", $size;
+		    printf "-rw-------  1 $owner %10.0f $mod $key\n", $size;
 		}
 	    }
 	    elsif ($d1)
@@ -884,11 +884,11 @@ if (!$cmd_data)
 	    }
 	    elsif ($simple)
 	    {
-		printf "%9d\t$mod\t$key\n", $size;
+		printf "%10.0f\t$mod\t$key\n", $size;
 	    }
 	    elsif ($exec)
 	    {
-		#local $_ = sprintf "%9d\t$mod\t$key\n", $size;
+		#local $_ = sprintf "%10.0f\t$mod\t$key\n", $size;
 		#local @_ = ($size, $mod, $key);
 		my($bucket, $prefix) = split(/\//, $argv[0], 2);
 		eval $exec;
