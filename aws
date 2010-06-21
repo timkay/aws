@@ -1614,6 +1614,7 @@ sub ec2
     if ($service eq "elb")
     {
 	$endpoint = "elasticloadbalancing.amazonaws.com";
+	$endpoint = "elasticloadbalancing.$region.amazonaws.com" if $region eq "ap-southeast-1";
     }
 
     $queue ||= "/";
