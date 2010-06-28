@@ -875,16 +875,16 @@ if (!$cmd_data)
 		}
 		else
 		{
-		    printf "-rw-------  1 $owner %10.0f $mod $key\n", $size;
+		    printf "-rw-------  1 $owner %10.0f $mod %s\n", $size, $key;
 		}
 	    }
 	    elsif ($d1)
 	    {
-		printf "$key\n";
+		print "$key\n";
 	    }
 	    elsif ($simple)
 	    {
-		printf "%10.0f\t$mod\t$key\n", $size;
+		printf "%10.0f\t$mod\t%s\n", $size, $key;
 	    }
 	    elsif ($exec)
 	    {
