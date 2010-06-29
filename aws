@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.53";
+$program_version = "1.54";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -1451,12 +1451,26 @@ sub s3
     my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
     my $expires = time + ($expire_time || 30) + $time_offset;
 
+    my($content_type, $content_md5);
+
+    for (@header)
+    {
+	if (/^(.*?):\s*(.*)$/)
+	{
+	    $content_type = $2 if lc $1 eq "content-type";
+	    $content_md5 = $2 if lc $1 eq "content-md5";
+	}
+    }
+
+    my $header_sign = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
+    my $header = join(" --header ", undef, map {cq($_)} @header);
+
     if ($isGETobj && !$fail && !$request)
     {
-	my $data = "HEAD\n\n\n$expires\n/$uname";
+	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 	my($sig, $awskey) = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	my $cmd = qq[curl $curl_options $insecureaws --head @{[cq($url)]}];
+	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
 
@@ -1478,19 +1492,7 @@ sub s3
 	}
     }
 
-    my($content_type, $content_md5);
-
-    for (@header)
-    {
-	if (/^(.*?):\s*(.*)$/)
-	{
-	    $content_type = $2 if lc $1 eq "content-type";
-	    $content_md5 = $2 if lc $1 eq "content-md5";
-	}
-    }
-
-    my $header = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
-    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header/$uname";
+    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 
     my($sig, $awskey) = sign($data);
 
@@ -1515,8 +1517,6 @@ sub s3
 	}
 	$content = "--create-dirs --output @{[cq($file)]}";
     }
-
-    my $header = join(" --header ", undef, map {cq($_)} @header);
 
 
     # exec() is used because we can, but it doesn't work under Windows:
