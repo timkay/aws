@@ -6,7 +6,7 @@ SQS
 SDB -- Just added!!
 ELB
 
-To run "aws", all you need is a single file! Download it http://github.com/timkay/aws/blob/master/aws, make it executable, create ~/.awssecrets, and you are done.
+To run "aws", all you need is a single file! Download http://github.com/timkay/aws/blob/master/aws, make it executable, create ~/.awssecrets, and you are done.
 
 For more documentation, see http://timkay.com/aws/
 
