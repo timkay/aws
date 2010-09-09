@@ -3,7 +3,7 @@
 EC2
 S3
 SQS
-SDB
+SDB -- Just added!!
 ELB
 
 For more documentation, see http://timkay.com/aws/
