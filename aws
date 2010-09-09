@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.58";
+$program_version = "1.59";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -361,6 +361,12 @@ $sdb_version = "2009-04-15";
 						       [xv => "Expected.N.Value"],
 						       [exists => "Expected.N.Exists"],
 						       ]],
+	["sdb", "select", Select, [
+				   ["" => DomainName],
+				   [e => SelectExpression],
+				   [c => ConsistentRead],
+				   [next => NextToken],
+				   ]],
 	);
 
 
@@ -1003,6 +1009,17 @@ if (!$cmd_data)
 	    print "$name\t$value\n";
 	}
     }
+    elsif ($result =~ /<SelectResponse/ && $d1)
+    {
+	while ($result =~ /<Item>(.*?)<\/Item>/sg)
+	{
+	    my($item, $attr) = $1 =~ /<Name>(.*?)<\/Name>(.*)/;
+	    while ($attr =~ /<Name>(.*?)<\/Name>\s*<Value>(.*?)<\/Value>/sg)
+	    {
+		print "$item\t$1\t$2\n";
+	    }
+	}
+    }
     elsif ($result =~ /<ReceiveMessageResult/)
     {
 	if ($exec)
@@ -1260,7 +1277,7 @@ sub xml2tab
 			   |ReceiveMessageResult-Message
 			   |LoadBalancerDescriptions-member
 			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
-			   |GetAttributesResult-Attribute
+			   |GetAttributesResult-Attribute|SelectResult-Item
 			   )$/x
 	    || $i == @xml)
 	{
