@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.59";
+$program_version = "1.60";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -201,6 +201,8 @@ $sdb_version = "2009-04-15";
 								 ["d", UserData, undef, sub {encode_base64($_[0], "")}],
 								 ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
 								 ]],
+        ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
+        ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
 
 	["elb", "create-lb clb", CreateLoadBalancer, [
