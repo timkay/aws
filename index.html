@@ -7,7 +7,7 @@
 </style>
 </head>
 <body>
-<h2 style="background-color: #082466; color: #fff">&nbsp;aws - simple access to Amazon EC2 and S3</h2>
+<h2 style="background-color: #082466; color: #fff">&nbsp;aws - simple access to Amazon EC2 and S3 and SQS and SDB and ELB</h2>
 <p>
 <img align=absmiddle src="http://s3.timkay.com/timeyes.gif"> &nbsp; <a href=../>timkay.com</a> &#187; <a href=../tools/>tools</a> &#187; aws
 <p>
@@ -25,9 +25,21 @@ This document describes the basic features.  For additional examples, see the <a
 <table width=80% align=center bgcolor=black cellspacing=2 cellpadding=4><tr bgcolor=white><td>
 <ul>
 <li>
+SDB support - zikes! it was easy to add
+<p>
+"aws" now supports Amazon SDB. See <a href=https://docs.google.com/Doc?id=ah9n72fdwz78_192g79h46ft>the documenation</a>.
+<p>
+</li>
+<li>
+ELB support
+<p>
+"aws" now supports Amazon ELB. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_100d99gqkfc>the documenation</a>.
+<p>
+</li>
+<li>
 SQS support
 <p>
-"aws" now supports Amazon SQS, but there is as yet no documentation.  If you are interested in testing, please let me know.  <a href="mailto:timkay@not.com">timkay@not.com</a>.
+"aws" now supports Amazon SQS. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_68f8dxdkcg>the documentation</a>.
 <p>
 </li>
 <li>
@@ -70,8 +82,8 @@ aws has only one dependency (curl), in addition to perl, which is often pre-inst
 To use aws, follow these steps:
 <ol>
 <li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)
-<li>Download <a href=http://github.com/timkay/aws>aws</a> to your computer <blockquote><tt>curl
-timkay.com/aws/aws -o aws</tt></blockquote></li>
+<li>Download <a href=http://github.com/timkay/aws/raw/master/aws>aws</a> to your computer <blockquote><tt>curl
+github.com/timkay/aws/raw/master/aws -o aws</tt></blockquote></li>
 <li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.  Just make sure to set "aws" to be executable:  "<code>chmod +x aws</code>".
 <p>
 Perform the optional install it with
@@ -131,7 +143,7 @@ C:\Windows directory, or some other place that is in the path.  Test
 by opening a cmd window, then do "cd \" and "curl".  It should find
 curl.</li>
 <li>Download ActivePerl from <a href=http://www.activestate.com/store/download.aspx?prdGUID=81fbce82-6bd5-49bc-a915-08d58c2648ca>ActiveState</a>.</li>
-<li>Download the latest <a href=http://github.com/timkay/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
+<li>Download the latest <a href=http://github.com/timkay/aws/raw/master/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
 <li>Put your AWS credentials in C:\Documents and Settings\&lt;YOUR
 NAME&gt;\.awssecret (see the example file in the above Download section).</li>
 <li>Try <tt>aws.pl --insecure-aws ls</tt> -- you should get a list of

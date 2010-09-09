@@ -18,10 +18,11 @@
 #
 
 
-$program_version = "1.55";
+$program_version = "1.56";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
+$sdb_version = "2009-04-15";
 
 
 #
@@ -324,6 +325,42 @@ $elb_version = "2009-05-15";
 								 [attribute => "Attribute.Name"],
 								 [value => "Attribute.Value"],
 								 ]],
+
+	["sdb", "create-domain cdom", CreateDomain, [
+						     ["" => DomainName],
+						     ]],
+	["sdb", "delete-attributes datt", DeleteAttributes, [
+							     ["" => DomainName],
+							     [i => ItemName],
+							     [n => "Attribute.N.Name"],
+							     [v => "Attribute.N.Value"],
+							     [xn => "Expected.N.Name"],
+							     [xv => "Expected.N.Value"],
+							     [exists => "Expected.N.Exists"],
+							     ]],
+	["sdb", "delete-domain ddom", DeleteDomain, [
+						     ["" => DomainName],
+						     ]],
+	["sdb", "get-attributes gatt", GetAttributes, [
+						       ["" => DomainName],
+						       [i => ItemName],
+						       [n => AttributeName],
+						       [c => ConsistentRead],
+						       ]],
+	["sdb", "list-domains ldom", ListDomains, [
+						   [max => MaxNumberOfDomains],
+						   [next => NextToken],
+						   ]],
+	["sdb", "put-attributes patt", PutAttributes, [
+						       ["" => DomainName],
+						       [i => ItemName],
+						       [n => "Attribute.N.Name"],
+						       [v => "Attribute.N.Value"],
+						       [replace => "Attribute.N.Replace"],
+						       [xn => "Expected.N.Name"],
+						       [xv => "Expected.N.Value"],
+						       [exists => "Expected.N.Exists"],
+						       ]],
 	);
 
 
@@ -333,7 +370,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
 
 
 # parse meta-parameters, leaving parameters in @argv
@@ -448,7 +485,7 @@ $s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
 $ec2host ||= $ENV{EC2_URL} || "ec2.amazonaws.com";
 
 
-print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version)\n" if $v;
+print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -722,7 +759,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb")
+    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -942,6 +979,29 @@ if (!$cmd_data)
     elsif ($result =~ /<ListQueuesResult/)
     {
 	print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+    }
+    elsif ($result =~ /<ListDomainsResponse/)
+    {
+	my $ary = xml2ary(ListDomainsResult, $result);
+	if ($d1)
+	{
+	    for (@$ary)
+	    {
+		print $_->[1], "\n";
+	    }
+	}
+	else
+	{
+	    print ary2tab([@$ary]);
+	}
+    }
+    elsif ($result =~ /<GetAttributesResponse/ && $d1)
+    {
+	while ($result =~ /<Attribute>(.*?)<\/Attribute>/sg)
+	{
+	    my($name, $value) = $1 =~ /<Name>(.*?)<\/Name>\s*<Value>(.*?)<\/Value>/s;
+	    print "$name\t$value\n";
+	}
     }
     elsif ($result =~ /<ReceiveMessageResult/)
     {
@@ -1200,6 +1260,7 @@ sub xml2tab
 			   |ReceiveMessageResult-Message
 			   |LoadBalancerDescriptions-member
 			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
+			   |GetAttributesResult-Attribute
 			   )$/x
 	    || $i == @xml)
 	{
@@ -1596,6 +1657,7 @@ sub ec2
     $version .= $ec2_version if $service eq "ec2";
     $version .= $sqs_version if $service eq "sqs";
     $version .= $elb_version if $service eq "elb";
+    $version .= $sdb_version if $service eq "sdb";
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -1615,6 +1677,11 @@ sub ec2
     {
 	$endpoint = "elasticloadbalancing.amazonaws.com";
 	$endpoint = "elasticloadbalancing.$region.amazonaws.com" if $region eq "ap-southeast-1";
+    }
+
+    if ($service eq "sdb")
+    {
+	$endpoint = "sdb.amazonaws.com";
     }
 
     $queue ||= "/";
