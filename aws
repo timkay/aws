@@ -362,8 +362,7 @@ $sdb_version = "2009-04-15";
 						       [exists => "Expected.N.Exists"],
 						       ]],
 	["sdb", "select", Select, [
-				   ["" => DomainName],
-				   [e => SelectExpression],
+				   ["" => SelectExpression],
 				   [c => ConsistentRead],
 				   [next => NextToken],
 				   ]],
