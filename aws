@@ -67,6 +67,12 @@ $sdb_version = "2009-04-15";
 								  ["o", SourceSecurityGroupName],
 								  ["s", CidrIp],
 								  ]],
+	["ec2", "create-image cimg", CreateImage, [
+                                                   ["", InstanceId],
+                                                   ["n", Name],
+                                                   ["d", Description, ""],
+                                                   ["no-reboot", NoReboot, false],
+                                                   ]],
 	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
 									   ["", SpotInstanceRequestIdN],
 									   ]],								  
@@ -1265,7 +1271,7 @@ sub xml2tab
 
 	if ($tag[$i] =~ /^(?:LocationConstraint|Grant
 			   |AttachVolumeResponse|Bucket|Contents|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
-			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateSnapshotResponse|CreateVolumeResponse
+			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateImageResponse|CreateSnapshotResponse|CreateVolumeResponse
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
 			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
