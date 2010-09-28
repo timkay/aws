@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.60";
+$program_version = "1.61";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -495,7 +495,6 @@ END {close STDOUT}
 
 
 $s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
-$ec2host ||= $ENV{EC2_URL} || "ec2.amazonaws.com";
 
 
 print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version)\n" if $v;
@@ -1685,27 +1684,32 @@ sub ec2
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
+    $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
+
     if ($service eq "ec2")
     {
-	$endpoint = {eu => "eu-west-1", us => "us-east-1"}->{lc $region} || $region;
-	$endpoint .= "." if $endpoint;
-	$endpoint .= $ec2host;
+	$endpoint = "ec2.amazonaws.com";
+	$endpoint = "ec2.$region.amazonaws.com" if $region;
     }
 
     if ($service eq "sqs")
     {
 	$endpoint = "queue.amazonaws.com";
+	# regions don't seem to work for SQS
+	#$endpoint = "queue.$region.amazonaws.com" if $region;
     }
 
     if ($service eq "elb")
     {
 	$endpoint = "elasticloadbalancing.amazonaws.com";
-	$endpoint = "elasticloadbalancing.$region.amazonaws.com" if $region eq "ap-southeast-1";
+	$endpoint = "elasticloadbalancing.$region.amazonaws.com";
     }
 
     if ($service eq "sdb")
     {
 	$endpoint = "sdb.amazonaws.com";
+	# go figure: us-east-1 isn't name served
+	$endpoint = "sdb.$region.amazonaws.com" if $region && $region ne "us-east-1";
     }
 
     $queue ||= "/";
