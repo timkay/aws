@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.61";
+$program_version = "1.62";
 $ec2_version = "2009-11-30";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -1695,8 +1695,7 @@ sub ec2
     if ($service eq "sqs")
     {
 	$endpoint = "queue.amazonaws.com";
-	# regions don't seem to work for SQS
-	#$endpoint = "queue.$region.amazonaws.com" if $region;
+	$endpoint = "sqs.$region.amazonaws.com" if $region;
     }
 
     if ($service eq "elb")
