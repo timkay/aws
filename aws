@@ -18,8 +18,8 @@
 #
 
 
-$program_version = "1.62";
-$ec2_version = "2009-11-30";
+$program_version = "1.63";
+$ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
 $sdb_version = "2009-04-15";
@@ -56,16 +56,17 @@ $sdb_version = "2009-04-15";
 						       ["d", Device],
 						       ]],
 	["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
-								  ["", GroupName],
-								  ["P", IpProtocol],
-								  ["p", FromPort],
-								  ["f", FromPort],
-								  ["p", "ToPort"],
-								  ["t", "ToPort"],
+								  ["" => GroupName],
+								  ["protocol P" => "IpPermissions.1.IpProtocol"],
+								  [p => undef, undef, sub {
+								      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+								      ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
+								  }],
+								  [q => "IpPermissions.1.ToPort"],
 								  #["t", icmp type code],
-								  ["u", SourceSecurityGroupOwnerId],
-								  ["o", SourceSecurityGroupName],
-								  ["s", CidrIp],
+								  ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
+								  ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+								  ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
 								  ]],
 	["ec2", "create-image cimg", CreateImage, [
                                                    ["", InstanceId],
@@ -162,50 +163,83 @@ $sdb_version = "2009-04-15";
 											  ]],
 	["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
 	["ec2", "release-address rad", ReleaseAddress, [["", PublicIp]]],
-	["ec2", "register-image register", RegisterImage, [["", ImageLocation]]],
+	["ec2", "register-image register", RegisterImage, [["", ImageLocation],
+							   ["name n" => Name],
+							   ["description d" => Description],
+							   ["architecture a" => Architecture],
+							   [kernel => KernelId],
+							   [ramdisk => RamdiskId],
+							   ["root-device-name" => RootDeviceName],
+							   ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+							   ["device-name" => "BlockDeviceMapping.N.DeviceName"],
+							   ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
+							   ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
+							   [snapshot => "BlockDeviceMapping.N.Ebs.SnapshotId"],
+							   ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
+							   ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+							   ]],
 	["ec2", "request-spot-instances req-spot rsi", RequestSpotInstances, [
-								 ["", "LaunchSpecification.ImageId", "ami-5647a33f"],
-								 ["p", SpotPrice],
-								 ["t", Type, "one-time"],
-								 ["i", "LaunchSpecification.InstanceType", "m1.small"],
-								 ["a", "LaunchSpecification.AddressingType", "public"],
-								 ["n", InstanceCount, 1],
-								 ["g", "LaunchSpecification.SecurityGroupN", "default"],
-								 ["k", "LaunchSpecification.KeyName", "default"],
-								 ["z", "LaunchSpecification.Placement.AvailabilityZone"],
-								 ["kernel", "LaunchSpecification.KernelId"],
-								 ["ramdisk", "LaunchSpecification.RamdiskId"],
-								 ["d", "LaunchSpecification.UserData", undef, sub {encode_base64($_[0], "")}],
-								 ["f", "LaunchSpecification.UserData", undef, sub {encode_base64(load_file($_[0]))}],
+									      ["" => "LaunchSpecification.ImageId", "ami-4a0df923"],
+									      ["price p" => SpotPrice],
+									      ["instance-count n" => InstanceCount, 1],
+									      ["type r" => Type, "one-time"],
+									      ["valid-from-date" => ValidFrom],
+									      ["valid-until-date" => ValidUntil],
+									      ["launch-group" => LaunchGroup],
+									      ["availability-zone-group" => AvailabilityZoneGroup],
+									      ["user-data d" => "LaunchSpecification.UserData", undef,
+									       sub {encode_base64($_[0], "")}],
+									      ["user-data-file f" => "LaunchSpecification.UserData", undef,
+									       sub {encode_base64(load_file($_[0]))}],
+									      ["group g" => "LaunchSpecification.SecurityGroupN", "default"],
+									      ["a", "LaunchSpecification.AddressingType"],
+									      ["key k" => "LaunchSpecification.KeyName", "default"],
+									      ["instance-type t" => "LaunchSpecification.InstanceType", "t1.micro"],
+									      ["availability-zone z" => "LaunchSpecification.Placement.AvailabilityZone"],
+									      [kernel => "LaunchSpecification.KernelId"],
+									      [ramdisk => "LaunchSpecification.RamdiskId"],
+									      [subnet => "LaunchSpecification.SubnetId"],
+									      ["block-device-mapping b" => "LaunchSpecification.blockDeviceMapping.n.DeviceName"],
+									      [monitor => "LaunchSpecification.Monitoring.Enabled"],
 								 ]],
 	["ec2", "revoke", RevokeSecurityGroupIngress, [
-						       ["", GroupName],
-						       ["P", IpProtocol],
-						       ["p", FromPort],
-						       ["f", FromPort],
-						       ["p", "ToPort"],
-						       ["t", "ToPort"],
+						       ["" => GroupName],
+						       ["protocol P" => "IpPermissions.1.IpProtocol"],
+						       ["p" => undef, undef, sub
+							{
+							    my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+							    ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
+							}],
+						       ["q", "ToPort"],
 						       #["t", icmp type code],
-						       ["u", SourceSecurityGroupOwnerId],
-						       ["o", SourceSecurityGroupName],
-						       ["s", CidrIp],
+						       ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
+						       ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+						       ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
 						       ]],
 	["ec2", "run-instances run-instance run", RunInstances, [
 								 ["", ImageId, "ami-5647a33f"],
+								 ["instance-count n", undef, 1, sub
+								  {
+								      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+								      [MinCount => $min, MaxCount => $max];
+								  }],
+								 ["group g", SecurityGroupN, "default"],
+								 ["key k", KeyName, "default"],
+								 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
+								 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
 								 ["i", InstanceType, "m1.small"],
-								 ["type", InstanceType],
-								 ["t", InstanceType],
-								 ["a", AddressingType, "public"],
-								 ["n", MinCount, 1],
-								 ["n", MaxCount, 1],
-								 ["g", SecurityGroupN, "default"],
-								 ["k", KeyName, "default"],
-								 ["z", "Placement.AvailabilityZone"],
-								 ["availability-zone", "Placement.AvailabilityZone"],
+								 ["a", AddressingType],
+								 ["instance-type type t", InstanceType],
+								 ["availability-zone z", "Placement.AvailabilityZone"],
 								 ["kernel", KernelId],
 								 ["ramdisk", RamdiskId],
-								 ["d", UserData, undef, sub {encode_base64($_[0], "")}],
-								 ["f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
+								 ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+								 ["device-name" => "BlockDeviceMapping.N.DeviceName"],
+								 ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
+								 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
+								 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
+								 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
+								 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
 								 ]],
         ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
         ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
@@ -260,7 +294,7 @@ $sdb_version = "2009-04-15";
 											      ]],
 	["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
 											  ["", LoadBalancerName],
-											  ["policy-name", PolicyNames.memberN],
+											  ["policy-name", "PolicyNames.memberN"],
 											  ]],
 	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
 								    ["", LoadBalancerName],
@@ -389,6 +423,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 # parse meta-parameters, leaving parameters in @argv
 
 {
+    my(%keyword);
+
     # The %need_arg items must have a value.  If they aren't of the form
     # --foo=bar, then slurp up the next item as the value.  Thus, for example,
     #  --region=eu  and  --region eu  both work, with or without the =.
@@ -451,22 +487,19 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 
 		# make a hash of aws keywords (%keyword), which are not treated as meta-parameters
 
-	      CMDLAST:
 		for (@cmd)
 		{
-		    for my $c (split(" ", $_->[1]))
+		    next unless grep /^$cmd$/, split(" ", $_->[1]);
+		    $cmd_data = $_;
+		    for (@{$cmd_data->[3]})
 		    {
-			if ($cmd eq $c)
+			for (split(" ", $_->[0]))
 			{
-			    $cmd_data = $_;
-			    for (@{$cmd_data->[3]})
-			    {
-				(my $key = $_->[0]) =~ s/-/_/g;
-				$keyword{$key} = undef;
-			    }
-			    last CMDLAST;
+			    (my $key = $_) =~ s/-/_/g;
+			    $keyword{$key} = undef;
 			}
 		    }
+		    last;
 		}
 	    }
 	}
@@ -751,16 +784,24 @@ if (!$cmd_data)
 	my $help = "Usage: aws $cmd";
 	for (@$param)
 	{
-	    my($a, $key, $default) = @$_;
+	    my($aa, $key, $default) = @$_;
 
-	    my $x = "-$a " if $a;
-	    $x = "--$a " if length($a) > 1;
+	    for my $a (split(" ", $aa))
+	    {
+		my $x = "-$a " if $a;
+		$x = "--$a " if length($a) > 1;
 
-	    my($name, $N) = $key =~ /^(.*?)(N?)$/;
-	    my $ddd = "..." if $N eq "N";
-	    my $def = " ($default)" if $default;
+		my($name, $N) = $key =~ /^(.*?)(N?)$/;
+		my $ddd = "..." if $N eq "N";
+		if ($key =~ /\.N\./)
+		{
+		    ($name) = $key =~ /.*\.(.*)$/;
+		    $ddd = "...";
+		}
+		my $def = " ($default)" if $default;
 
-	    $help .= " [$x$name$ddd$def]";
+		$help .= " [$x$name$ddd$def]";
+	    }
 	}
 	$help .= " BUCKET[/OBJECT] [SOURCE]" if $service eq "s3";
 	$help .= "\n";
@@ -775,7 +816,7 @@ if (!$cmd_data)
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
-	my(%key);
+	my(%count);
 
 	my @list = (Action => $action);
 
@@ -795,24 +836,55 @@ if (!$cmd_data)
 	    for (@$param)
 	    {
 		my($a, $key, $default, $cref) = @$_;
-		next if $b ne $a;
-		my $count = ++$key{$key};
-		$key =~ s/N$/\.$count/;
-		$key =~ s/\.N\./\.$count\./;
+		next unless $a eq $b || grep /^$b$/, split(" ", $a);
 		my $data = $argv[$i];
-		$data = $cref->($data) if $cref;
-		push @list, $key => $data;
+		my $count = ++$count{$a};
+		if ($key)
+		{
+		    $key =~ s/N$/\.$count/;
+		    $key =~ s/\.N\./\.$count\./;
+		    $data = $cref->($data) if $cref;
+		    push @list, $key => $data;
+		}
+		else
+		{
+		    $data = $cref->($data);
+		    for (my $i = 0; $i < @$data; $i += 2)
+		    {
+			my $key = $data->[$i];
+			$key =~ s/N$/\.$count/;
+			$key =~ s/\.N\./\.$count\./;
+			push @list, $key => $data->[$i + 1];
+		    }
+		}
+		last;
 	    }
 	}
 
 	for (@$param)
 	{
-	    my($a, $key, $default) = @$_;
-	    if ($default && $key{$key} == 0)
+	    my($a, $key, $default, $cref) = @$_;
+	    if ($default && $count{$a} == 0)
 	    {
-		my $count = ++$key{$key};
-		$key =~ s/N$/\.$count/;
-		push @list, $key => $default;
+		my $count = ++$count{$a};
+		if ($key)
+		{
+		    $key =~ s/N$/\.$count/;
+		    $key =~ s/\.N\./\.$count\./;
+		    $default = $cref->($data) if $cref;
+		    push @list, $key => $default;
+		}
+		else
+		{
+		    my $data = $cref->($default);
+		    for (my $i = 0; $i < @$data; $i += 2)
+		    {
+			my $key = $data->[$i];
+			$key =~ s/N$/\.$count/;
+			$key =~ s/\.N\./\.$count\./;
+			push @list, $key => $data->[$i + 1];
+		    }
+		}
 	    }
 	}
 
@@ -1684,6 +1756,7 @@ sub ec2
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
+    # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
 
     if ($service eq "ec2")
@@ -1701,7 +1774,7 @@ sub ec2
     if ($service eq "elb")
     {
 	$endpoint = "elasticloadbalancing.amazonaws.com";
-	$endpoint = "elasticloadbalancing.$region.amazonaws.com";
+	$endpoint = "elasticloadbalancing.$region.amazonaws.com" if $region;
     }
 
     if ($service eq "sdb")
@@ -1859,6 +1932,31 @@ sub sign
     }
 
     (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+}
+
+
+sub parse_block_device_mapping
+{
+    my($dev, $vol, $size, $delete) = $_[0] =~ /^(.*?)(?:=(.*?)(?::(.*?)(?::(.*?))?)?)?$/;
+    #print "dev=$dev\nvol=$vol\nsize=$size\ndelete=$delete\n"; exit;
+    my(@result);
+
+    push @result, "BlockDeviceMapping.N.DeviceName" => $dev;
+    if ($vol eq "none")
+    {
+	push @result, "BlockDeviceMapping.N.NoDevice" => "true";
+    }
+    elsif ($vol =~ /^ephemeral/)
+    {
+	push @result, "BlockDeviceMapping.N.VirtualName" => $vol;
+    }
+    else
+    {
+	push @result, "BlockDeviceMapping.N.Ebs.SnapshotId" => $vol if $vol;
+	push @result, "BlockDeviceMapping.N.Ebs.VolumeSize" => $size if $size;
+	push @result, "BlockDeviceMapping.N.Ebs.DeleteOnTermination" => $delete if $delete;
+    }
+    [@result];
 }
 
 
