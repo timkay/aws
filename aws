@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.63";
+$program_version = "1.64";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -169,7 +169,7 @@ $sdb_version = "2009-04-15";
 							   ["architecture a" => Architecture],
 							   [kernel => KernelId],
 							   [ramdisk => RamdiskId],
-							   ["root-device-name" => RootDeviceName],
+							   ["root-device-name" => RootDeviceName, "/dev/sda1"],
 							   ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
 							   ["device-name" => "BlockDeviceMapping.N.DeviceName"],
 							   ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
