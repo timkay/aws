@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.64";
+$program_version = "1.65";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -431,6 +431,12 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%need_arg, $key_for_arg);
     @needs_arg{qw(region)} = undef;
 
+    my(%meta);
+    @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
+	     insecure insecure_signing insecure_aws insecureaws install l link
+	     marker md5 prefix private public queue r request requester retry
+	     s3host secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
+
     for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
     {
 	if ($key_for_arg)
@@ -440,8 +446,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 	}
 	elsif (/^--([\w\-]+?)(?:=(.*))?$/s)
 	{
-	    my($key, $val) = ($1, $2);
-	    $key =~ s/-/_/g;
+	    my($key0, $val) = ($1, $2);
+	    (my $key = $key0) =~ s/-/_/g;
 	    if (exists $needs_arg{$key} && !defined $val)
 	    {
 		$key_for_arg = $key;
@@ -452,6 +458,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 	    }
 	    else
 	    {
+		die "--$key0: mispelled meta parameter?\n" unless exists $meta{$key0};
 		$ {$key} = defined $val? $val: 1;
 		# --cmd0 is used to call self but without getting the command from $0
 		undef $cmd if $key eq "cmd0" && $val;
@@ -467,6 +474,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 	    {
 		for (split(//, $1))
 		{
+		    die "-$_: mispelled meta parameter?\n" unless exists $meta{$_};
 		    s/^(\d)$/d$1/;
 		    $ {$_}++;
 		}
@@ -1938,7 +1946,7 @@ sub sign
 sub parse_block_device_mapping
 {
     my($dev, $vol, $size, $delete) = $_[0] =~ /^(.*?)(?:=(.*?)(?::(.*?)(?::(.*?))?)?)?$/;
-    #print "dev=$dev\nvol=$vol\nsize=$size\ndelete=$delete\n"; exit;
+    #print "dev=$dev\nvol=$vol\nsize=$size\ndelete=$delete\n";
     my(@result);
 
     push @result, "BlockDeviceMapping.N.DeviceName" => $dev;
