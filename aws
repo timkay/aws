@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.65";
+$program_version = "1.67";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -458,7 +458,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 	    }
 	    else
 	    {
-		die "--$key0: mispelled meta parameter?\n" unless exists $meta{$key0};
+		die "--$key0: mispelled meta parameter?\n" unless exists $meta{$key};
 		$ {$key} = defined $val? $val: 1;
 		# --cmd0 is used to call self but without getting the command from $0
 		undef $cmd if $key eq "cmd0" && $val;
