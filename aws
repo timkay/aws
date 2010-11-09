@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.67";
+$program_version = "1.68";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -1593,7 +1593,7 @@ sub s3
 	$verb = GET;
     }
 
-    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent|requestPayment))?$/s;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent|requestPayment|versioning|versions))?$/s;
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($v >= 2)
