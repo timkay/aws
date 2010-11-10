@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.68";
+$program_version = "1.69";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -433,8 +433,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 
     my(%meta);
     @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
-	     insecure insecure_signing insecure_aws insecureaws install l link
-	     marker md5 prefix private public queue r request requester retry
+	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
+	     max_time marker md5 prefix private progress public queue r request requester retry
 	     s3host secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
 
     for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
