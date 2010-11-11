@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.69";
+$program_version = "1.70";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -550,6 +550,7 @@ $retry ||= 3;
 
 $secrets_file ||= "$home/.awssecret" || "$home/.s3cfg";
 
+
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
 {
@@ -633,6 +634,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
     }
 }
 
+
 $curl_options .= " -q -g -S";
 $curl_options .= " --retry $retry" if $retry;
 $curl_options .= " --fail" if $fail;
@@ -651,28 +653,23 @@ use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5 md5_hex);
 
 
-if (exists $ENV{QUERY_STRING} || $sign)
+($awskey, $secret, $signurl) = load_secrets($secrets_file);
+
+
+if ($sign)
 {
-    sysread STDIN, my $data, $ENV{CONTENT_LENGTH} if $ENV{CONTENT_LENGTH};
+    sysread STDIN, my $data, $ENV{CONTENT_LENGTH};
     $data ||= $sign;
 
     if ($v >= 2)
     {
 	(my $pretty = $data) =~ s/\n/\\n/sg;
-	print STDERR "data = $pretty\n";
+	print STDERR "remote sign($pretty)\n";
     }
 
     my($sig, $awskey) = sign($data);
-
-    $data = "$sig\n$awskey\n";
-
-    if (exists $ENV{QUERY_STRING})
-    {
-	print "Content-Length: @{[length($data)]}\nContent-Type: text/plain\n\n";
-    }
-
-    print $data;
-
+    my $data = "$sig\n$awskey\n";
+    print "Content-Length: @{[length($data)]}\nContent-Type: text/plain\n\n", $data;
     exit;
 }
 
@@ -1890,59 +1887,6 @@ sub get_home_directory
 }
 
 
-sub sign
-{
-    my($data) = @_;
-
-    my($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
-
-    unless ($awskey || $secret || $signurl)
-    {
-	($awskey, $secret) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY)};
-    }
-
-    unless ($awskey || $secret || $signurl)
-    {
-	if ($secrets_file =~ /s3cfg$/)
-	{
-	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
-	    # 	(can be tested with --secrets-file=s3cfg)
-	    # Poor man's ini parser
-	    my $s3cfg = load_file($secrets_file);
-	    ($awskey, $secret) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
-	}
-	else
-	{
-	    ($awskey, $secret, $signurl) = split(' ', load_file($secrets_file));
-	}
-    }
-
-    die if $signurl =~ /\'/;
-
-    $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
-
-    if ($v)
-    {
-	(my $pretty = $data) =~ s/\n/\\n/sg;
-	print STDERR "data = $pretty\n";
-    }
-
-    if (!exists $ENV{QUERY_STRING} && $signurl)
-    {
-	(my $pretty = $data) =~ s/\n/\\n/sg;
-	(my $url = $signurl) =~ s/\/\/.*?\@/\/\/\*\*\*\*\*\*\:\*\*\*\*\*\*\@/;
-	print STDERR "signing [$pretty] via $url\n" if $v;
-	my $s = qx[curl $curl_options $insecsign --data @{[cq($data)]} @{[cq($signurl)]}];
-	#S9pr7y07SGtgt7OKjMxMYBy+LCk=
-	#1B5JPHYQCXW13GWKHAG2
-	die "bad signature [$s] from remote signing service (perhaps the password is bad?)\n$s\n" unless $s =~ /^[A-Z0-9\+\/\=\n]+$/i;
-	return (split(/\n/, $s));
-    }
-
-    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
-}
-
-
 sub parse_block_device_mapping
 {
     my($dev, $vol, $size, $delete) = $_[0] =~ /^(.*?)(?:=(.*?)(?::(.*?)(?::(.*?))?)?)?$/;
@@ -1968,6 +1912,65 @@ sub parse_block_device_mapping
 }
 
 
+sub load_secrets
+{
+    my($fn) = @_;
+
+    my($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
+    ($awskey, $secret) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY)} unless $awskey || $secret || $signurl;
+
+    unless ($awskey || $secret || $signurl)
+    {
+	if ($fn =~ /s3cfg$/)
+	{
+	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	    # 	(can be tested with --secrets-file=s3cfg)
+	    # Poor man's ini parser
+	    my $s3cfg = load_file($fn);
+	    ($awskey, $secret) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+	}
+	else
+	{
+	    ($awskey, $secret, $signurl) = split(' ', load_file($fn));
+	}
+    }
+
+    die if $signurl =~ /\'/;
+
+    ($awskey, $secret, $signurl);
+}
+
+
+sub sign
+{
+    my($data) = @_;
+
+    if (!$secret && !$awskey && $signurl)
+    {
+	if ($v)
+	{
+	    (my $pretty = $data) =~ s/\n/\\n/sg;
+	    (my $url = $signurl) =~ s/\/\/.*?\@/\/\/\*\*\*\*\*\*\:\*\*\*\*\*\*\@/;
+	    print STDERR "signing [$pretty] via $url\n";
+	}
+	my $s = qx[curl $curl_options $insecsign --data @{[cq($data)]} @{[cq($signurl)]}];
+	#S9pr7y07SGtgt7OKjMxMYBy+LCk=
+	#1B5JPHYQCXW13GWKHAG2
+	die "bad signature [$s] from remote signing service (perhaps the password is bad?)\n$s\n" unless $s =~ /^[A-Z0-9\+\/\=\n]+$/i;
+	return (split(/\n/, $s));
+    }
+
+    if ($v)
+    {
+	(my $pretty = $data) =~ s/\n/\\n/sg;
+	print STDERR "data = $pretty\n";
+    }
+
+    $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
+    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+}
+
+
 sub cq
 {
     # quote for sending to curl via shell
@@ -1975,15 +1978,6 @@ sub cq
     return "\"$s\"" if !$isUnix;
     $s =~ s/\'/\'\\\'\'/g;
     "'$s'";
-}
-
-sub curlq
-{
-    # quote for sending URL to curl via shell
-    my($s) = @_;
-    return "\"$s\"" if !$isUnix;
-    $s =~ s/[\'\ \+\#]/%@{[unpack(H2, $1)]}/g;
-    $s
 }
 
 
