@@ -1931,7 +1931,9 @@ sub load_secrets
 	}
 	else
 	{
-	    ($awskey, $secret, $signurl) = split(' ', load_file($fn));
+            # secrets file must contain several characters on a line, or that line is considered empty
+            # Did this because it used to be _ placeholder, but we want empty now
+            ($awskey, $secret, $signurl) = map {/^(....+)$/; $1} split(/\s*\r?\n/, load_file($fn));
 	}
     }
 
