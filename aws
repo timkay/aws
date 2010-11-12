@@ -1808,8 +1808,6 @@ sub ec2
 	push @v, "expire_time";
 
 	return <<EOF;
-package aws;
-use aws;
 
 sub $code
 {
@@ -1823,8 +1821,6 @@ sub $code
     \$url = "$url\$sig&\$uri";
     \$url;
 }
-
-1;
 EOF
     }
 
