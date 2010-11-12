@@ -25,20 +25,6 @@ $elb_version = "2009-05-15";
 $sdb_version = "2009-04-15";
 
 
-#
-# Need to implement:
-#
-#   ConfirmProductInstance - not tested
-#   DescribeImageAttribute - not working "An internal error has occurred"
-#   ModifyImageAttribute
-#   ResetImageAttribute
-#
-# Windows support:
-#   BundleInstance
-#   DescribeBundleTasks
-#   CancelBundleTasks
-#
-
 @cmd = (
 	["ec2", "add-group addgrp", CreateSecurityGroup, [
 							  ["", GroupName],
@@ -432,7 +418,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
+    @meta{qw(1 code curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
@@ -548,8 +534,11 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry ||= 3;
 
-$secrets_file ||= "$home/.awssecret" || "$home/.s3cfg";
-
+unless ($secrets_file)
+{
+    $secrets_file = "$home/.awssecret";
+    $secrets_file = "$home/.s3cfg" if !-e $secrets_file && -e "$home/.s3cfg";
+}
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
@@ -569,9 +558,9 @@ if (!-e "$home/.awsrc" || $sanity_check)
 {
     if (!$silent)
     {
-	if (!-e $secrets_file)
+	if (!-s $secrets_file)
 	{
-	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
+	    warn "sanity-check: \"$secrets_file\": file is missing or empty.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
 	}
 	elsif (!-r $secrets_file)
 	{
@@ -648,12 +637,8 @@ $curl_options .= " --limit-rate $limit_rate" if $limit_rate;
 #use Digest::SHA::PurePerl qw(sha1);
 #use MIME::Base64; -- added encode_base64() below
 
-use IO::File;
 use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5 md5_hex);
-
-
-($awskey, $secret, $signurl) = load_secrets($secrets_file);
 
 
 if ($sign)
@@ -1630,7 +1615,7 @@ sub s3
     {
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 	my($sig, $awskey) = sign($data);
-	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=$awskey&Expires=$expires&Signature=$sig";
 	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -1657,7 +1642,7 @@ sub s3
 
     my($sig, $awskey) = sign($data);
 
-    my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+    my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=$awskey&Expires=$expires&Signature=$sig";
     $url .= "&marker=$marker" if $marker;
     $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
     $url .= "&delimiter=$delimiter" if $delimiter;
@@ -1750,8 +1735,8 @@ sub ec2
 
     $expire_time ||= 30;	# force it to use Expires rather than Timestamp, so it expires more quickly
 
-    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset + $expire_time);
-    my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+    my $zulu = zulu(time + $time_offset + $expire_time);
+    $zulu = "[expire_time]" if $code;
 
     my($version, $endpoint);
     $version .= $ec2_version if $service eq "ec2";
@@ -1791,6 +1776,7 @@ sub ec2
 
     $queue ||= "/";
 
+    my $url = "$scheme://$endpoint$queue?Signature=";
     my($uri);
 
     for (sort keys %data)
@@ -1804,11 +1790,47 @@ sub ec2
 	$uri .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my $url = "$scheme://$endpoint$queue?Signature=";
     my $data = "GET\n$endpoint\n$queue\n$uri";
+
+    if ($code)
+    {
+	my(@v, %v);
+	for ($uri, $data)
+	{
+	    while (/%5b(\w+)%5d/isg)
+	    {
+		my($key) = ($1);
+		next if $key eq "expire_time";
+		push @v, $key if exists $v{$key};
+		$v{$key} = undef;
+	    }
+	}
+	push @v, "expire_time";
+
+	return <<EOF;
+package aws;
+use aws;
+
+sub $code
+{
+    my(%v); \@v{qw(@v)} = \@_;
+    \$v{expire_time} = encode_url(zulu(\$v{expire_time} || time + 300));
+    my \$uri = q[$uri];
+    my \$data = q[$data];
+    s/%5b(\\w+)%5d/\$v{\$1}/isg for \$uri, \$data;
+    my(\$sig, \$aws) = sign(\$data);
+    \$uri =~ s/(AWSAccessKeyId=?)_/\$1\$awskey/;
+    \$url = "$url\$sig&\$uri";
+    \$url;
+}
+
+1;
+EOF
+    }
+
     my($sig, $awskey) = sign($data);
     $uri =~ s/(AWSAccessKeyId=?)_/$1$awskey/;
-    $url .= "@{[encode_url($sig)]}&$uri";
+    $url .= "$sig&$uri";
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
@@ -1891,7 +1913,7 @@ sub save_file
 {
     my $nfn = my $fn = shift;
     $nfn = ">$fn" if $fn !~ /^\s*[\>\|]/;
-    my $out = IO::File->new($nfn) or die "$fn: $!\n";
+    open(my $out, $nfn) or die "$fn: $!\n";
     print $out join("", @_);
 }
 
@@ -1899,9 +1921,9 @@ sub save_file
 sub load_file_silent
 {
     my $fn = shift;
-    my $io = new IO::File($fn) or return;
+    open(my $in, $fn) or return;
     local($/);
-    <$io>;
+    <$in>;
 }
 
 sub decode_url
@@ -1915,6 +1937,11 @@ sub decode_url
 # The code that follows is the same in aws and aws.pm. It is needed to
 # support the Perl functions that are generated by the --code option.
 
+sub zulu
+{
+    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime($_[0]);
+    sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+}
 
 sub encode_url
 {
@@ -1926,10 +1953,9 @@ sub encode_url
 sub load_file
 {
     my $fn = shift;
-    my $io = new IO::File($fn)
-	or die "$fn: $!\n";
+    open(my $in, $fn) or die "$fn: $!\n";
     local($/);
-    <$io>;
+    <$in>;
 }
 
 sub guess_is_unix 
@@ -1941,6 +1967,7 @@ sub guess_is_unix
 
 sub get_home_directory
 {
+    my $isUnix = guess_is_unix();
     return "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
     return (getpwuid($<))[7];
 }
@@ -1949,6 +1976,10 @@ sub get_home_directory
 sub load_secrets
 {
     my($fn) = @_;
+
+    my $home = get_home_directory();
+    $fn ||= "$home/.awssecret";
+    $fn = "$home/.s3cfg" unless -s $fn;
 
     my($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
     ($awskey, $secret) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY)} unless $awskey || $secret || $signurl;
@@ -1981,6 +2012,8 @@ sub sign
 {
     my($data) = @_;
 
+    ($awskey, $secret, $signurl) = load_secrets($secrets_file) if !$secret && !$awskey && !$signurl;
+
     if (!$secret && !$awskey && $signurl)
     {
 	if ($v)
@@ -2003,7 +2036,7 @@ sub sign
     }
 
     $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
-    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+    (encode_url(encode_base64(hmac($data, $secret, \&sha1_sha1), "")), encode_url($awskey));
 }
 
 
