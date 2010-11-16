@@ -438,7 +438,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
 
     my @awsrc = "";
-    for (split(/(?:\#.*?\n|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|[^\s\'\"])+))/s, load_file_silent("$home/.awsrc")))
+    for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
     {
 	if (/^\s+$/)
 	{
