@@ -420,10 +420,24 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 code curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 prefix private progress public queue r request requester retry
+	     max_time marker md5 prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
 
-    for (split(/[\r\s]+/, load_file_silent("$home/.awsrc")), @ARGV)
+    my @awsrc = "";
+    for (split(/(?:\#.*?\n|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|[^\s\'\"])+))/s, load_file_silent("$home/.awsrc")))
+    {
+	if (/^\s+$/)
+	{
+	    push @awsrc, "" if length($awsrc[$#awsrc]);
+	}
+	else
+	{
+	    $awsrc[$#awsrc] .= $_;
+	}
+    }
+    pop @awsrc unless length($awsrc[$#awsrc]);
+
+    for (@awsrc, @ARGV)
     {
 	if ($key_for_arg)
 	{
@@ -483,7 +497,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 
 		for (@cmd)
 		{
-		    next unless grep /^$cmd$/, split(" ", $_->[1]);
+		    next unless grep /^\Q$cmd\E$/, split(" ", $_->[1]);
 		    $cmd_data = $_;
 		    for (@{$cmd_data->[3]})
 		    {
