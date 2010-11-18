@@ -1109,7 +1109,7 @@ if (!$cmd_data)
 	    print "$name\t$value\n";
 	}
     }
-    elsif ($result =~ /<SelectResponse/ && $d1)
+    elsif ($result =~ /<SelectResponse/ && ($simple || $d1))
     {
 	while ($result =~ /<Item>(.*?)<\/Item>/sg)
 	{
