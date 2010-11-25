@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# Purpose:      Convert XML output of aws script to YAML format
+# Author :      Anh K. Huynh
+# License:      Public domain
+# Source :      http://github.com/icy/aws/
+# Example:      aws dgrp --xml | $0
+# Requirement:  GNU version of sed
+
+export _SED=sed
+
+_usage() {
+  cat <<EOF
+Convert XML output of aws cript to YAML output.
+This program should be used as a pipe. Here're some examples
+  aws --xml din  | $0
+  aws --xml dgrp | $0
+Please note that a GNU verion of sed should be used.
+EOF
+}
+
+if [ -t 0 ]; then
+  _usage
+else
+  $_SED \
+    -e 's#</.*>##g' \
+    -e 's#<\(.*\)>#:\1: #g' \
+    -e 's#\t#  #g' \
+    -e 's#\(.*\)/:#\1: nil#g' \
+    -e '1,4d' \
+    -e 's#^    ##g' \
+    -e 's#^:item:#-#g' \
+    -e '/^[ ]*$/d'
+fi
