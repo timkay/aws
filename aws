@@ -1485,8 +1485,8 @@ sub xmlpp
 sub xml2yaml {
   my($result) = "";
   $result = xmlpp(@_);
-  $result =~ s#</.*>##g;          # remote all closing tags
-  $result =~ s#<(.*)>#:\1: #g;    # convert opening tags to symbol
+  $result =~ s#</.*>##g;          # remove all closing tags
+  $result =~ s#<(.*)>#:\1: #g;    # convert opening tags to symbols
   $result =~ s#\t#  #g;           # replace all tabs by spaces
   $result =~ s#(.*)/:#\1: nil#g;  # empty variables
   $result =~ s#^([^\n]*\n){4}##g; # remove the first 4 lines
