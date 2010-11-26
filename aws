@@ -76,7 +76,7 @@ $sdb_version = "2009-04-15";
                                                    ]],
 	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
 									   ["", SpotInstanceRequestIdN],
-									   ]],								  
+									   ]],
 	["ec2", "confirm-product-instance", ConfirmProductInstance, [
 								     ["", ProductCode],
 								     ["i", InstanceId],
@@ -93,7 +93,7 @@ $sdb_version = "2009-04-15";
 									       ["end", EndTime],
 									       ["instance-type", InstanceType, "m1.small"],
 									       ["description", ProductDescription, "Linux/UNIX"],
-									       ]],									   
+									       ]],
 	["ec2", "create-volume cvol", CreateVolume, [
 						     ["size", Size],
 						     ["zone", AvailabilityZone],
@@ -435,7 +435,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r region request requester retry
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -593,7 +593,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	elsif ($isUnix)
 	{
 	    my $stat = (stat $secrets_file)[2] & 0777;
-	    
+
 	    if (($stat & 0477) != 0400)
 	    {
 		my @perm = (qw(x r w)) x 4;
@@ -694,7 +694,7 @@ if (exists $ENV{QUERY_STRING} || $sign)
 if ($install)
 {
     die "Usage: .../aws --install\n" if $install && @argv;
-    
+
     if (-w "/usr/bin")
     {
 	chomp(my $dir = qx[pwd]);
@@ -941,6 +941,10 @@ if (!$cmd_data)
     if ($xml)
     {
 	print xmlpp($result);
+    }
+    elsif ($yaml)
+    {
+        print xml2yaml($result);
     }
     elsif ($result =~ /<ListBucketResult|<ListAllMyBucketsResult/ && ($l || $d1 || $exec || $simple))
     {
@@ -1476,6 +1480,21 @@ sub xmlpp
     $result;
 }
 
+# Convert xml string to YAML format
+# Cf.: https://github.com/icy/aws/blob/master/aws2yaml
+sub xml2yaml {
+  my($result) = "";
+  $result = xmlpp(@_);
+  $result =~ s#</.*>##g;          # remote all closing tags
+  $result =~ s#<(.*)>#:\1: #g;    # convert opening tags to symbol
+  $result =~ s#\t#  #g;           # replace all tabs by spaces
+  $result =~ s#(.*)/:#\1: nil#g;  # empty variables
+  $result =~ s#^([^\n]*\n){4}##g; # remove the first 4 lines
+  $result =~ s#^    ##mg;         # shift the contents left
+  $result =~ s#:item: #-#g;       # replace :item: by a dash (YAML)
+  $result =~ s#^[ ]*\n##mg;       # remove all empty lines
+  $result;
+}
 
 sub s3
 {
@@ -1890,7 +1909,7 @@ sub load_file_silent
     <$io>;
 }
 
-sub guess_is_unix 
+sub guess_is_unix
 {
     return 1 if $ENV{OS} =~ /windows/i && $ENV{OSTYPE} =~ /cygwin/i;
     return 1 if $ENV{OS} !~ /windows/i;
@@ -2075,8 +2094,8 @@ sub sha1_sha1
     #constants [4.2.1]
     my @K = (0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6);
 
-    # PREPROCESSING 
- 
+    # PREPROCESSING
+
     $msg .= pack(C, 0x80); # add trailing '1' bit to string [5.1.1]
 
     # convert string msg into 512-bit/16-integer blocks arrays of ints [5.2.1]
