@@ -435,7 +435,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r region request requester retry
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml yaml)} = undef;
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml yaml ruby)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -1486,12 +1486,18 @@ sub xml2yaml {
   my($result) = "";
   $result = xmlpp(@_);
   $result =~ s#</.*>##g;          # remove all closing tags
-  $result =~ s#<(.*)>#:\1: #g;    # convert opening tags to symbols
   $result =~ s#\t#  #g;           # replace all tabs by spaces
-  $result =~ s#(.*)/:#\1: nil#g;  # empty variables
-  $result =~ s#^([^\n]*\n){4}##g; # remove the first 4 lines
+  $result =~ s#^([^\n]*\n){4}#---\n#g;
+                                  # remove the first 4 lines
   $result =~ s#^    ##mg;         # shift the contents left
-  $result =~ s#:item: #-#g;       # replace :item: by a dash (YAML)
+  if ($ruby) {
+    $result =~ s#<(.*)>#:\1: #g;  # convert opening tags to symbols
+  }
+  else {
+    $result =~ s#<(.*)>#\1: #g;   # convert opening tags to symbols
+  }
+  $result =~ s#:?(.*)/:#\1: nil#g;# empty variables
+  $result =~ s#:?item: #-#g;      # replace :item: by a dash (YAML)
   $result =~ s#^[ ]*\n##mg;       # remove all empty lines
   $result;
 }
