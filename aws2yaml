@@ -31,4 +31,5 @@ else
     -e 's#^    ##g' \
     -e 's#:item: #-#g' \
     -e '/^[ ]*$/d'
+  echo >&2 ":: [warning] This script is obsolete. Please use 'aws --yaml [--ruby]' instead."
 fi
