@@ -1484,21 +1484,43 @@ sub xmlpp
 # Cf.: https://github.com/icy/aws/blob/master/aws2yaml
 sub xml2yaml {
   my($result) = "";
+  my($rubySymbol) = "";
+  my($requestId) = "";
+  my($reqeustId_index) = 0;
+  my($error) = 0;
+
   $result = xmlpp(@_);
-  $result =~ s#</.*>##g;          # remove all closing tags
-  $result =~ s#\t#  #g;           # replace all tabs by spaces
-  $result =~ s#^([^\n]*\n){4}#---\n#g;
-                                  # remove the first 4 lines
-  $result =~ s#^    ##mg;         # shift the contents left
-  if ($ruby) {
-    $result =~ s#<(.*)>#:\1: #g;  # convert opening tags to symbols
+
+  $rubySymbol = ":" if $ruby;
+  $error = 1 if $result =~ m/<Error>/i;
+
+  $result =~ s#</.*>##g;                 # remove closing tags
+  $result =~ s#<(.*)>#$rubySymbol\1: #g; # opening tags -> symbols
+  $result =~ s#($rubySymbol[^:]+): (.+)#\1: > \2#g; # opening tags -> symbols
+
+  $result =~ s#:?(.*)/:#\1: nil#g;       # empty values
+  $result =~ s#:?item: #-#gi;            # array items
+  $result =~ s#^[^\t ].*##mgi;           # remove first level tags
+  $result =~ s#\t#  #g;                  # tabs -> spaces
+  $result =~ s#^  ##mg;                  # shift left
+  $result =~ s#^[\t ]*\n##mg;            # remove all empty lines
+
+  # Move requestId to the second document of YAML output
+  # Thanks to Timothy for suggestion
+  if ($result =~ m#^:?requestId#i) {
+    $reqeustId_index = index($result, $/);
+    $requestId = substr($result, 0, $reqeustId_index + 1);
+    $result = substr($result, $reqeustId_index + 1, length($result) - $reqeustId_index);
+    $result .= "\n---\n  $requestId";
   }
   else {
-    $result =~ s#<(.*)>#\1: #g;   # convert opening tags to symbols
+    $result =~ s#:?requestId#\n---\n  ${rubySymbol}requestId#i;
   }
-  $result =~ s#:?(.*)/:#\1: nil#g;# empty variables
-  $result =~ s#:?item: #-#g;      # replace :item: by a dash (YAML)
-  $result =~ s#^[ ]*\n##mg;       # remove all empty lines
+
+  # clean up
+  $result =~ s#^[\t ]*\n##mg;            # remove all empty lines
+  $result =~ s#^[^ ].*#---#mgi;          # remove first level tags
+  $result =~ s#^  ##mg;                  # shift left
   $result;
 }
 
