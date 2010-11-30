@@ -1506,7 +1506,7 @@ sub xml2yaml {
   $result =~ s#^[\t ]*\n##mg;            # remove all empty lines
 
   # Move requestId to the second document of YAML output
-  # Thanks to Timothy for suggestion
+  # Thanks to Timothy's suggestion
   if ($result =~ m#^:?requestId#i) {
     $reqeustId_index = index($result, $/);
     $requestId = substr($result, 0, $reqeustId_index + 1);
@@ -1518,7 +1518,7 @@ sub xml2yaml {
   }
 
   # clean up
-  $result =~ s#^[\t ]*\n##mg;            # remove all empty lines
+  $result =~ s#^[\t ]*\n##mg;            # remove all empty lines (TODO: remove this?)
   $result =~ s#^[^ ].*#---#mgi;          # remove first level tags
   $result =~ s#^  ##mg;                  # shift left
   $result;
