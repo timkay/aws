@@ -157,7 +157,7 @@ $iam_version = "2010-05-08";
 	["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
 	["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
 	["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
-	["ec2", "get-console-output gco", GetConsoleOutput, [[" i", InstanceId]]],
+	["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
 	["ec2", "purchase-reserved-instance-offering", PurchaseReservedInstancesOffering, [
 											  ["offering-id", ReservedInstancesOfferingId],
 											  ["instance-count", InstanceCount],
@@ -1050,7 +1050,7 @@ if (!$cmd_data)
 	    for (@$param)
 	    {
 		my($a, $key, $default, $cref) = @$_;
-		next unless grep /^$b$/, split(/\s+/, $a);
+		next unless length($a) == 0 && length($b) == 0 || grep /^$b$/, split(/\s+/, $a);
 		my $data = $argv[$i];
 		my $count = ++$count{$a};
 		if ($key)
