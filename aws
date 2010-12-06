@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.72";
+$program_version = "1.73";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
