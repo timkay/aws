@@ -1185,7 +1185,7 @@ if (!$cmd_data)
 		s/\.000Z//;
 	    }
 
-	    push @result, [$item, $key, $size, $mod, $owner || $owner1];
+	    push @result, [$item, $key, $size, $mod, $owner || $owner1 || "unknown"];
 	}
 
 	if ($t)
