@@ -210,7 +210,7 @@ $sdb_version = "2009-04-15";
 							    my($min, $max) = split(/-/, $_[0]."-".$_[0]);
 							    ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
 							}],
-						       ["q", "ToPort"],
+						       ["q", "IpPermissions.1.ToPort"],
 						       #["t", icmp type code],
 						       ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
 						       ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
