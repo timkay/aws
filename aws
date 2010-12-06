@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.70";
+$program_version = "1.72";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -227,9 +227,8 @@ $sdb_version = "2009-04-15";
 								 ["key k", KeyName, "default"],
 								 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
 								 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
-								 ["i", InstanceType, "m1.small"],
 								 ["a", AddressingType],
-								 ["instance-type type t", InstanceType],
+								 ["instance-type type t i", InstanceType],
 								 ["availability-zone z", "Placement.AvailabilityZone"],
 								 ["kernel", KernelId],
 								 ["ramdisk", RamdiskId],
@@ -562,7 +561,7 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry ||= 3;
 
-$secrets_file ||= "$home/.awssecret" || "$home/.s3cfg";
+$secrets_file ||= -r "$home/.awssecret"? "$home/.awssecret": "$home/.s3cfg";
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
