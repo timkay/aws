@@ -224,7 +224,7 @@ $sdb_version = "2009-04-15";
 								      [MinCount => $min, MaxCount => $max];
 								  }],
 								 ["group g", SecurityGroupN, "default"],
-								 ["key k", KeyName, "default"],
+								 ["key k", KeyName],
 								 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
 								 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
 								 ["a", AddressingType],
