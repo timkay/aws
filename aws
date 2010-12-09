@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.73";
+$program_version = "1.74";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -622,7 +622,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @meta{qw(1 curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r region request requester retry
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
