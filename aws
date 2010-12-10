@@ -1525,11 +1525,6 @@ sub xml2tab
 		{
 		    for (my $i = 0; $i < @head; $i++)
 		    {
-			if ($head[$i] =~ /^(?:privateDnsName|dnsName)$/)
-			{
-			    chomp(my $me = ($_->[$i]));
-			    $_->[$i] = $me if $me;
-			}
 			my $length = length($_->[$i]);
 			$width[$i] = $length if $width[$i] < $length;
 		    }
