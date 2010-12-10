@@ -1527,7 +1527,7 @@ sub xml2tab
 		    {
 			if ($head[$i] =~ /^(?:privateDnsName|dnsName)$/)
 			{
-			    chomp(my $me = qx[me $_->[$i]]);
+			    chomp(my $me = ($_->[$i]));
 			    $_->[$i] = $me if $me;
 			}
 			my $length = length($_->[$i]);
