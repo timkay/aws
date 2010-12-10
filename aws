@@ -2046,7 +2046,7 @@ sub ec2
     if ($service eq "iam")
     {
 	$endpoint = "iam.amazonaws.com";
-	$endpoint = "iam.$region.amazonaws.com" if $region;
+	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
     $queue ||= "/";
