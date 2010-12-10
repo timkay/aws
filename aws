@@ -1704,7 +1704,7 @@ sub xml2yaml {
   $result =~ s#:?(.*)/:#\1:#g;                      # empty values
   $result =~ s#:?(item|bucket|member): #-#gi;       # array items
   $result =~ s#\t#  #g;                             # tabs -> spaces
-  $result =~ s#: *\n[ ]+->#: >#mg;                  # fix collapsed <member>
+  $result =~ s#->#- >#mg;                           # fix wrong listing
   $result =~ s#^[ :]*\n##mg;                        # remove all empty lines
   $result =~ s#[ ]+$##gm;                           # remove all trailing spaces
   $result =~ s#^[^ \n]+:\n#---\n#;                  # new document indicator
