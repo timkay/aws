@@ -621,7 +621,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 prefix private progress public queue r region request requester retry
+	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
     my @awsrc = "";
@@ -1828,7 +1828,7 @@ sub s3
     }
 
     my($vhost, $vname) = ($s3host, $uname);
-    if (!$no_vhost)
+    if ($no_vhost)
     {
 	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     }
