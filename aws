@@ -18,11 +18,12 @@
 #
 
 
-$program_version = "1.70";
+$program_version = "1.75";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
 $sdb_version = "2009-04-15";
+$iam_version = "2010-05-08";
 
 
 @cmd = (
@@ -179,7 +180,7 @@ $sdb_version = "2009-04-15";
 									       sub {encode_base64(load_file($_[0]))}],
 									      ["group g" => "LaunchSpecification.SecurityGroupN", "default"],
 									      ["a", "LaunchSpecification.AddressingType"],
-									      ["key k" => "LaunchSpecification.KeyName", "default"],
+									      ["key k" => "LaunchSpecification.KeyName"],
 									      ["instance-type t" => "LaunchSpecification.InstanceType", "t1.micro"],
 									      ["availability-zone z" => "LaunchSpecification.Placement.AvailabilityZone"],
 									      [kernel => "LaunchSpecification.KernelId"],
@@ -196,26 +197,25 @@ $sdb_version = "2009-04-15";
 							    my($min, $max) = split(/-/, $_[0]."-".$_[0]);
 							    ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
 							}],
-						       ["q", "ToPort"],
+						       ["q", "IpPermissions.1.ToPort"],
 						       #["t", icmp type code],
 						       ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
 						       ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
 						       ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
 						       ]],
 	["ec2", "run-instances run-instance run", RunInstances, [
-								 ["", ImageId, "ami-5647a33f"],
+								 ["", ImageId],
 								 ["instance-count n", undef, 1, sub
 								  {
 								      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
 								      [MinCount => $min, MaxCount => $max];
 								  }],
 								 ["group g", SecurityGroupN, "default"],
-								 ["key k", KeyName, "default"],
+								 ["key k", KeyName],
 								 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
 								 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
-								 ["i", InstanceType, "m1.small"],
 								 ["a", AddressingType],
-								 ["instance-type type t", InstanceType],
+								 ["instance-type type t i", InstanceType],
 								 ["availability-zone z", "Placement.AvailabilityZone"],
 								 ["kernel", KernelId],
 								 ["ramdisk", RamdiskId],
@@ -286,6 +286,193 @@ $sdb_version = "2009-04-15";
 								    ["", LoadBalancerName],
 								    ["policy-name", PolicyName],
 								    ]],
+
+	["iam", "groupaddpolicy pgp", PutGroupPolicy, [
+						   [" g" => GroupName],
+						   [p => PolicyName],
+						   [e, undef, undef, \&parse_addpolicy_effect],
+						   [a, undef, undef, \&parse_addpolicy_action],
+						   [r, undef, undef, \&parse_addpolicy_resource],
+						   [o, undef, undef, \&parse_addpolicy_output],
+						   ]],
+	["iam", "groupadduser", AddUserToGroup, [
+						 [" g" => GroupName],
+						 [u => UserName],
+						 ]],
+	["iam", "groupcreate cg", CreateGroup, [
+					     [" g" => GroupName],
+					     [p => Path],
+					     ]],
+	["iam", "groupdel", DeleteGroup, [
+					  [" g" => GroupName],
+					  ]],
+	["iam", "groupdelpolicy", DeleteGroupPolicy, [
+						      [" g" => GroupName],
+						      [p => PolicyName],
+						      ]],
+	["iam", "grouplistbypath lg", ListGroups],
+	["iam", "grouplistpolicies lgp", ListGroupPolicies, [
+							     [" g" => GroupName],
+							     [p => PolicyName],
+							     ]],
+	# GetGroupPolicy is automatically invoked when grouplistpolicies has a -p PolicyName
+	["iam", "groupgetpolicy", GetGroupPolicy, [
+						   [" g" => GroupName],
+						   [p => PolicyName],
+						   ]],
+	["iam", "grouplistusers gg", GetGroup, [
+						[" g" => GroupName],
+						]],
+	["iam", "groupmod", UpdateGroup, [
+					  [" g" => GroupName],
+					  [n => NewGroupName],
+					  [p => NewPath],
+					  ]],
+	["iam", "groupremoveuser", RemoveUserFromGroup, [
+							 [" g" => GroupName],
+							 [u => UserName],
+							 ]],
+	["iam", "groupuploadpolicy", PutGroupPolicy, [
+						      [" g" => GroupName],
+						      [p => PolicyName],
+						      [o => PolicyDocument],
+						      [f => PolicyDocument, undef, sub {load_file($_[0])}],
+						      ]],
+	["iam", "useraddcert", UploadSigningCertificate, [
+							  [" u" => UserName],
+							  [c => CertificateBody],
+							  [f => CertificateBody, undef, sub {load_file($_[0])}],
+							  ]],
+	["iam", "useraddkey cak", CreateAccessKey, [
+						    [" u" => UserName],
+						    ]],
+	["iam", "useraddloginprofile", CreateLoginProfile, [
+							    [" u" => UserName],
+							    [p => Password],
+							    ]],
+	["iam", "useraddpolicy pup", PutUserPolicy, [
+						     [" u" => UserName],
+						     [p => PolicyName],
+						     [e, undef, undef, \&parse_addpolicy_effect],
+						     [a, undef, undef, \&parse_addpolicy_action],
+						     [r, undef, undef, \&parse_addpolicy_resource],
+						     [o, undef, undef, \&parse_addpolicy_output],
+						     ]],
+	["iam", "usercreate cu", CreateUser, [
+					      [" u" => UserName],
+					      [p => Path],
+					      ]],
+	["iam", "userdeactivatemfadevice", DeactivateMFADevice, [
+								 [" u" => UserName],
+								 [s => SerialNumber],
+								 ]],
+	["iam", "userdel", DeleteUser, [
+					[" u" => UserName],
+					[s => XXX],
+					]],
+	["iam", "userdelcert", DeleteSigningCertificate, [
+							  [" u" => UserName],
+							  [c => CertificateId],
+							  ]],
+	["iam", "userdelkey", DeleteAccessKey, [
+						[" u" => UserName],
+						[k => AccessKeyId],
+						]],
+	["iam", "userdelloginprofile", DeleteLoginProfile, [
+							    [" u" => UserName],
+							    ]],
+	["iam", "userdelpolicy", DeleteUserPolicy, [
+						    [" u" => UserName],
+						    [p => PolicyName],
+						    ]],
+	["iam", "userenablemfadevice", EnableMFADevice, [
+							 [" u" => UserName],
+							 [s => SerialNumber],
+							 [c1 => AuthenticationCode1],
+							 [c2 => AuthenticationCode2],
+							 ]],
+	["iam", "usergetattributes gu", GetUser, [
+						  [" u" => UserName],
+						  ]],
+	["iam", "usergetloginprofile", GetLoginProfile, [
+							 [" u" => UserName],
+							 ]],
+	["iam", "userlistbypath lu", ListUsers, [
+						 [" p" => PathPrefix],
+						 ]],
+	["iam", "userlistcerts", ListSigningCertificates, [
+							   [" u" => UserName],
+							   ]],
+	["iam", "userlistgroups", ListGroupsForUser, [
+						      [" u" => Username],
+						      ]],
+	["iam", "userlistkeys", ListAccessKeys, [
+						 [" u" => UserName],
+						 ]],
+	["iam", "userlistmfadevices", ListMFADevices, [
+						       [" u" => UserName],
+						       ]],
+	["iam", "userlistpolicies lup", ListUserPolicies, [
+						       [" u" => UserName],
+						       [p => PolicyName],
+						       ]],
+	# GetUserPolicy is automatically invoked when userlistpolicies has a -p PolicyName
+	["iam", "usergetpolicy", GetUserPolicy, [
+				       [" u" => UserName],
+				       [p => PolicyName],
+				       ]],
+	["iam", "usermod", UpdateUser, [
+					[" u" => UserName],
+					[n => NewUserName],
+					[p => NewPath],
+					]],
+	["iam", "usermodcert", UpdateSigningCertificate, [
+							  [" u" => UserName],
+							  [c => CertificateId],
+							  [s => Status],
+							  ]],
+	["iam", "usermodkey", UpdateAccessKey, [
+						[" u" => UserName],
+						[a => AccessKeyId],
+						[s => Status],
+						]],
+	["iam", "usermodloginprofile", UpdateLoginProfile, [
+							    [" u" => UserName],
+							    [p => Password],
+							    ]],
+	["iam", "userresyncmfadevice", ResyncMFADevice, [
+							 [" u" => UserName],
+							 [s => SerialNumber],
+							 [c1 => AuthenticationCode1],
+							 [c2 => AuthenticationCode2],
+							 ]],
+	["iam", "useruploadpolicy", PutUserPolicy, [
+						    [" u" => UserName],
+						    [p => PolicyName],
+						    [o => PolicyDocument],
+						    [f => PolicyDocument, undef, sub {load_file($_[0])}],
+						    ]],
+	["iam", "servercertdel", DeleteServerCertificate, [
+							   [" s" => ServerCertificateName],
+							   ]],
+	["iam", "servercertgetattributes", GetServerCertificate, [
+								  [" s" => ServerCertificate],
+								  ]],
+	["iam", "servercertlistbypath", ListServerCertificates, [
+								 [" p" => PathPrefix],
+								 ]],
+	["iam", "servercertmod", UpdateServerCertificate, [
+							   [" p" => NewPath],
+							   [s => ServerCertificateName],
+							   [n => NewServerCertificateName],
+							   ]],
+	["iam", "servercertupload", UploadServerCertificate,[
+							     [" s" => ServerCertificateName],
+							     [p => Path],
+							     [b => CertificateBody, undef, sub {load_file($_[0])}],
+							     [k => PrivateKey, undef, sub {load_file($_[0])}],
+							     [c => CertificateChain, undef, sub {load_file($_[0])}],
+							     ]],
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
@@ -418,10 +605,10 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 code curl_options cut d delimeter dump_xml exec expire_time fail h help
+    @meta{qw(1 cmd0 code curl_options cut d delimeter dump_xml exec expire_time fail h help
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r region request requester retry
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml)} = undef;
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -538,7 +725,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
 
 
-print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version)\n" if $v;
+print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -601,13 +788,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://$s3host/connection/test];
+    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://$s3host/connection/test];
+	$aws = qx[curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -615,7 +802,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://$s3host/connection/test];
+	    $aws = qx[curl -q -s --insecure --dump-header - http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -669,6 +856,7 @@ if ($sign)
     my($sig, $awskey) = sign($data);
     my $data = "$sig\n$awskey\n";
     print "Content-Length: @{[length($data)]}\nContent-Type: text/plain\n\n", $data;
+
     exit;
 }
 
@@ -816,7 +1004,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb")
+    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -834,13 +1022,17 @@ if (!$cmd_data)
 		++$i;
 	    }
 
+	    # The Amazon tools have special cases in them too
+	    $list[1] = "GetGroupPolicy" if $action eq ListGroupPolicies && $b eq "p";
+	    $list[1] = "GetUserPolicy" if $action eq ListUserPolicies && $b eq "p";
+
 	    #
 	    # find the right param
 	    #
 	    for (@$param)
 	    {
 		my($a, $key, $default, $cref) = @$_;
-		next unless $a eq $b || grep /^$b$/, split(" ", $a);
+		next unless length($a) == 0 && length($b) == 0 || grep /^$b$/, split(/\s+/, $a);
 		my $data = $argv[$i];
 		my $count = ++$count{$a};
 		if ($key)
@@ -892,6 +1084,7 @@ if (!$cmd_data)
 	    }
 	}
 
+	push @list, @final_list;
 	print STDERR "ec2(@{[join(', ', @list)]})\n" if $v;
 
 	$result = ec2($service, @list);
@@ -975,7 +1168,7 @@ if (!$cmd_data)
 		s/\.000Z//;
 	    }
 
-	    push @result, [$item, $key, $size, $mod, $owner || $owner1];
+	    push @result, [$item, $key, $size, $mod, $owner || $owner1 || "unknown"];
 	}
 
 	if ($t)
@@ -1091,7 +1284,7 @@ if (!$cmd_data)
 	    print "$name\t$value\n";
 	}
     }
-    elsif ($result =~ /<SelectResponse/ && $d1)
+    elsif ($result =~ /<SelectResponse/ && ($simple || $d1))
     {
 	while ($result =~ /<Item>(.*?)<\/Item>/sg)
 	{
@@ -1144,6 +1337,17 @@ if (!$cmd_data)
 		print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
 	    }
 	}
+    }
+    elsif ($result =~ /<(?:GetGroupPolicyResponse|GetUserPolicyResponse)/)
+    {
+	my($doc) = $result =~ /<PolicyDocument>(.*?)<\/PolicyDocument>/s;
+	$doc =~ s/%(..)/pack(H2,$1)/ge;
+	print $doc;
+    }
+    elsif ($result =~ /<(?:ListUserPoliciesResponse)/)
+    {
+	my @member = $result =~ /<member>(.*?)<\/member>/g;
+	print join("\n", @member, undef);
     }
     elsif ($result =~ /<GetQueueAttributesResponse/)
     {
@@ -1285,56 +1489,58 @@ sub xml2tab
 
 	if (@head && $i == @xml || $depth[$i] && $depth[$i] < $depth)
 	{
-	    for (@table)
+	    unless (@head == 1 && $head[0] eq "RequestId")
 	    {
-		$_ = [map {printable(dentity($_))} @$_{@head}];
-	    }
-
-	    unshift @table, [@head];
-
-	    my(@width);
-
-	    for (@table)
-	    {
-		for (my $i = 0; $i < @head; $i++)
+		for (@table)
 		{
-		    if ($head[$i] =~ /^(?:privateDnsName|dnsName)$/)
-		    {
-		    	chomp(my $me = qx[me $_->[$i]]);
-			$_->[$i] = $me if $me;
-		    }
-		    my $length = length($_->[$i]);
-		    $width[$i] = $length if $width[$i] < $length;
+		    $_ = [map {printable(dentity($_))} @$_{@head}];
 		}
-	    }
 
-	    my $sep = "+";
+		unshift @table, [@head];
 
-	    for (my $i = 0; $i < @head; $i++)
-	    {
-		next if $head[$i] =~ /$skipre/;
-		$sep .= "-" x (2 + $width[$i]) . "+";
-	    }
+		my(@width);
 
-	    for (my $j = 0; $j < @table; $j++)
-	    {
-		$output .= "$sep\n" if $j < 2;
+		for (@table)
+		{
+		    for (my $i = 0; $i < @head; $i++)
+		    {
+			if ($head[$i] =~ /^(?:privateDnsName|dnsName)$/)
+			{
+			    chomp(my $me = qx[me $_->[$i]]);
+			    $_->[$i] = $me if $me;
+			}
+			my $length = length($_->[$i]);
+			$width[$i] = $length if $width[$i] < $length;
+		    }
+		}
+
+		my $sep = "+";
 
 		for (my $i = 0; $i < @head; $i++)
 		{
 		    next if $head[$i] =~ /$skipre/;
-		    my $len = length($table[$j]->[$i]);
-		    my $pad = $width[$i] - $len;
-		    my $l = 1 + int($pad / 2);	# center justify
-		    $l = 1 if $j;			# left justify all but first row
-		    my $r = 2 + $pad - $l;
-		    $output .= "|" . " " x $l . $table[$j]->[$i] . " " x $r;
+		    $sep .= "-" x (2 + $width[$i]) . "+";
 		}
-		$output .= "|\n";
+
+		for (my $j = 0; $j < @table; $j++)
+		{
+		    $output .= "$sep\n" if $j < 2;
+
+		    for (my $i = 0; $i < @head; $i++)
+		    {
+			next if $head[$i] =~ /$skipre/;
+			my $len = length($table[$j]->[$i]);
+			my $pad = $width[$i] - $len;
+			my $l = 1 + int($pad / 2);	# center justify
+			$l = 1 if $j;			# left justify all but first row
+			my $r = 2 + $pad - $l;
+			$output .= "|" . " " x $l . $table[$j]->[$i] . " " x $r;
+		    }
+		    $output .= "|\n";
+		}
+
+		$output .= "$sep\n";
 	    }
-
-	    $output .= "$sep\n";
-
 
 	    $depth = 0;
 	    %head = ();
@@ -1353,6 +1559,7 @@ sub xml2tab
 			   |CreateQueueResponse|ResponseMetadata|DescribeSnapshotAttributeResponse|ModifySnapshotAttributeResponse|ResetSnapshotAttributeResponse
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
+			   |ListGroupPoliciesResult|GetGroupPolicyResult
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
@@ -1360,6 +1567,8 @@ sub xml2tab
 			   |LoadBalancerDescriptions-member
 			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
 			   |GetAttributesResult-Attribute|SelectResult-Item
+			   |CreateGroupResult-Group|Groups-member|CreateUserResult-User|Users-member|GetUserResult-User
+			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member
 			   )$/x
 	    || $i == @xml)
 	{
@@ -1757,6 +1966,7 @@ sub ec2
     $version .= $sqs_version if $service eq "sqs";
     $version .= $elb_version if $service eq "elb";
     $version .= $sdb_version if $service eq "sdb";
+    $version .= $iam_version if $service eq "iam";
 
     my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -1786,6 +1996,12 @@ sub ec2
 	$endpoint = "sdb.amazonaws.com";
 	# go figure: us-east-1 isn't name served
 	$endpoint = "sdb.$region.amazonaws.com" if $region && $region ne "us-east-1";
+    }
+
+    if ($service eq "iam")
+    {
+	$endpoint = "iam.amazonaws.com";
+	$endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
     $queue ||= "/";
@@ -2047,6 +2263,41 @@ sub sign
 
     $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
     (encode_url(encode_base64(hmac($data, $secret, \&sha1_sha1), "")), encode_url($awskey));
+}
+
+sub parse_addpolicy_effect
+{
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
+    $parse_addpolicy_effect = lc $_[0] eq "allow"? "Allow": "Deny";
+}
+sub parse_addpolicy_action
+{
+    @parse_addpolicy_action = () if @parse_addpolicy_resource;
+    @parse_addpolicy_resource = ();
+
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
+    push @parse_addpolicy_action, $_[0];
+}
+sub parse_addpolicy_resource
+{
+    push @parse_addpolicy_resource, $_[0];
+
+    my $effect = $parse_addpolicy_effect || "Allow";
+
+    my $action = qq["$parse_addpolicy_action[0]"];
+    $action = "[" . join(",", map{qq["$_"]} @parse_addpolicy_action) . "]" if @parse_addpolicy_action > 1;
+
+    my $resource = qq["$parse_addpolicy_resource[0]"];
+    $resource = "[" . join(",", map{qq["$_"]} @parse_addpolicy_resource) . "]" if @parse_addpolicy_resource > 1;
+
+    pop @parse_policy if @parse_addpolicy_resource > 1;
+    push @parse_policy, qq[\t\t{\n\t\t\t"Effect":"$effect",\n\t\t\t"Action":$action,\n\t\t\t"Resource":$resource\n\t\t}];
+    $parse_policy = qq[{\n\t"Statement":\n\t[\n@{[join(",\n", @parse_policy)]}\n\t]\n}\n];
+    @final_list = (PolicyDocument, $parse_policy);
+}
+sub parse_addpolicy_output
+{
+    print $parse_policy;
 }
 
 
