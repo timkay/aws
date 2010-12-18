@@ -2198,20 +2198,33 @@ sub parse_block_device_mapping
 
 sub parse_addpolicy_effect
 {
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
     $parse_addpolicy_effect = lc $_[0] eq "allow"? "Allow": "Deny";
 }
 sub parse_addpolicy_action
 {
+    @parse_addpolicy_action = () if @parse_addpolicy_resource;
+    @parse_addpolicy_resource = ();
+
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
     push @parse_addpolicy_action, $_[0];
 }
 sub parse_addpolicy_resource
 {
+    push @parse_addpolicy_resource, $_[0];
+
     my $effect = $parse_addpolicy_effect || "Allow";
-    my $action = join(",", map{qq["$_"]} @parse_addpolicy_action);
-    push @parse_policy, qq[\t\t{\n\t\t\t"Effect":"$effect",\n\t\t\t"Action":[$action],\n\t\t\t"Resource":"$_[0]"\n\t\t}];
+
+    my $action = qq["$parse_addpolicy_action[0]"];
+    $action = "[" . join(",", map{qq["$_"]} @parse_addpolicy_action) . "]" if @parse_addpolicy_action > 1;
+
+    my $resource = qq["$parse_addpolicy_resource[0]"];
+    $resource = "[" . join(",", map{qq["$_"]} @parse_addpolicy_resource) . "]" if @parse_addpolicy_resource > 1;
+
+    pop @parse_policy if @parse_addpolicy_resource > 1;
+    push @parse_policy, qq[\t\t{\n\t\t\t"Effect":"$effect",\n\t\t\t"Action":$action,\n\t\t\t"Resource":$resource\n\t\t}];
     $parse_policy = qq[{\n\t"Statement":\n\t[\n@{[join(",\n", @parse_policy)]}\n\t]\n}\n];
     @final_list = (PolicyDocument, $parse_policy);
-    @parse_addpolicy_action = ();
 }
 sub parse_addpolicy_output
 {
