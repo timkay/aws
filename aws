@@ -1276,8 +1276,31 @@ if (!$cmd_data)
     }
     elsif ($result =~ /<ListQueuesResult/)
     {
-	print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+	if ($simple)
+	{
+	    while ($result =~ /<QueueUrl>(.*?)<\/QueueUrl>/g)
+	    {
+		my($q) = ($1);
+		$q =~ s/^https?:\/\/.*?(?=\/)//;
+		print "$q\n";
+	    }
+	}
+	else
+	{
+	    print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+	}
     }
+    elsif ($result =~ /<GetQueueAttributesResponse/ && $simple)
+    {
+	while ($result =~ /<Attribute>(.*?)<\/Attribute>/sg)
+	{
+	    if ($1 =~ /<Name>(.*?)<\/Name>.*?<Value>(.*?)<\/Value>/s)
+	    {
+		print "$1\t$2\n";
+	    }
+	}
+    }
+####
     elsif ($result =~ /<ListDomainsResponse/)
     {
 	my $ary = xml2ary(ListDomainsResult, $result);
@@ -1341,19 +1364,27 @@ if (!$cmd_data)
 	    my $ary = xml2ary(Message, $result);
 	    if ($simple)
 	    {
-		my($handle, $body);
+		my($id, $handle, $md5, $body);
 		for (@$ary)
 		{
-		    $handle = $_->[1] if $_->[0] eq "ReceiptHandle";
-		    $body = decode_url($_->[1]) if $_->[0] eq "Body";
+		    $id = $_->[1] if $_->[0] eq MessageId;
+		    $handle = $_->[1] if $_->[0] eq ReceiptHandle;
+		    $md5 = $_->[1] if $_->[0] eq MD5OfBody;
+		    $body = decode_url($_->[1]) if $_->[0] eq Body;
 		}
-		print "$handle\t$body\n" if $handle;
+		print "$handle\t$body\t$id\t$md5\n" if $handle;
 	    }
 	    else
 	    {
 		print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
 	    }
 	}
+    }
+    elsif ($result =~ /<SendMessageResponse/ && $simple)
+    {
+	my($md5) = $result =~ /<MD5OfMessageBody>(.*?)<\/MD5OfMessageBody>/;
+	my($id) = $result =~ /<MessageId>(.*?)<\/MessageId>/;
+	print "$md5\t$id\n";
     }
     elsif ($result =~ /<(?:GetGroupPolicyResponse|GetUserPolicyResponse)/)
     {
@@ -1577,6 +1608,7 @@ sub xml2tab
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
+			   |SendMessageResult
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
