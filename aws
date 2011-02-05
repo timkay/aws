@@ -200,7 +200,7 @@ $iam_version = "2010-05-08";
 									      [kernel => "LaunchSpecification.KernelId"],
 									      [ramdisk => "LaunchSpecification.RamdiskId"],
 									      [subnet => "LaunchSpecification.SubnetId"],
-									      ["block-device-mapping b" => "LaunchSpecification.blockDeviceMapping.n.DeviceName"],
+									      ["block-device-mapping b" => "LaunchSpecification.blockDeviceMapping.N.DeviceName"],
 									      [monitor => "LaunchSpecification.Monitoring.Enabled"],
 								 ]],
 	["ec2", "revoke", RevokeSecurityGroupIngress, [
@@ -244,6 +244,17 @@ $iam_version = "2010-05-08";
         ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
         ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
+	["ec2", "create-tags ctags", CreateTags, [
+						  ["" => "ResourceIdN"],
+						  ["tag", undef, undef, \&parse_tags],
+						  ]],
+	["ec2", "describe-tags dtags", DescribeTags, [
+						      ["filter", undef, undef, \&parse_tags_describe],
+						      ]],
+	["ec2", "delete-tags deltags", DeleteTags, [
+						    ["" => ResourceIdN],
+						    ["tag", undef, undef, \&parse_tags_delete],
+						    ]],
 
 	["elb", "create-lb clb", CreateLoadBalancer, [
 						      ["", LoadBalancerName],
@@ -1049,6 +1060,7 @@ if (!$cmd_data)
 	    for (@$param)
 	    {
 		my($a, $key, $default, $cref) = @$_;
+		# A leading space in $a is significant, so careful with split()...
 		next unless length($a) == 0 && length($b) == 0 || grep /^$b$/, split(/\s+/, $a);
 		my $data = $argv[$i];
 		my $count = ++$count{$a};
@@ -1401,6 +1413,19 @@ if (!$cmd_data)
     {
 	print ary2tab(xml2ary(GetQueueAttributesResult, $result, {key => Name, value => Value}), {title => "Attributes", empty => "no attributes\n"});
     }
+    elsif ($result =~ /<DescribeTagsResponse/ && $simple)
+    {
+	while ($result =~ /<item>(.*?)<\/item>/sg)
+	{
+	    my($item) = ($1);
+	    my(@item);
+	    while ($item =~ /<(.*?)>(.*?)<\/\1>/g)
+	    {
+		push @item, $2;
+	    }
+	    print join("\t", @item), "\n";
+	}
+    }
     else
     {
 	print xml2tab($result) || xmlpp($result);
@@ -1608,7 +1633,7 @@ sub xml2tab
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
-			   |SendMessageResult
+			   |SendMessageResult|CreateTagsResponse|DeleteTagsResponse
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
@@ -1617,7 +1642,7 @@ sub xml2tab
 			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
 			   |GetAttributesResult-Attribute|SelectResult-Item
 			   |CreateGroupResult-Group|Groups-member|CreateUserResult-User|Users-member|GetUserResult-User
-			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member
+			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member|tagSet-item
 			   )$/x
 	    || $i == @xml)
 	{
@@ -2261,6 +2286,35 @@ sub parse_addpolicy_resource
 sub parse_addpolicy_output
 {
     print $parse_policy;
+}
+
+sub parse_tags
+{
+    my($key, $value) = split(/=/, $_[0], 2);
+    ["Tag.N.Key" => $key, "Tag.N.Value" => $value];
+}
+
+sub parse_tags_describe
+{
+    my($name, $value) = split(/=/, $_[0], 2);
+    my @value = split(/,/, $value);
+    my(@data);
+    push @data, "Filter.N.Name" => $name;
+    for (my $i = 1; $i <= @value; $i++)
+    {
+	push @data, , "Filter.N.Value.$i" => $value[$i - 1];
+    }
+    \@data;
+}
+
+sub parse_tags_delete
+{
+    if ($_[0] =~ /=/)
+    {
+	my($name, $value) = split(/=/, $_[0], 2);
+	return ["Tag.N.Key" => $name, "Tag.N.Value" => $value];
+    }
+    ["Tag.N.Key" => $_[0]];
 }
 
 
