@@ -1,13 +1,14 @@
-"aws" is a command line program that accesses Amazon Web Services:
+"aws" is a command line program that accesses Amazon Web Services.
+The orignal author is Timothy Kay, and the original source and documentation
+can be found at http://timkay.com/aws/.
 
-EC2
-S3
-SQS
-SDB -- Just added!!
-ELB
+My fork contains patches and YAML support (aws --yaml [--ruby] foobar).
+There are some branches:
+  mixed-format:
+    my working branch (active)
+  master:
+    as same as mixed-format,
+    but the code are formatted by 'perltidy'
+  test_yaml:
+    private work to test YAML support
 
-To run "aws", all you need is a single file! Download http://github.com/timkay/aws/blob/master/aws, make it executable, create ~/.awssecrets, and you are done.
-
-For more documentation, see http://timkay.com/aws/
-
-If you can help improve the "aws" documentation, please let me know.
