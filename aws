@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.74";
+$program_version = "1.75";
 $ec2_version = "2010-08-31";
 $sqs_version = "2009-02-01";
 $elb_version = "2009-05-15";
@@ -200,7 +200,7 @@ $iam_version = "2010-05-08";
 									      [kernel => "LaunchSpecification.KernelId"],
 									      [ramdisk => "LaunchSpecification.RamdiskId"],
 									      [subnet => "LaunchSpecification.SubnetId"],
-									      ["block-device-mapping b" => "LaunchSpecification.blockDeviceMapping.n.DeviceName"],
+									      ["block-device-mapping b" => "LaunchSpecification.blockDeviceMapping.N.DeviceName"],
 									      [monitor => "LaunchSpecification.Monitoring.Enabled"],
 								 ]],
 	["ec2", "revoke", RevokeSecurityGroupIngress, [
@@ -244,6 +244,17 @@ $iam_version = "2010-05-08";
         ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
         ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
 	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
+	["ec2", "create-tags ctags", CreateTags, [
+						  ["" => "ResourceIdN"],
+						  ["tag", undef, undef, \&parse_tags],
+						  ]],
+	["ec2", "describe-tags dtags", DescribeTags, [
+						      ["filter", undef, undef, \&parse_tags_describe],
+						      ]],
+	["ec2", "delete-tags deltags", DeleteTags, [
+						    ["" => ResourceIdN],
+						    ["tag", undef, undef, \&parse_tags_delete],
+						    ]],
 
 	["elb", "create-lb clb", CreateLoadBalancer, [
 						      ["", LoadBalancerName],
@@ -619,7 +630,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help
+    @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml yaml ruby)} = undef;
@@ -798,13 +809,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://$s3host/connection/test];
+    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://$s3host/connection/test];
+	$aws = qx[curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -812,7 +823,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://$s3host/connection/test];
+	    $aws = qx[curl -q -s --insecure --dump-header - http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1049,6 +1060,7 @@ if (!$cmd_data)
 	    for (@$param)
 	    {
 		my($a, $key, $default, $cref) = @$_;
+		# A leading space in $a is significant, so careful with split()...
 		next unless length($a) == 0 && length($b) == 0 || grep /^$b$/, split(/\s+/, $a);
 		my $data = $argv[$i];
 		my $count = ++$count{$a};
@@ -1280,8 +1292,31 @@ if (!$cmd_data)
     }
     elsif ($result =~ /<ListQueuesResult/)
     {
-	print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+	if ($simple)
+	{
+	    while ($result =~ /<QueueUrl>(.*?)<\/QueueUrl>/g)
+	    {
+		my($q) = ($1);
+		$q =~ s/^https?:\/\/.*?(?=\/)//;
+		print "$q\n";
+	    }
+	}
+	else
+	{
+	    print ary2tab(xml2ary(ListQueuesResult, $result), {title => "Queue URLs", empty => "no queues\n"});
+	}
     }
+    elsif ($result =~ /<GetQueueAttributesResponse/ && $simple)
+    {
+	while ($result =~ /<Attribute>(.*?)<\/Attribute>/sg)
+	{
+	    if ($1 =~ /<Name>(.*?)<\/Name>.*?<Value>(.*?)<\/Value>/s)
+	    {
+		print "$1\t$2\n";
+	    }
+	}
+    }
+####
     elsif ($result =~ /<ListDomainsResponse/)
     {
 	my $ary = xml2ary(ListDomainsResult, $result);
@@ -1345,19 +1380,27 @@ if (!$cmd_data)
 	    my $ary = xml2ary(Message, $result);
 	    if ($simple)
 	    {
-		my($handle, $body);
+		my($id, $handle, $md5, $body);
 		for (@$ary)
 		{
-		    $handle = $_->[1] if $_->[0] eq "ReceiptHandle";
-		    $body = decode_url($_->[1]) if $_->[0] eq "Body";
+		    $id = $_->[1] if $_->[0] eq MessageId;
+		    $handle = $_->[1] if $_->[0] eq ReceiptHandle;
+		    $md5 = $_->[1] if $_->[0] eq MD5OfBody;
+		    $body = decode_url($_->[1]) if $_->[0] eq Body;
 		}
-		print "$handle\t$body\n" if $handle;
+		print "$handle\t$body\t$id\t$md5\n" if $handle;
 	    }
 	    else
 	    {
 		print ary2tab($ary, {title => "Messages", empty => "no messages\n"});
 	    }
 	}
+    }
+    elsif ($result =~ /<SendMessageResponse/ && $simple)
+    {
+	my($md5) = $result =~ /<MD5OfMessageBody>(.*?)<\/MD5OfMessageBody>/;
+	my($id) = $result =~ /<MessageId>(.*?)<\/MessageId>/;
+	print "$md5\t$id\n";
     }
     elsif ($result =~ /<(?:GetGroupPolicyResponse|GetUserPolicyResponse)/)
     {
@@ -1373,6 +1416,19 @@ if (!$cmd_data)
     elsif ($result =~ /<GetQueueAttributesResponse/)
     {
 	print ary2tab(xml2ary(GetQueueAttributesResult, $result, {key => Name, value => Value}), {title => "Attributes", empty => "no attributes\n"});
+    }
+    elsif ($result =~ /<DescribeTagsResponse/ && $simple)
+    {
+	while ($result =~ /<item>(.*?)<\/item>/sg)
+	{
+	    my($item) = ($1);
+	    my(@item);
+	    while ($item =~ /<(.*?)>(.*?)<\/\1>/g)
+	    {
+		push @item, $2;
+	    }
+	    print join("\t", @item), "\n";
+	}
     }
     else
     {
@@ -1576,6 +1632,7 @@ sub xml2tab
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
+			   |SendMessageResult|CreateTagsResponse|DeleteTagsResponse
 			   )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
@@ -1584,7 +1641,7 @@ sub xml2tab
 			   |ReceiveMessageResult-Message|spotInstanceRequestSet-item|spotPriceHistorySet-item
 			   |GetAttributesResult-Attribute|SelectResult-Item
 			   |CreateGroupResult-Group|Groups-member|CreateUserResult-User|Users-member|GetUserResult-User
-			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member
+			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member|tagSet-item
 			   )$/x
 	    || $i == @xml)
 	{
@@ -2220,24 +2277,66 @@ sub parse_block_device_mapping
 
 sub parse_addpolicy_effect
 {
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
     $parse_addpolicy_effect = lc $_[0] eq "allow"? "Allow": "Deny";
 }
 sub parse_addpolicy_action
 {
+    @parse_addpolicy_action = () if @parse_addpolicy_resource;
+    @parse_addpolicy_resource = ();
+
+    parse_addpolicy_finish() if @parse_addpolicy_resource;
     push @parse_addpolicy_action, $_[0];
 }
 sub parse_addpolicy_resource
 {
+    push @parse_addpolicy_resource, $_[0];
+
     my $effect = $parse_addpolicy_effect || "Allow";
-    my $action = join(",", map{qq["$_"]} @parse_addpolicy_action);
-    push @parse_policy, qq[\t\t{\n\t\t\t"Effect":"$effect",\n\t\t\t"Action":[$action],\n\t\t\t"Resource":"$_[0]"\n\t\t}];
+
+    my $action = qq["$parse_addpolicy_action[0]"];
+    $action = "[" . join(",", map{qq["$_"]} @parse_addpolicy_action) . "]" if @parse_addpolicy_action > 1;
+
+    my $resource = qq["$parse_addpolicy_resource[0]"];
+    $resource = "[" . join(",", map{qq["$_"]} @parse_addpolicy_resource) . "]" if @parse_addpolicy_resource > 1;
+
+    pop @parse_policy if @parse_addpolicy_resource > 1;
+    push @parse_policy, qq[\t\t{\n\t\t\t"Effect":"$effect",\n\t\t\t"Action":$action,\n\t\t\t"Resource":$resource\n\t\t}];
     $parse_policy = qq[{\n\t"Statement":\n\t[\n@{[join(",\n", @parse_policy)]}\n\t]\n}\n];
     @final_list = (PolicyDocument, $parse_policy);
-    @parse_addpolicy_action = ();
 }
 sub parse_addpolicy_output
 {
     print $parse_policy;
+}
+
+sub parse_tags
+{
+    my($key, $value) = split(/=/, $_[0], 2);
+    ["Tag.N.Key" => $key, "Tag.N.Value" => $value];
+}
+
+sub parse_tags_describe
+{
+    my($name, $value) = split(/=/, $_[0], 2);
+    my @value = split(/,/, $value);
+    my(@data);
+    push @data, "Filter.N.Name" => $name;
+    for (my $i = 1; $i <= @value; $i++)
+    {
+	push @data, , "Filter.N.Value.$i" => $value[$i - 1];
+    }
+    \@data;
+}
+
+sub parse_tags_delete
+{
+    if ($_[0] =~ /=/)
+    {
+	my($name, $value) = split(/=/, $_[0], 2);
+	return ["Tag.N.Key" => $name, "Tag.N.Value" => $value];
+    }
+    ["Tag.N.Key" => $_[0]];
 }
 
 
