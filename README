@@ -3,12 +3,5 @@ The orignal author is Timothy Kay, and the original source and documentation
 can be found at http://timkay.com/aws/.
 
 My fork contains patches and YAML support (aws --yaml [--ruby] foobar).
-There are some branches:
-  mixed-format:
-    my working branch (active)
-  master:
-    as same as mixed-format,
-    but the code are formatted by 'perltidy'
-  test_yaml:
-    private work to test YAML support
-
+  master:    my active branch
+  test_yaml: private work to test YAML support
