@@ -632,7 +632,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 prefix private progress public queue r region request requester retry
+	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
     my @awsrc = "";
@@ -1255,20 +1255,26 @@ if (!$cmd_data)
     {
 	for (;;)
 	{
-	    my(@instanceId, @instanceState, @dnsName);
+	    my(@instanceId, @instanceState, @dnsName, @groupId);
 
-	    while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
+	    while ($result =~ /(<item(?:<item(?:<item.*?<\/item>|.)*?<\/item>|.)*?<\/item>)/sg)
 	    {
 		my($result) = ($1);
-		while ($result =~ /(<item.*?<\/item>)/sg)
+		my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
+		while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
 		{
 		    my($result) = ($1);
-		    my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
-		    my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
-		    my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
-		    push @instanceId, $instanceId;
-		    push @instanceState, $instanceState;
-		    push @dnsName, $dnsName;
+		    while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
+		    {
+			my($result) = ($1);
+			my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
+			my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
+			my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+			push @instanceId, $instanceId;
+			push @instanceState, $instanceState;
+			push @dnsName, $dnsName;
+			push @groupId, $groupId;
+		    }
 		}
 	    }
 
@@ -1277,7 +1283,7 @@ if (!$cmd_data)
 	    for (my $i = 0; $i < @instanceId; $i++)
 	    {
 		$pending += $instanceState[$i] eq "pending";
-		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\n";
+		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
 	    }
 
 	    last unless $wait && $pending;
