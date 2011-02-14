@@ -289,7 +289,7 @@ $iam_version = "2010-05-08";
 								     ["", LoadBalancerName],
 								     ["listener", "Listeners.memberN"],
 								     ]],
-	["elb", "delete-lb dlb", DeleteLoadBalancer, [
+	["elb", "delete-lb dellb", DeleteLoadBalancer, [
 						  ["", LoadBalancerName],
 						  ]],
 	["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
