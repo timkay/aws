@@ -19,7 +19,7 @@
 
 
 $program_version = "1.75";
-$ec2_version = "2010-08-31";
+$ec2_version = "2010-11-15";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
@@ -240,6 +240,13 @@ $iam_version = "2010-05-08";
 								 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
 								 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
 								 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+								 ["monitor m" => "Monitoring.Enabled"],
+								 ["disable-api-termination" => DisableApiTermination],
+								 ["instance-initiated-shutdown-behavior" => InstanceInitiatedShutdownBehavior],
+								 ["placement-group" => "Placement.GroupName"],
+								 ["subnet s" => SubnetId],
+								 ["private-ip-address" => PrivateIpAddress],
+								 ["client-token" => ClientToken],
 								 ]],
         ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
         ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
