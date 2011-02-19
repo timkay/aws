@@ -1463,6 +1463,14 @@ if (!$cmd_data)
 	    print join("\t", @item), "\n";
 	}
     }
+    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse/ && $simple)
+    {
+	print map {join("\t", @$_) . "\n"} @{xml2Dary("member", $result)};
+    }
+    elsif ($result =~ /<ListGroupPoliciesResponse/ && $simple)
+    {
+	print map {join("\t", @$_) . "\n"} @{xml2Dary("PolicyNames", $result)};
+    }
     else
     {
 	print xml2tab($result) || xmlpp($result);
@@ -1471,6 +1479,26 @@ if (!$cmd_data)
     exit $exit_code;
 }
 
+
+sub xml2Dary
+{
+    my($tag, $result, $param, @result) = @_;
+    my(@key);
+    while ($result =~ /<$tag.*?>(.*?)<\/$tag>/sg)
+    {
+	my($elt) = ($1);
+	my(@val);
+	while ($elt =~ /<(.*?)>(.*?)<\/\1>/sg)
+	{
+	    my($key, $val) = ($1, $2);
+	    push @key, $key if !@result;
+	    push @val, $val;
+	}
+	push @result, \@key if !@result && $param->{head};
+	push @result, \@val;
+    }
+    \@result;
+}
 
 sub xml2ary
 {
