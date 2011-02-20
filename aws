@@ -791,7 +791,8 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry ||= 3;
 
-$secrets_file ||= -r "$home/.awssecret"? "$home/.awssecret": "$home/.s3cfg";
+$secrets_file ||= "$home/.s3cfg" if !-e "$home/.awssecret" && -e "$home/.s3cfg";
+$secrets_file ||= "$home/.awssecret";
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
@@ -811,7 +812,10 @@ if (!-e "$home/.awsrc" || $sanity_check)
 {
     if (!$silent)
     {
-	if (!-e $secrets_file)
+	if ($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID})
+	{
+	}
+	elsif (!-e $secrets_file)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
 	}
@@ -1037,7 +1041,10 @@ if (!$cmd_data)
 	{
 	    my($aa, $key, $default) = @$_;
 
-	    for my $a (split(" ", $aa))
+	    my(@help);
+	    my @aa = split(/\s+/, $aa);
+	    @aa = "" unless @aa;
+	    for my $a (@aa)
 	    {
 		my $x = "-$a " if $a;
 		$x = "--$a " if length($a) > 1;
@@ -1051,8 +1058,9 @@ if (!$cmd_data)
 		}
 		my $def = " ($default)" if $default;
 
-		$help .= " [$x$name$ddd$def]";
+		push @help, "$x$name$ddd$def";
 	    }
+	    $help .= " [" . join("|", @help) . "]";
 	}
 	$help .= " BUCKET[/OBJECT] [SOURCE]" if $service eq "s3";
 	$help .= "\n";
