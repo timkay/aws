@@ -1299,7 +1299,11 @@ if (!$cmd_data)
 	    while ($result =~ /(<item(?:<item(?:<item.*?<\/item>|.)*?<\/item>|.)*?<\/item>)/sg)
 	    {
 		my($result) = ($1);
-		my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
+		my(@groupIds);
+		while ($result =~ /<groupId>(.*?)<\/groupId>/g)
+		{
+		    push @groupIds, $1;
+		}
 		while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
 		{
 		    my($result) = ($1);
@@ -1312,7 +1316,7 @@ if (!$cmd_data)
 			push @instanceId, $instanceId;
 			push @instanceState, $instanceState;
 			push @dnsName, $dnsName;
-			push @groupId, $groupId;
+			push @groupId, join(',', @groupIds);
 		    }
 		}
 	    }
