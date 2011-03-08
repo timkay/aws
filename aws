@@ -273,7 +273,7 @@ $iam_version = "2010-05-08";
 								   ["healthy-threshold", "HealthCheck.HealthyThreshold"],
 								   ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
 								   ["interval", "HealthCheck.Interval"],
-								   ["timeout", "HealthCheck.Timoout"],
+								   ["timeout", "HealthCheck.Timeout"],
 								   ]],
 	["elb", "create-app-cookie-stickiness-policy cacsp", CreateAppCookieStickinessPolicy, [
 											       ["", LoadBalancerName],
