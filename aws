@@ -899,9 +899,9 @@ use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5 md5_hex);
 
 
-if (exists $ENV{QUERY_STRING} || $sign)
+if ($sign)
 {
-    sysread STDIN, my $data, $ENV{CONTENT_LENGTH} if $ENV{CONTENT_LENGTH};
+    sysread STDIN, my $data, $ENV{CONTENT_LENGTH};
     $data ||= $sign;
 
     if ($v >= 2)
