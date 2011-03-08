@@ -19,9 +19,9 @@
 
 
 $program_version = "1.75";
-$ec2_version = "2010-08-31";
+$ec2_version = "2010-11-15";
 $sqs_version = "2009-02-01";
-$elb_version = "2009-05-15";
+$elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
 
@@ -240,6 +240,13 @@ $iam_version = "2010-05-08";
 								 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
 								 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
 								 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+								 ["monitor m" => "Monitoring.Enabled"],
+								 ["disable-api-termination" => DisableApiTermination],
+								 ["instance-initiated-shutdown-behavior" => InstanceInitiatedShutdownBehavior],
+								 ["placement-group" => "Placement.GroupName"],
+								 ["subnet s" => SubnetId],
+								 ["private-ip-address" => PrivateIpAddress],
+								 ["client-token" => ClientToken],
 								 ]],
         ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
         ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
@@ -256,35 +263,10 @@ $iam_version = "2010-05-08";
 						    ["tag", undef, undef, \&parse_tags_delete],
 						    ]],
 
-	["elb", "create-lb clb", CreateLoadBalancer, [
-						      ["", LoadBalancerName],
-						      ["availability-zone", "AvailabilityZones.memberN"],
-						      ["protocol", "Listeners.member.1.Protocol"],
-						      ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
-						      ["instanceport", "Listeners.member.1.InstancePort"],
-						      ]],
-	["elb", "delete-lb", DeleteLoadBalancer, [
-						      ["", LoadBalancerName],
-						      ]],
-	["elb", "describe-lbs dlb", DescribeLoadBalancers, [
-							    ["", LoadBalancerNameN],
-							    ]],
-	["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
-										     ["", LoadBalancerName],
-										     ["availability-zone", "AvailabilityZones.memberN"],
-										     ]],
-	["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
-										       ["", LoadBalancerName],
-										       ["availability-zone", "AvailabilityZones.memberN"],
-										       ]],
-	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
-										       ["", LoadBalancerName],
-										       ["instance", "Instances.member.N.InstanceId"],
-										       ]],
-	["elb", "deregister-instances-with-lb dlbi", DeregisterInstancesFromLoadBalancer, [
-											   ["", LoadBalancerName],
-											   ["instance", "Instances.member.N.InstanceId"],
-											   ]],
+	#############
+	###  ELB  ###
+	#############
+
 	["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
 								   ["", LoadBalancerName],
 								   ["target", "HealthCheck.Target"],
@@ -303,14 +285,63 @@ $iam_version = "2010-05-08";
 											      ["policy-name", PolicyName],
 											      ["expiration-period", "policy-name", PolicyName],
 											      ]],
-	["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
-											  ["", LoadBalancerName],
-											  ["policy-name", "PolicyNames.memberN"],
-											  ]],
+	["elb", "create-lb clb", CreateLoadBalancer, [
+						      ["", LoadBalancerName],
+						      ["availability-zone", "AvailabilityZones.memberN"],
+						      ["protocol", "Listeners.member.1.Protocol"],
+						      ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
+						      ["instanceport", "Listeners.member.1.InstancePort"],
+						      ]],
+	["elb", "create-lb-listeners clbl", CreateLoadBalancerListeners, [
+								     ["", LoadBalancerName],
+								     ["listener", "Listeners.memberN"],
+								     ]],
+	["elb", "delete-lb dellb", DeleteLoadBalancer, [
+						  ["", LoadBalancerName],
+						  ]],
+	["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
+								     ["", LoadBalancerName],
+								     ]],
 	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
 								    ["", LoadBalancerName],
 								    ["policy-name", PolicyName],
 								    ]],
+	["elb", "describe-instance-health dih", DescribeInstanceHealth, [
+								     ["", LoadBalancerName],
+								     ["listener", "Listeners.memberN"],
+								     ]],
+	["elb", "describe-lbs dlb", DescribeLoadBalancers, [
+							    ["", LoadBalancerNameN],
+							    ]],
+	["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["availability-zone", "AvailabilityZones.memberN"],
+										       ]],
+	["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
+										     ["", LoadBalancerName],
+										     ["availability-zone", "AvailabilityZones.memberN"],
+										     ]],
+	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
+										       ["", LoadBalancerName],
+										       ["instance", "Instances.member.N.InstanceId"],
+										       ]],
+	["elb", "deregister-instances-from-lb dlbi", DeregisterInstancesFromLoadBalancer, [
+											   ["", LoadBalancerName],
+											   ["instance", "Instances.member.N.InstanceId"],
+											   ]],
+	["elb", "set-lb-listener-ssl-cert slblsc", SetLoadBalancerListenerSSLCertificate, [
+										    ["", LoadBalancerName],
+										    ["lb-port", LoadBalancerPort],
+										    ["cert-id", SSLCertificateId],
+										    ]],
+	["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
+											  ["", LoadBalancerName],
+											  ["policy-name", "PolicyNames.memberN"],
+											  ]],
+
+	#############
+	###  IAM  ###
+	#############
 
 	["iam", "groupaddpolicy pgp", PutGroupPolicy, [
 						   [" g" => GroupName],
@@ -632,9 +663,9 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 prefix private progress public queue r region request requester retry
-	     yaml ruby
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv xml wait)} = undef;
+	     ruby yaml
+	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -761,7 +792,8 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry ||= 3;
 
-$secrets_file ||= -r "$home/.awssecret"? "$home/.awssecret": "$home/.s3cfg";
+$secrets_file ||= "$home/.s3cfg" if !-e "$home/.awssecret" && -e "$home/.s3cfg";
+$secrets_file ||= "$home/.awssecret";
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
@@ -781,7 +813,10 @@ if (!-e "$home/.awsrc" || $sanity_check)
 {
     if (!$silent)
     {
-	if (!-e $secrets_file)
+	if ($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID})
+	{
+	}
+	elsif (!-e $secrets_file)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
 	}
@@ -1007,7 +1042,10 @@ if (!$cmd_data)
 	{
 	    my($aa, $key, $default) = @$_;
 
-	    for my $a (split(" ", $aa))
+	    my(@help);
+	    my @aa = split(/\s+/, $aa);
+	    @aa = "" unless @aa;
+	    for my $a (@aa)
 	    {
 		my $x = "-$a " if $a;
 		$x = "--$a " if length($a) > 1;
@@ -1021,8 +1059,9 @@ if (!$cmd_data)
 		}
 		my $def = " ($default)" if $default;
 
-		$help .= " [$x$name$ddd$def]";
+		push @help, "$x$name$ddd$def";
 	    }
+	    $help .= " [" . join("|", @help) . "]";
 	}
 	$help .= " BUCKET[/OBJECT] [SOURCE]" if $service eq "s3";
 	$help .= "\n";
@@ -1260,20 +1299,26 @@ if (!$cmd_data)
     {
 	for (;;)
 	{
-	    my(@instanceId, @instanceState, @dnsName);
+	    my(@instanceId, @instanceState, @dnsName, @groupId);
 
-	    while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
+	    while ($result =~ /(<item(?:<item(?:<item.*?<\/item>|.)*?<\/item>|.)*?<\/item>)/sg)
 	    {
 		my($result) = ($1);
-		while ($result =~ /(<item.*?<\/item>)/sg)
+		my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
+		while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
 		{
 		    my($result) = ($1);
-		    my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
-		    my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
-		    my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
-		    push @instanceId, $instanceId;
-		    push @instanceState, $instanceState;
-		    push @dnsName, $dnsName;
+		    while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
+		    {
+			my($result) = ($1);
+			my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
+			my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
+			my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+			push @instanceId, $instanceId;
+			push @instanceState, $instanceState;
+			push @dnsName, $dnsName;
+			push @groupId, $groupId;
+		    }
 		}
 	    }
 
@@ -1282,7 +1327,7 @@ if (!$cmd_data)
 	    for (my $i = 0; $i < @instanceId; $i++)
 	    {
 		$pending += $instanceState[$i] eq "pending";
-		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\n";
+		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
 	    }
 
 	    last unless $wait && $pending;
@@ -1431,6 +1476,14 @@ if (!$cmd_data)
 	    print join("\t", @item), "\n";
 	}
     }
+    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse/ && $simple)
+    {
+	print map {join("\t", @$_) . "\n"} @{xml2Dary("member", $result)};
+    }
+    elsif ($result =~ /<ListGroupPoliciesResponse/ && $simple)
+    {
+	print map {join("\t", @$_) . "\n"} @{xml2Dary("PolicyNames", $result)};
+    }
     else
     {
 	print xml2tab($result) || xmlpp($result);
@@ -1439,6 +1492,26 @@ if (!$cmd_data)
     exit $exit_code;
 }
 
+
+sub xml2Dary
+{
+    my($tag, $result, $param, @result) = @_;
+    my(@key);
+    while ($result =~ /<$tag.*?>(.*?)<\/$tag>/sg)
+    {
+	my($elt) = ($1);
+	my(@val);
+	while ($elt =~ /<(.*?)>(.*?)<\/\1>/sg)
+	{
+	    my($key, $val) = ($1, $2);
+	    push @key, $key if !@result;
+	    push @val, $val;
+	}
+	push @result, \@key if !@result && $param->{head};
+	push @result, \@val;
+    }
+    \@result;
+}
 
 sub xml2ary
 {
