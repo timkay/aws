@@ -273,7 +273,7 @@ $iam_version = "2010-05-08";
 								   ["healthy-threshold", "HealthCheck.HealthyThreshold"],
 								   ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
 								   ["interval", "HealthCheck.Interval"],
-								   ["timeout", "HealthCheck.Timoout"],
+								   ["timeout", "HealthCheck.Timeout"],
 								   ]],
 	["elb", "create-app-cookie-stickiness-policy cacsp", CreateAppCookieStickinessPolicy, [
 											       ["", LoadBalancerName],
@@ -898,9 +898,9 @@ use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5 md5_hex);
 
 
-if (exists $ENV{QUERY_STRING} || $sign)
+if ($sign)
 {
-    sysread STDIN, my $data, $ENV{CONTENT_LENGTH} if $ENV{CONTENT_LENGTH};
+    sysread STDIN, my $data, $ENV{CONTENT_LENGTH};
     $data ||= $sign;
 
     if ($v >= 2)
