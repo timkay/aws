@@ -1451,7 +1451,8 @@ if (!$cmd_data)
     {
 	my($doc) = $result =~ /<PolicyDocument>(.*?)<\/PolicyDocument>/s;
 	$doc =~ s/%(..)/pack(H2,$1)/ge;
-	print $doc;
+	chomp $doc;
+	print "$doc\n";
     }
     elsif ($result =~ /<(?:ListUserPoliciesResponse)/)
     {
