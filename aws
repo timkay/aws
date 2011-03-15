@@ -2652,3 +2652,5 @@ sub decode_base64 ($)
 #
 # end of encode_base64()
 #
+
+# vim: set ts=8 sts=4 sw=4 noexpandtab:
