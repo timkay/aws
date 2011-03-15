@@ -1739,9 +1739,11 @@ sub xml2tab
 	}
 	if ($depth[$i] >= $depth + 2)
 	{
-	    $table[$#table]->{$col} .= " " if $table[$#table]->{$col} && $depth[$i] < 99;
-	    $table[$#table]->{$col} .= $tag[$i];
-	    $table[$#table]->{$col} .= "=" if $depth[$i] < 99;
+	    if ($tag[$i] ne 'item') {
+		$table[$#table]->{$col} .= " " if $table[$#table]->{$col} && $depth[$i] < 99;
+		$table[$#table]->{$col} .= $tag[$i];
+		$table[$#table]->{$col} .= "=" if $depth[$i] < 99;
+	    }
 	}
     }
 
