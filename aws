@@ -881,6 +881,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 }
 
 $curl_options .= " -q -g -S";
+$curl_options .= " --remote-time";
 $curl_options .= " --retry $retry" if $retry;
 $curl_options .= " --fail" if $fail;
 $curl_options .= " --verbose" if $v >= 2;
