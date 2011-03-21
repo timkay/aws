@@ -1471,7 +1471,7 @@ if (!$cmd_data)
 	    print join("\t", @item), "\n";
 	}
     }
-    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse/ && $simple)
+    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse|ListAccessKeysResponse/ && $simple)
     {
 	print map {join("\t", @$_) . "\n"} @{xml2Dary("member", $result)};
     }
