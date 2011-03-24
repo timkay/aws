@@ -1313,9 +1313,11 @@ if (!$cmd_data)
 			my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
 			my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
 			my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+			my($availabilityZone) = $result =~ /<availabilityZone>(.*?)<\/availabilityZone>/s;
 			push @instanceId, $instanceId;
 			push @instanceState, $instanceState;
 			push @dnsName, $dnsName;
+			push @availabilityZone, $availabilityZone;
 			push @groupId, join(',', @groupIds);
 		    }
 		}
@@ -1326,7 +1328,7 @@ if (!$cmd_data)
 	    for (my $i = 0; $i < @instanceId; $i++)
 	    {
 		$pending += $instanceState[$i] eq "pending";
-		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
+		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$availabilityZone[$i]\t$groupId[$i]\n";
 	    }
 
 	    last unless $wait && $pending;
