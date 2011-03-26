@@ -661,7 +661,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help http
+    @meta{qw(1 cmd0 curl_options cut d delimiter dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
