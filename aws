@@ -402,7 +402,7 @@ $iam_version = "2010-05-08";
 	["iam", "useraddkey cak", CreateAccessKey, [
 						    [" u" => UserName],
 						    ]],
-	["iam", "useraddloginprofile", CreateLoginProfile, [
+	["iam", "useraddloginprofile clp", CreateLoginProfile, [
 							    [" u" => UserName],
 							    [p => Password],
 							    ]],
@@ -434,7 +434,7 @@ $iam_version = "2010-05-08";
 						[" u" => UserName],
 						[k => AccessKeyId],
 						]],
-	["iam", "userdelloginprofile", DeleteLoginProfile, [
+	["iam", "userdelloginprofile dlp", DeleteLoginProfile, [
 							    [" u" => UserName],
 							    ]],
 	["iam", "userdelpolicy", DeleteUserPolicy, [
@@ -450,7 +450,7 @@ $iam_version = "2010-05-08";
 	["iam", "usergetattributes gu", GetUser, [
 						  [" u" => UserName],
 						  ]],
-	["iam", "usergetloginprofile", GetLoginProfile, [
+	["iam", "usergetloginprofile glp", GetLoginProfile, [
 							 [" u" => UserName],
 							 ]],
 	["iam", "userlistbypath lu", ListUsers, [
@@ -492,7 +492,7 @@ $iam_version = "2010-05-08";
 						[a => AccessKeyId],
 						[s => Status],
 						]],
-	["iam", "usermodloginprofile", UpdateLoginProfile, [
+	["iam", "usermodloginprofile ulp", UpdateLoginProfile, [
 							    [" u" => UserName],
 							    [p => Password],
 							    ]],
@@ -522,13 +522,20 @@ $iam_version = "2010-05-08";
 							   [s => ServerCertificateName],
 							   [n => NewServerCertificateName],
 							   ]],
-	["iam", "servercertupload", UploadServerCertificate,[
-							     [" s" => ServerCertificateName],
-							     [p => Path],
-							     [b => CertificateBody, undef, sub {load_file($_[0])}],
-							     [k => PrivateKey, undef, sub {load_file($_[0])}],
-							     [c => CertificateChain, undef, sub {load_file($_[0])}],
-							     ]],
+	["iam", "servercertupload", UploadServerCertificate, [
+							      [" s" => ServerCertificateName],
+							      [p => Path],
+							      [b => CertificateBody, undef, sub {load_file($_[0])}],
+							      [k => PrivateKey, undef, sub {load_file($_[0])}],
+							      [c => CertificateChain, undef, sub {load_file($_[0])}],
+							      ]],
+	["iam", "accountaliascreate caa", CreateAccountAlias,[
+							      ["" => AccountAlias],
+							      ]],
+	["iam", "accountaliasdelete daa", DeleteAccountAlias,[
+							      ["" => AccountAlias],
+							      ]],
+	["iam", "accountaliaslist laa", ListAccountAliases],
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
