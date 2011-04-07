@@ -402,7 +402,7 @@ $iam_version = "2010-05-08";
 	["iam", "useraddkey cak", CreateAccessKey, [
 						    [" u" => UserName],
 						    ]],
-	["iam", "useraddloginprofile", CreateLoginProfile, [
+	["iam", "useraddloginprofile clp", CreateLoginProfile, [
 							    [" u" => UserName],
 							    [p => Password],
 							    ]],
@@ -434,7 +434,7 @@ $iam_version = "2010-05-08";
 						[" u" => UserName],
 						[k => AccessKeyId],
 						]],
-	["iam", "userdelloginprofile", DeleteLoginProfile, [
+	["iam", "userdelloginprofile dlp", DeleteLoginProfile, [
 							    [" u" => UserName],
 							    ]],
 	["iam", "userdelpolicy", DeleteUserPolicy, [
@@ -450,7 +450,7 @@ $iam_version = "2010-05-08";
 	["iam", "usergetattributes gu", GetUser, [
 						  [" u" => UserName],
 						  ]],
-	["iam", "usergetloginprofile", GetLoginProfile, [
+	["iam", "usergetloginprofile glp", GetLoginProfile, [
 							 [" u" => UserName],
 							 ]],
 	["iam", "userlistbypath lu", ListUsers, [
@@ -492,7 +492,7 @@ $iam_version = "2010-05-08";
 						[a => AccessKeyId],
 						[s => Status],
 						]],
-	["iam", "usermodloginprofile", UpdateLoginProfile, [
+	["iam", "usermodloginprofile ulp", UpdateLoginProfile, [
 							    [" u" => UserName],
 							    [p => Password],
 							    ]],
@@ -522,13 +522,20 @@ $iam_version = "2010-05-08";
 							   [s => ServerCertificateName],
 							   [n => NewServerCertificateName],
 							   ]],
-	["iam", "servercertupload", UploadServerCertificate,[
-							     [" s" => ServerCertificateName],
-							     [p => Path],
-							     [b => CertificateBody, undef, sub {load_file($_[0])}],
-							     [k => PrivateKey, undef, sub {load_file($_[0])}],
-							     [c => CertificateChain, undef, sub {load_file($_[0])}],
-							     ]],
+	["iam", "servercertupload", UploadServerCertificate, [
+							      [" s" => ServerCertificateName],
+							      [p => Path],
+							      [b => CertificateBody, undef, sub {load_file($_[0])}],
+							      [k => PrivateKey, undef, sub {load_file($_[0])}],
+							      [c => CertificateChain, undef, sub {load_file($_[0])}],
+							      ]],
+	["iam", "accountaliascreate caa", CreateAccountAlias,[
+							      ["" => AccountAlias],
+							      ]],
+	["iam", "accountaliasdelete daa", DeleteAccountAlias,[
+							      ["" => AccountAlias],
+							      ]],
+	["iam", "accountaliaslist laa", ListAccountAliases],
 
 	["s3", "ls", LS],
 	["s3", "get cat", GET],
@@ -661,7 +668,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 curl_options cut d delimeter dump_xml exec expire_time fail h help http
+    @meta{qw(1 cmd0 curl_options cut d delimiter dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     ruby yaml
 	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
@@ -882,6 +889,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 }
 
 $curl_options .= " -q -g -S";
+$curl_options .= " --remote-time";
 $curl_options .= " --retry $retry" if $retry;
 $curl_options .= " --fail" if $fail;
 $curl_options .= " --verbose" if $v >= 2;
@@ -1476,7 +1484,7 @@ if (!$cmd_data)
 	    print join("\t", @item), "\n";
 	}
     }
-    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse/ && $simple)
+    elsif ($result =~ /<ListGroupsResponse|GetGroupResponse|ListUsersResponse|ListAccessKeysResponse/ && $simple)
     {
 	print map {join("\t", @$_) . "\n"} @{xml2Dary("member", $result)};
     }
