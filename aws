@@ -749,6 +749,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 		{
 		    next unless grep /^\Q$cmd\E$/, split(" ", $_->[1]);
 		    $cmd_data = $_;
+		    push @{$cmd_data->[3]}, ["filter", undef, undef, \&parse_filter] if $_->[1] =~ /\bdescribe/;
 		    for (@{$cmd_data->[3]})
 		    {
 			for (split(" ", $_->[0]))
@@ -2321,6 +2322,15 @@ sub sign
     }
 
     (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+}
+
+
+sub parse_filter
+{
+    my($name, $value) = $_[0] =~ /^(.*?)=(.*)$/;
+    my(@result);
+    push @result, "Filter.N.Name" => $name, "Filter.N.Value.1" => $value;
+    [@result];
 }
 
 
