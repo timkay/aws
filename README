@@ -1,11 +1,1 @@
-"aws" is a command line program that accesses Amazon Web Services.
-The orignal author is Timothy Kay, and the original source and documentation
-can be found at http://timkay.com/aws/.
-
-My fork contains patches and YAML support (aws --yaml [--ruby] foobar).
-  master:    my active branch
-  test_yaml: private work to test YAML support
-
-For more documentation, see http://timkay.com/aws/
-
-If you can help improve the "aws" documentation, please let me know.
+<html><body>You are being <a href="https://raw.github.com/timkay/aws/master/README">redirected</a>.</body></html>
