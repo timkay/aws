@@ -750,6 +750,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
 		{
 		    next unless grep /^\Q$cmd\E$/, split(" ", $_->[1]);
 		    $cmd_data = $_;
+		    push @{$cmd_data->[3]}, ["filter", undef, undef, \&parse_filter] if $_->[1] =~ /\bdescribe/;
 		    for (@{$cmd_data->[3]})
 		    {
 			for (split(" ", $_->[0]))
@@ -1937,13 +1938,6 @@ sub s3
 	$temp_fh->flush;
     }
 
-    # added a case for "mkdir", so that "$name .= $file"  gets defeated
-    # in the mkdir case - We don't want the file we are uploading to be
-    # appended to the name because we are creating the bucket, and the
-    # name is the location constraint file.
-
-    $verb = PUT if $verb eq MKDIR;
-
     # added a case for "copy", so that the source moves to a header
     if ($verb eq COPY)
     {
@@ -2039,19 +2033,9 @@ sub s3
 	}
     }
 
-    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-
-    my($sig, $awskey) = sign($data);
-
-    my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-    $url .= "&marker=$marker" if $marker;
-    $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
-    $url .= "&delimiter=$delimiter" if $delimiter;
-
-    return $url if $request;
-
     my($content);
     $content = "--upload-file @{[cq($file)]}" if $file;
+
     if ($verb eq GET && $file)
     {
 	if ($file =~ /\/$/ || -d $file)
@@ -2065,6 +2049,37 @@ sub s3
 	$content = "--create-dirs --output @{[cq($file)]}";
     }
 
+    # added a case for "mkdir", so that "$name .= $file"  gets defeated
+    # in the mkdir case - We don't want the file we are uploading to be
+    # appended to the name because we are creating the bucket, and the
+    # name is the location constraint file.
+
+    if ($verb eq MKDIR)
+    {
+	if ($region)
+	{
+	    $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
+	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
+	    print $temp_fh qq[<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+				<LocationConstraint>$region</LocationConstraint>
+			      </CreateBucketConfiguration>
+			      ];
+	    $temp_fh->flush;
+	    $content = "--upload-file @{[cq($xml)]}";
+	}
+	$verb = PUT;
+    }
+
+    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
+
+    my($sig, $awskey) = sign($data);
+
+    my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+    $url .= "&marker=$marker" if $marker;
+    $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
+    $url .= "&delimiter=$delimiter" if $delimiter;
+
+    return $url if $request;
 
     # exec() is used because we can, but it doesn't work under Windows:
     # curl.exe runs asynchronously, and control is returned to the caller
@@ -2330,6 +2345,15 @@ sub sign
     }
 
     (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+}
+
+
+sub parse_filter
+{
+    my($name, $value) = $_[0] =~ /^(.*?)=(.*)$/;
+    my(@result);
+    push @result, "Filter.N.Name" => $name, "Filter.N.Value.1" => $value;
+    [@result];
 }
 
 
