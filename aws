@@ -301,6 +301,7 @@ $iam_version = "2010-05-08";
 						  ]],
 	["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
 								     ["", LoadBalancerName],
+								     ["loadbalancerport", "LoadBalancerPorts.member.1"],
 								     ]],
 	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
 								    ["", LoadBalancerName],
