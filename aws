@@ -825,7 +825,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	elsif (!-e $secrets_file)
 	{
-	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSeecretAccessKey\\n)\n";
+	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSecretAccessKey\\n)\n";
 	}
 	elsif (!-r $secrets_file)
 	{
