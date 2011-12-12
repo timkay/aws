@@ -1833,6 +1833,29 @@ sub s3
     $name =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs;
     $name .= $file if $verb eq PUT && $name =~ /\/$/;
 
+    # read from stdin when
+    #	aws put target
+    #	aws put target -
+    # but not
+    #	aws put target?acl
+    # what about
+    #	aws put target?location
+
+    my($temp_fh);
+
+    if ($verb eq PUT && ($file eq "-" || $file eq "" && $name !~ /\?acl$/))
+    {
+	# and not when a terminal
+	die "$0: will not to read from terminal (use \"-\" for filename to force)\n" if -t && $file ne "-";
+
+	($temp_fh, $file) = tempfile(UNLINK => 1);
+	while (STDIN->read(my $buf, 16_384))
+	{
+	    print $temp_fh $buf;
+	}
+	$temp_fh->flush;
+    }
+
     # add a Content-Type header using mime.types
     if ($verb eq PUT)
     {
@@ -1892,29 +1915,6 @@ sub s3
     $requester = "requester" if $requester == 1;
     push @header, "x-amz-request-payer: $requester" if $requester;
 
-    # read from stdin when
-    #	aws put target
-    #	aws put target -
-    # but not
-    #	aws put target?acl
-    # what about
-    #	aws put target?location
-
-    my($temp_fh);
-
-    if ($verb eq PUT && ($file eq "-" || $file eq "" && $name !~ /\?acl$/))
-    {
-	# and not when a terminal
-	die "$0: will not to read from terminal (use \"-\" for filename to force)\n" if -t && $file ne "-";
-
-	($temp_fh, $file) = tempfile(UNLINK => 1);
-	while (STDIN->read(my $buf, 16_384))
-	{
-	    print $temp_fh $buf;
-	}
-	$temp_fh->flush;
-    }
-
     # added a case for "copy", so that the source moves to a header
     if ($verb eq COPY)
     {
@@ -1947,8 +1947,13 @@ sub s3
 	$verb = GET;
     }
 
-    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|location|logging|bittorrent|requestPayment|versioning|versions))?$/s;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|requestPayment|versioning|versions))?$/s;
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
+
+    if ($uq eq "?delete")
+    {
+	$verb = POST;
+    }
 
     if ($v >= 2)
     {
