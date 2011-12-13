@@ -1895,13 +1895,20 @@ sub s3
 	    # Too memory intensive:
 	    #my $md5 = encode_base64(md5(load_file($file)), "");
 
-	    # Uses Digest::MD5::File that isn't in base perl:
-	    # (Use this choice for Windows, after installing the package)
-	    #use Digest::MD5::File qw(file_md5);
-	    #my $md5 = encode_base64(file_md5($file), "");
+	    my($md5);
 
-	    # Just right:
-	    my $md5 = encode_base64(pack("H*", (split(" ", qx[md5sum @{[cq($file)]}]))[0]), "");
+	    if (!$isUnix)
+	    {
+		# Uses Digest::MD5::File that isn't in base perl:
+		# (Use this choice for Windows, after installing the package)
+		require Digest::MD5::File;
+		$md5 = encode_base64(Digest::MD5::File::file_md5($file), "");
+	    }
+	    else
+	    {
+		# Just right:
+		$md5 = encode_base64(pack("H*", (split(" ", qx[md5sum @{[cq($file)]}]))[0]), "");
+	    }
 
 	    push @header, "Content-MD5: $md5";
 	    print STDERR "setting $header[$#header]\n" if $v;
