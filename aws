@@ -1349,25 +1349,21 @@ if (!$cmd_data)
 	for (;;)
 	{
 	    my(@instanceId, @instanceState, @dnsName, @groupId);
+	    my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
 
-	    while ($result =~ /(<item(?:<item(?:<item.*?<\/item>|.)*?<\/item>|.)*?<\/item>)/sg)
+	    while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
 	    {
 		my($result) = ($1);
-		my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
-		while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
+		while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
 		{
 		    my($result) = ($1);
-		    while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
-		    {
-			my($result) = ($1);
-			my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
-			my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
-			my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
-			push @instanceId, $instanceId;
-			push @instanceState, $instanceState;
-			push @dnsName, $dnsName;
-			push @groupId, $groupId;
-		    }
+		    my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
+		    my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
+		    my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+		    push @instanceId, $instanceId;
+		    push @instanceState, $instanceState;
+		    push @dnsName, $dnsName;
+		    push @groupId, $groupId;
 		}
 	    }
 
