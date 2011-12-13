@@ -77,7 +77,7 @@ $iam_version = "2010-05-08";
                                                    ]],
 	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
 									   ["", SpotInstanceRequestIdN],
-									   ]],								  
+									   ]],
 	["ec2", "confirm-product-instance", ConfirmProductInstance, [
 								     ["", ProductCode],
 								     ["i", InstanceId],
@@ -94,7 +94,7 @@ $iam_version = "2010-05-08";
 									       ["end", EndTime],
 									       ["instance-type", InstanceType, "m1.small"],
 									       ["description", ProductDescription, "Linux/UNIX"],
-									       ]],									   
+									       ]],
 	["ec2", "create-volume cvol", CreateVolume, [
 						     ["size", Size],
 						     ["zone", AvailabilityZone],
@@ -301,6 +301,7 @@ $iam_version = "2010-05-08";
 						  ]],
 	["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
 								     ["", LoadBalancerName],
+								     ["loadbalancerport", "LoadBalancerPorts.member.1"],
 								     ]],
 	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
 								    ["", LoadBalancerName],
@@ -671,6 +672,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
+	     ruby yaml
 	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
 
@@ -835,7 +837,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	elsif ($isUnix)
 	{
 	    my $stat = (stat $secrets_file)[2] & 0777;
-	    
+
 	    if (($stat & 0477) != 0400)
 	    {
 		my @perm = (qw(x r w)) x 4;
@@ -937,7 +939,7 @@ if ($sign)
 if ($install)
 {
     die "Usage: .../aws --install\n" if $install && @argv;
-    
+
     if (-w "/usr/bin")
     {
 	chomp(my $dir = qx[pwd]);
@@ -1232,6 +1234,10 @@ if (!$cmd_data)
     if ($xml)
     {
 	print xmlpp($result);
+    }
+    elsif ($yaml)
+    {
+        print xml2yaml($result);
     }
     elsif ($result =~ /<ListBucketResult|<ListAllMyBucketsResult/ && ($l || $d1 || $exec || $simple))
     {
@@ -1698,11 +1704,6 @@ sub xml2tab
 		{
 		    for (my $i = 0; $i < @head; $i++)
 		    {
-			if ($head[$i] =~ /^(?:privateDnsName|dnsName)$/)
-			{
-			    chomp(my $me = qx[me $_->[$i]]);
-			    $_->[$i] = $me if $me;
-			}
 			my $length = length($_->[$i]);
 			$width[$i] = $length if $width[$i] < $length;
 		    }
@@ -1862,6 +1863,29 @@ sub xmlpp
     $result;
 }
 
+# Convert xml string to YAML format
+# Cf.: https://github.com/icy/aws/blob/master/aws2yaml
+sub xml2yaml {
+  my($result) = xmlpp(@_);
+  my($rubySymbol) = "";
+
+  $rubySymbol = ":" if $ruby;
+
+  $result =~ s#\n# #g;
+  $result =~ s#> #>\n#g;                            # remove all '\n's
+  $result =~ s#</.*>##g;                            # remove closing tags
+  $result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
+  $result =~ s#($rubySymbol[^:]+): (.+)#\1: > \2#g; # opening tags -> symbols
+  $result =~ s#:?(.*)/:#\1:#g;                      # empty values
+  $result =~ s#:?(item|bucket|member): #- #gi;      # array items
+  $result =~ s#\t#  #g;                             # tabs -> spaces
+  $result =~ s#^[ :]*\n##mg;                        # remove all empty lines
+  $result =~ s#[ ]+$##gm;                           # remove all trailing spaces
+  $result =~ s#^[^ \n]+:\n#---\n#;                  # new document indicator
+  $result =~ s#^  ##mg;                             # shift left
+
+  $result;
+}
 
 sub s3
 {
@@ -2222,7 +2246,7 @@ sub ec2
     if ($service eq "iam")
     {
 	$endpoint = "iam.amazonaws.com";
-	$endpoint = "iam.$region.amazonaws.com" if $region;
+	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
     $queue ||= "/";
@@ -2309,7 +2333,7 @@ sub load_file_silent
     <$io>;
 }
 
-sub guess_is_unix 
+sub guess_is_unix
 {
     return 1 if $ENV{OS} =~ /windows/i && $ENV{OSTYPE} =~ /cygwin/i;
     return 1 if $ENV{OS} !~ /windows/i;
@@ -2567,8 +2591,8 @@ sub sha1_sha1
     #constants [4.2.1]
     my @K = (0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6);
 
-    # PREPROCESSING 
- 
+    # PREPROCESSING
+
     $msg .= pack(C, 0x80); # add trailing '1' bit to string [5.1.1]
 
     # convert string msg into 512-bit/16-integer blocks arrays of ints [5.2.1]
