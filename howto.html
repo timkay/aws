@@ -167,7 +167,7 @@ Also, see the entry below about filenames with funny characters interacting with
 <p>
 </li>
 <li>
-<b>How do I do such scripting when my file names have funny chacracters in them?</b>
+<b>How do I do such scripting when my file names have funny characters in them?</b>
 <p>
 If your files have funny characters in them, such as apostrophe (&apos;), then you should use Perl's system() function in a way that doesn't involve the shell.  Here are examples:
 <blockquote><xmp>$ perl -e 'do {print "putting $_\n"; system (qw(aws put test681), $_)} for @ARGV' ascii/*.txt
