@@ -2011,7 +2011,7 @@ sub s3
     }
 
     my($vhost, $vname) = ($s3host, $uname);
-    if (!$no_vhost)
+    if ($no_vhost)
     {
 	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     }
