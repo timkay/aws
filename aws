@@ -672,9 +672,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     ruby yaml
-	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml)} = undef;
+	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry ruby quiet
+	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -1191,12 +1190,27 @@ if (!$cmd_data)
 	{
 	    my($temp_fh, $temp_fn) = tempfile(UNLINK => 1);
 	    print $temp_fh "<Delete>\n";
+	    print $temp_fh "\t<Quiet>true</Quiet>\n" if $quiet;
+
+	    die "missing object: specifify one or more objects to delete\n" if @file == 0;
+
 	    for (@file)
 	    {
+		if (/^-$/)
+		{
+		    for (split(" ", load_file($_)))
+		    {
+			print $temp_fh "\t<Object><Key>$_</Key></Object>\n";
+		    }
+		    next;
+		}
 		print $temp_fh "\t<Object><Key>$_</Key></Object>\n";
 	    }
+
 	    print $temp_fh "</Delete>\n";
 	    $temp_fh->flush;
+
+	    system "cat $temp_fn" if $v;
 
 	    $action = PUT;
 	    $md5 = 1;
@@ -2144,7 +2158,7 @@ sub s3
 
     # for a PUT, disable the "Expect: 100-Continue" header if the file is small
     my($accept);
-    $accept = "--header \"Expect: \"" if $verb eq PUT && (-s $file) < 10_000;
+    $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
     my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
 
