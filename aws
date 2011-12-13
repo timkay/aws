@@ -544,6 +544,7 @@ $iam_version = "2010-05-08";
 	["s3", "put", PUT],
 	["s3", "delete rmdir rm", DELETE],
 	["s3", "copy cp", COPY],
+	["s3", "dmo", DMO],
 
 	["sqs", "add-permission addperm", AddPermission, [
 							  ["" => QueueUri],
@@ -1168,11 +1169,49 @@ if (!$cmd_data)
     }
     elsif ($service eq "s3")
     {
+	my(@file, @head);
+
+	for (@argv)
+	{
+	    if (/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i)
+	    {
+		push @head, $_;
+	    }
+	    else
+	    {
+		push @file, $_;
+	    }
+	}
+
+	my $bucket = shift @file;
+
+	if ($action eq DMO)
+	{
+	    my($temp_fh, $temp_fn) = tempfile(UNLINK => 1);
+	    print $temp_fh "<Delete>\n";
+	    for (@file)
+	    {
+		print $temp_fh "\t<Object><Key>$_</Key></Object>\n";
+	    }
+	    print $temp_fh "</Delete>\n";
+	    $temp_fh->flush;
+
+	    $action = PUT;
+	    $md5 = 1;
+	    $bucket .= "?delete";
+	    @file = $temp_fn;
+
+	    print "bucket = $bucket\nfile = $file\naction = $action\n" if $v;
+	}
+
+	my $file = shift @file;
+	warn "ignored: @file\n" if @file;
+
 	my($last_marker, $marker);
 
 	for (;;)
 	{
-	    my $r = s3($action, $marker, (grep(!/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv))[0, 1], grep(/^(?:x-amz-|Cache-|Content-|Expires:|If-|Range:)/i, @argv));
+	    my $r = s3($action, $marker, $bucket, $file, @head);
 	    if ($r !~ /^<\?xml/)
 	    {
 		print $r;
@@ -1366,7 +1405,7 @@ if (!$cmd_data)
 	    }
 	}
     }
-####
+
     elsif ($result =~ /<ListDomainsResponse/)
     {
 	my $ary = xml2ary(ListDomainsResult, $result);
