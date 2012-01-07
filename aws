@@ -821,20 +821,19 @@ for ([m => 60], [h => 60 * 60], [d => 24 * 60 * 60], [w => 7 * 24 * 60 * 60], [m
 if (!-e "$home/.awsrc" || $sanity_check)
 {
     if (!$silent)
-    {
-	if ($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID})
-	{
-	}
-	elsif (!-e $secrets_file)
-	{
+     {
+     if (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
+	 {
+	 elsif (!-e $secrets_file)
+	 {
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSecretAccessKey\\n)\n";
-	}
-	elsif (!-r $secrets_file)
-	{
+	 }
+	 elsif (!-r $secrets_file)
+	 {
 	    warn "sanity-check: \"$secrets_file\": file is not readable\n";
-	}
-	elsif ($isUnix)
-	{
+	 }
+	 elsif ($isUnix)
+	 {
 	    my $stat = (stat $secrets_file)[2] & 0777;
 
 	    if (($stat & 0477) != 0400)
@@ -843,7 +842,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 		my $perm = join("", map {my $s = shift @perm; $_? $s: "-"} (split//, (unpack("B*", pack("n", $stat))))[6 .. 15]);
 		warn "sanity-check: \"$secrets_file\": file permissions are $perm.  Should be -rw-------\n";
 	    }
-	}
+	 }
     }
 
     my($curl_version) = qx[curl -V] =~ /^curl\s+([\d\.]+)/s;
