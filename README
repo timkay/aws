@@ -7,7 +7,7 @@ SDB
 ELB
 IAM
 
-To run "aws", all you need is a single file! Download http://github.com/timkay/aws/raw/master/aws, make it executable, create ~/.awssecrets, and you are done.
+To run "aws", all you need is a single file! Download http://github.com/timkay/aws/raw/master/aws, make it executable, create ~/.awssecrets or set EC2_ACCESS_KEY and EC2_SECRET_KEY, and you are done.
 
 For more documentation, see http://timkay.com/aws/
 
