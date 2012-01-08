@@ -7,7 +7,7 @@
 </style>
 </head>
 <body>
-<h2 style="background-color: #082466; color: #fff">&nbsp;aws - simple access to Amazon EC2 and S3</h2>
+<h2 style="background-color: #082466; color: #fff">&nbsp;aws - simple access to Amazon EC2 and S3 and SQS and SDB and ELB</h2>
 <p>
 <img align=absmiddle src="http://s3.timkay.com/timeyes.gif"> &nbsp; <a href=../>timkay.com</a> &#187; <a href=../tools/>tools</a> &#187; aws
 <p>
@@ -15,7 +15,7 @@ aws is a command-line tool that gives you easy access to Amazon EC2
 and Amazon S3.  aws is designed to be simple to install and simple to
 use.
 <p>
-Thanks to your feedback (<a href=timkay@not.com>timkay@not.com</a>), aws is the top-rated "community code"
+Thanks to your feedback (<a href=mailto:timkay@not.com>timkay@not.com</a>), aws is the top-rated "community code"
 for all of Amazon EC2 and S3!  See the ratings and reviews at
 <a href=http://developer.amazonwebservices.com/connect/entry.jspa?externalID=739&categoryID=85>EC2</a> and
 <a href=http://developer.amazonwebservices.com/connect/entry.jspa?externalID=739&categoryID=47>S3</a>.  They make me blush!  Thank you!
@@ -25,9 +25,21 @@ This document describes the basic features.  For additional examples, see the <a
 <table width=80% align=center bgcolor=black cellspacing=2 cellpadding=4><tr bgcolor=white><td>
 <ul>
 <li>
+SDB support - zikes! it was easy to add
+<p>
+"aws" now supports Amazon SDB. See <a href=https://docs.google.com/Doc?id=ah9n72fdwz78_192g79h46ft>the documenation</a>.
+<p>
+</li>
+<li>
+ELB support
+<p>
+"aws" now supports Amazon ELB. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_100d99gqkfc>the documenation</a>.
+<p>
+</li>
+<li>
 SQS support
 <p>
-"aws" now supports Amazon SQS, but there is as yet no documentation.  If you are interested in testing, please let me know.  <a href="mailto:timkay@not.com">timkay@not.com</a>.
+"aws" now supports Amazon SQS. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_68f8dxdkcg>the documentation</a>.
 <p>
 </li>
 <li>
@@ -70,8 +82,8 @@ aws has only one dependency (curl), in addition to perl, which is often pre-inst
 To use aws, follow these steps:
 <ol>
 <li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)
-<li>Download <a href=http://github.com/timkay/aws>aws</a> to your computer <blockquote><tt>curl
-timkay.com/aws/aws -o aws</tt></blockquote></li>
+<li>Download <a href=https://raw.github.com/timkay/aws/master/aws>aws</a> to your computer <blockquote><tt>curl
+https://raw.github.com/timkay/aws/master/aws -o aws</tt></blockquote></li>
 <li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.  Just make sure to set "aws" to be executable:  "<code>chmod +x aws</code>".
 <p>
 Perform the optional install it with
@@ -102,7 +114,7 @@ ec2din
 ec2tin INSTANCEID
 </tt></pre></blockquote>
 <p>
-As a security measure, make sure that ~/.awssecret is not readable by group or other (<tt>chmod -go ~/.awssecret</tt>).
+As a security measure, make sure that ~/.awssecret is not readable by group or other (<tt>chmod go-rwx ~/.awssecret</tt>).
 
 <a name=windows></a>
 <h3>Windows Download and Configuration</h3>
@@ -110,6 +122,15 @@ As a security measure, make sure that ~/.awssecret is not readable by group or o
 As of <code>v1.10</code>, aws runs on Windows.  Currently, client authentication
 isn't supported, until I figure out where to put the cert.  (Hence the
 --insecure-aws setting.)
+<p>
+Kenzo writes:
+<blockquote>
+Curl checks the directory that curl.exe runs from, followed by all the directories in the PATH, searching for the file "curl-ca-bundle.crt".
+<p>
+So, folks need to rename ca-bundle.crt to curl-ca-bundle.crt, and then place it in the directory where they installed curl.
+<p>
+There is probably a way to configure curl to look for the certificate file elsewhere; I found that curl attempted to open %appdata%\_curlrc, so a configuration file could likely be placed here that specifies another location.  However, I didn't experiment with this, as I was satisfied with keeping it with the executable (although this is mildly less secure).
+</blockquote>
 <p>
 To download and configure, follow these steps:
 <ol>
@@ -122,7 +143,7 @@ C:\Windows directory, or some other place that is in the path.  Test
 by opening a cmd window, then do "cd \" and "curl".  It should find
 curl.</li>
 <li>Download ActivePerl from <a href=http://www.activestate.com/store/download.aspx?prdGUID=81fbce82-6bd5-49bc-a915-08d58c2648ca>ActiveState</a>.</li>
-<li>Download the latest <a href=http://github.com/timkay/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
+<li>Download the latest <a href=https://raw.github.com/timkay/aws/master/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
 <li>Put your AWS credentials in C:\Documents and Settings\&lt;YOUR
 NAME&gt;\.awssecret (see the example file in the above Download section).</li>
 <li>Try <tt>aws.pl --insecure-aws ls</tt> -- you should get a list of
@@ -175,6 +196,8 @@ Then you can perform the operations without the "aws" prefix:
 <blockquote><tt>ec2run</tt><br><tt>s3put mybucket/sample.txt file7.txt</tt></blockquote>
 
 <h3>~/.awssecret File Format</h3>
+
+<blockquote>Note: support for s3cmd's ~/.s3cfg format has been added.  If that file exists (and ~/.awssecret does not), the keys will be read from there.</blockquote>
 
 aws needs access to a pair of strings called the Access Key ID and the
 Secret Access Key.  By default, aws looks for these secrets in a file
@@ -538,7 +561,7 @@ Type "aws" at the command-line to see a list of supported commands.
   <td>ec2-authorize ...
   <br>ec2auth [-P PROTOCOL] [-p PORT_RANGE] [-u USER]
   <br> &nbsp; &nbsp; &nbsp; [-o SECURITY_GROUP] [-s SOURCE_SUBNET]</td>
-  <td>Creates a new key pair named KEYNAME and displays the private key.</td>
+  <td>Creates new firewall entries.</td>
 </tr>
 <tr bgcolor=white>
   <td>aws delete-keypair KEYNAME
@@ -828,7 +851,7 @@ support:
 I want to hear from you!  I constantly improve this code, and I want to know what you need.  I typically respond to emails within a few hours.  My email address is in the copyright notice below.
 
 <h3>Copyright</h3>
-Copyright 2007-2009 Timothy Kay (<a href=timkay@not.com>timkay@not.com</a>)
+Copyright 2007-2011 Timothy Kay (<a href="mailto:timkay@not.com">timkay@not.com</a>)
 <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
 </script>
 <script type="text/javascript">
