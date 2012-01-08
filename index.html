@@ -27,13 +27,13 @@ This document describes the basic features.  For additional examples, see the <a
 <li>
 SDB support - zikes! it was easy to add
 <p>
-"aws" now supports Amazon SDB. See <a href=https://docs.google.com/Doc?id=ah9n72fdwz78_192g79h46ft>the documenation</a>.
+"aws" now supports Amazon SDB. See <a href=https://docs.google.com/Doc?id=ah9n72fdwz78_192g79h46ft>the documentation</a>.
 <p>
 </li>
 <li>
 ELB support
 <p>
-"aws" now supports Amazon ELB. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_100d99gqkfc>the documenation</a>.
+"aws" now supports Amazon ELB. See <a href=https://docs.google.com/View?docid=ah9n72fdwz78_100d99gqkfc>the documentation</a>.
 <p>
 </li>
 <li>
@@ -94,6 +94,7 @@ to /usr/bin if you are root, and then symlinks the aliases, the same as
 <p>
 <li>Put your AWS credentials in <tt>~/.awssecret</tt>:  the Access Key
 ID on the first line and the Secret Access Key on the second line.  Example:  <blockquote><tt>1B5JYHPQCXW13GWKHAG2<br>2GAHKWG3+1wxcqyhpj5b1Ggqc0TIxj21DKkidjfz</tt></blockquote></li>
+<li>Alternately, set the EC2_ACCESS_KEY and EC2_SECRET_KEY environment variables.</li>
 </ol>
 <p>
 If you are logged in as root, aws will be installed in /usr/bin.
@@ -145,7 +146,7 @@ curl.</li>
 <li>Download ActivePerl from <a href=http://www.activestate.com/store/download.aspx?prdGUID=81fbce82-6bd5-49bc-a915-08d58c2648ca>ActiveState</a>.</li>
 <li>Download the latest <a href=https://raw.github.com/timkay/aws/master/aws>aws</a> to C:\Windows or your current directory, and rename to aws.pl.</li>
 <li>Put your AWS credentials in C:\Documents and Settings\&lt;YOUR
-NAME&gt;\.awssecret (see the example file in the above Download section).</li>
+NAME&gt;\.awssecret (see the example file in the above Download section) or set the EC2_ACCESS_KEY and EC2_SECRET_KEY environment variables.</li>
 <li>Try <tt>aws.pl --insecure-aws ls</tt> -- you should get a list of
 your S3 buckets.</li>
 </ol>
@@ -177,7 +178,7 @@ The command-line interface works like this:
 <p>
 <blockquote><tt>aws ACTION [PARAMETERS]</tt></blockquote>
 <p>
-For example, you can start an EC3 server instance:
+For example, you can start an EC2 server instance:
 <p>
 <blockquote>aws run</blockquote>
 <p>
@@ -213,6 +214,8 @@ You may use environment variables to specify the secrets rather than
 the .awssecret file.  For example,
 
 <blockquote><xmp>AWS_ACCESS_KEY_ID=XXX AWS_SECRET_ACCESS_KEY=XXX aws ls</xmp></blockquote>
+or 
+<blockquote><xmp>EC2_ACCESS_KEY=XXX EC2_SECRET_KEY=XXX aws ls</xmp></blockquote>
 
 Use of environment variables is not recommended because command lines and environment variables are visible to other users of the same host.
 <p>

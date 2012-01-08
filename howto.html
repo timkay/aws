@@ -166,7 +166,7 @@ Also, see the entry below about filenames with funny characters interacting with
 <p>
 </li>
 <li>
-<b>How do I do such scripting when my file names have funny chacracters in them?</b>
+<b>How do I do such scripting when my file names have funny characters in them?</b>
 <p>
 If your files have funny characters in them, such as apostrophe (&apos;), then you should use Perl's system() function in a way that doesn't involve the shell.  Here are examples:
 <blockquote><xmp>$ perl -e 'do {print "putting $_\n"; system (qw(aws put test681), $_)} for @ARGV' ascii/*.txt
@@ -372,7 +372,9 @@ For information on log delivery, see the <a href="http://docs.amazonwebservices.
 <li>
   <b>What if I have more than one AWS account?  How do I switch credentials?</b>
   <p>
-  "aws" looks at enviroment variables <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SIGN_URL</code> before it decides to read <code>~/.awssecret</code>.  If any of those variables is defined, then it will use those credentials and ignore <code>~/.awssecret</code>.  For example
+  "aws" looks at enviroment variables <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, >code>AWS_SIGN_URL</code>,
+  <code>EC2_ACCESS_KEY</code>, and <code>EC2_SECRET_KEY</code>
+  before it decides to read <code>~/.awssecret</code>.  If any of those variables is defined, then it will use those credentials and ignore <code>~/.awssecret</code>.  For example
   <blockquote><code>AWS_ACCESS_KEY_ID=A3CJPJF87DHEJAAG2 AWS_SECRET_ACCESS_KEY=asDc5FD68d7JaIHEuhfLAziplY+ywNTkXq6/8UiO9 aws ls</code></blockquote>
   <p>
 </li>
