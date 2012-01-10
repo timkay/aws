@@ -200,13 +200,13 @@ $iam_version = "2010-05-08";
 									      [kernel => "LaunchSpecification.KernelId"],
 									      [ramdisk => "LaunchSpecification.RamdiskId"],
 									      [subnet => "LaunchSpecification.SubnetId"],
-									      ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
-									      ["device-name" => "BlockDeviceMapping.N.DeviceName"],
-									      ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
-									      ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
-									      [snapshot => "BlockDeviceMapping.N.Ebs.SnapshotId"],
-									      ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
-									      ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+									      ["block-device-mapping b", undef, undef, \&parse_block_device_mapping_with_launch_specification],
+									      ["device-name" => "LaunchSpecification.BlockDeviceMapping.N.DeviceName"],
+									      ["no-device" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.NoDevice"],
+									      ["virtual-name" => "LaunchSpecification.BlockDeviceMapping.N.VirtualName"],
+									      [snapshot => "LaunchSpecification.BlockDeviceMapping.N.Ebs.SnapshotId"],
+									      ["volume-size" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeSize"],
+									      ["delete-on-termination" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
 									      [monitor => "LaunchSpecification.Monitoring.Enabled"],
 								 ]],
 	["ec2", "revoke", RevokeSecurityGroupIngress, [
@@ -1142,6 +1142,7 @@ if (!$cmd_data)
 	    }
 	}
 
+	# add the defaults
 	for (@$param)
 	{
 	    my($a, $key, $default, $cref) = @$_;
@@ -2447,6 +2448,16 @@ sub parse_block_device_mapping
 	push @result, "BlockDeviceMapping.N.Ebs.DeleteOnTermination" => $delete if $delete;
     }
     [@result];
+}
+
+sub parse_block_device_mapping_with_launch_specification
+{
+    my $result = &parse_block_device_mapping;
+    for (my $i = 0; $i < @$result; $i += 2)
+    {
+	$result->[$i] = "LaunchSpecification.$result->[$i]";
+    }
+    $result;
 }
 
 sub parse_addpolicy_effect
