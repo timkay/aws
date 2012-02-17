@@ -2176,7 +2176,7 @@ sub s3
     # remove "HTTP/1.1 100 Continue"
     $item =~ s/^HTTP\/\d+\.\d+\s+100\b.*?\r?\n\r?\n//s;
 
-    my($head, $body) = $item =~ /^(.*?\r?\n)\r?\n(.*)$/s;
+    my($head, $body) = $file =~ /^((?:HTTP\/.*?\r?\n\r?\n)+)(.*)$/s;
     print STDERR $head if $v;
     my($code) = $head =~ /^HTTP\/\d+\.\d+\s+(\d+\s+.*?)\r?\n/s;
 
