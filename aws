@@ -2144,7 +2144,7 @@ sub s3
     my($sig, $awskey) = sign($data);
 
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-    $url .= "&marker=$marker" if $marker;
+    $url .= "&marker=@{[encode_url($marker)]}" if $marker;
     $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
     $url .= "&delimiter=$delimiter" if $delimiter;
 
