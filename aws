@@ -1881,7 +1881,7 @@ sub xmlpp
 }
 
 # Convert xml string to YAML format
-# Cf.: https://github.com/icy/aws/blob/master/aws2yaml
+# Cf.: https://github.com/timkay/aws/pull/9
 sub xml2yaml {
   my($result) = xmlpp(@_);
   my($rubySymbol) = "";
