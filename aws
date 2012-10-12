@@ -2078,7 +2078,7 @@ sub s3
 	$verb = GET;
     }
 
-    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|requestPayment|versioning|versions))?$/s;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment|versioning|versions))?$/s;
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($uq eq "?delete")
