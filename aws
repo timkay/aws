@@ -811,6 +811,7 @@ $retry ||= 3;
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
 $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
 $secrets_file ||= "$home/.passwd-s3fs" if -e "$home/.passwd-s3fs";
+$secrets_file ||= "$home/.awssecret";
 
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
