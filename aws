@@ -18,8 +18,8 @@
 #
 
 
-$program_version = "1.75";
-$ec2_version = "2010-11-15";
+$program_version = "1.77";
+$ec2_version = "2012-10-01";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
@@ -46,6 +46,10 @@ $iam_version = "2010-05-08";
 							  ["d", GroupDescription],
 							  ]],
 	["ec2", "add-keypair addkey", CreateKeyPair, [["", KeyName]]],
+	["ec2", "add-placement-group", CreatePlacementGroup, [
+							  ["", GroupName],
+							  ["s", Strategy],
+							  ]],
 	["ec2", "allocate-address allad", AllocateAddress],
 	["ec2", "associate-address aad", AssociateAddress, [
 								["", PublicIp],
@@ -69,12 +73,6 @@ $iam_version = "2010-05-08";
 								  ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
 								  ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
 								  ]],
-	["ec2", "create-image cimg", CreateImage, [
-                                                   ["", InstanceId],
-                                                   ["n", Name],
-                                                   ["d", Description, ""],
-                                                   ["no-reboot", NoReboot, false],
-                                                   ]],
 	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
 									   ["", SpotInstanceRequestIdN],
 									   ]],
@@ -82,10 +80,20 @@ $iam_version = "2010-05-08";
 								     ["", ProductCode],
 								     ["i", InstanceId],
 								     ]],
+	["ec2", "create-image cimg", CreateImage, [
+                                                   ["", InstanceId],
+                                                   ["n", Name],
+                                                   ["d", Description, ""],
+                                                   ["no-reboot", NoReboot, false],
+                                                   ]],
 	["ec2", "create-snapshot csnap", CreateSnapshot, [
 							  ["", VolumeId],
 							  ["description", Description],
 							  ]],
+	["ec2", "create-spot-datafeed-subscription addsds", CreateSpotDatafeedSubscription, [
+											     ["b", Bucket],
+											     ["p", Prefix],
+											     ]],
 	["ec2", "describe-spot-instance-requests dsir", DescribeSpotInstanceRequests, [
 										       ["", SpotInstanceRequestIdN],
 										       ]],
@@ -101,6 +109,7 @@ $iam_version = "2010-05-08";
 						     ["snapshot", SnapshotId],
 						     ]],
 	["ec2", "delete-group delgrp", DeleteSecurityGroup, [["", GroupName]]],
+	["ec2", "delete-placement-group", DeletePlacementGroup, [["", GroupName]]],
 	["ec2", "delete-keypair delkey", DeleteKeyPair, [["", KeyName]]],
 	["ec2", "delete-snapshot delsnap", DeleteSnapshot, [["", SnapshotId]]],
 	["ec2", "delete-volume delvol", DeleteVolume, [["", VolumeId]]],
@@ -123,6 +132,7 @@ $iam_version = "2010-05-08";
 							]],
 	["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
 	["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
+	["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
 	["ec2", "describe-regions dreg", DescribeRegions],
 	["ec2", "describe-reserved-instances", DescribeReservedInstances, [
 									   ["", ReservedInstanceIdN],
@@ -805,7 +815,7 @@ $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
 $scheme = $http? "http": "https";
 
 $silent ||= !-t;
-$retry ||= 3;
+$retry = 3 unless length($retry);
 
 
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
@@ -901,7 +911,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 
 $curl_options .= " -q -g -S";
 $curl_options .= " --remote-time";
-$curl_options .= " --retry $retry" if $retry;
+$curl_options .= " --retry $retry" if length($retry);
 $curl_options .= " --fail" if $fail;
 $curl_options .= " --verbose" if $v >= 2;
 $curl_options .= $progress? " --progress": " -s";
@@ -2213,7 +2223,6 @@ sub s3
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
     my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
-
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
@@ -2332,7 +2341,9 @@ sub ec2
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    qx[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    print STDERR "$cmd\n" if $v;
+    qx[$cmd];
 }
 
 
