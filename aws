@@ -823,6 +823,57 @@ $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
 $secrets_file ||= "$home/.passwd-s3fs" if -e "$home/.passwd-s3fs";
 $secrets_file ||= "$home/.awssecret";
 
+if ($role)
+{
+    if ($role == 1)
+    {
+	($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+    }
+    my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
+    ($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
+    ($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
+    ($session) = $json =~ /"Token" : "(.*?)"/;
+}
+
+unless ($awskey && $secret)
+{
+    ($awskey, $secret, $session) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN)};
+}
+
+unless ($awskey && $secret)
+{
+    ($awskey, $secret, $session) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY AWS_SESSION_TOKEN)};
+}
+
+unless ($awskey && $secret)
+{
+    if ($secrets_file =~ /s3cfg$/)
+    {
+	# if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	# 	(can be tested with --secrets-file=s3cfg)
+	# Poor man's ini parser
+	my $s3cfg = load_file($secrets_file);
+	($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+    }
+    else
+    {
+	($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+    }
+}
+
+unless ($awskey && $secret)
+{
+    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+    if ($role)
+    {
+	my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
+	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
+	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
+	($session) = $json =~ /"Token" : "(.*?)"/;
+    }
+}
+
+
 # unfortunately, you can't have a delimiter of "1" this way
 if ($d || $delimiter == 1)
 {
@@ -936,32 +987,6 @@ $curl_options .= " --limit-rate $limit_rate" if $limit_rate;
 use IO::File;
 use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5 md5_hex);
-
-
-if ($sign)
-{
-    sysread STDIN, my $data, $ENV{CONTENT_LENGTH};
-    $data ||= $sign;
-
-    if ($v >= 2)
-    {
-	(my $pretty = $data) =~ s/\n/\\n/sg;
-	print STDERR "data = $pretty\n";
-    }
-
-    my($sig, $awskey) = sign($data);
-
-    $data = "$sig\n$awskey\n\n";
-
-    if (exists $ENV{QUERY_STRING})
-    {
-	print "Content-Length: @{[length($data)]}\nContent-Type: text/plain\n\n";
-    }
-
-    print $data;
-
-    exit;
-}
 
 
 if ($install)
@@ -2137,7 +2162,7 @@ sub s3
 	}
     }
 
-    push @header, "x-amz-security-token:_";
+    push @header, "x-amz-security-token:$session" if $session;
 
     my $header_sign = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
     my $header = join(" --header ", undef, map {cq($_)} @header);
@@ -2145,16 +2170,8 @@ sub s3
     if ($isGETobj && !$fail && !$request)
     {
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-	my($sig, $awskey, $session) = sign($data);
+	my $sig = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	if ($session)
-	{
-	    $header =~ s/(x-amz-security-token:)_/$1$session/;
-	}
-	else
-	{
-	    $header =~ s/^x-amz-security-token:.*?\n//m;
-	}
 	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -2215,16 +2232,7 @@ sub s3
     }
 
     my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-
-    my($sig, $awskey, $session) = sign($data);
-    if ($session)
-    {
-	$header =~ s/(x-amz-security-token:)_/$1$session/;
-    }
-    else
-    {
-	$header =~ s/^x-amz-security-token:.*?\n//m;
-    }
+    my $sig = sign($data);
 
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
     $url .= "&marker=@{[encode_url($marker)]}" if $marker;
@@ -2312,7 +2320,8 @@ sub ec2
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
 
-    my %data = (AWSAccessKeyId => _, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my @session = (SecurityToken => $session) if $session;
+    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -2363,8 +2372,7 @@ sub ec2
 	$url .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my($sig, $awskey, $session) = sign("GET\n$endpoint\n$queue\n$url");
-    $url =~ s/(AWSAccessKeyId=?)_/$1$awskey/;
+    my $sig = sign("GET\n$endpoint\n$queue\n$url");
     $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
     return $url if $request;
     local($/);			# return a string regardless of wantarray
@@ -2452,77 +2460,13 @@ sub sign
 {
     my($data) = @_;
 
-    my($awskey, $secret, $session, $signurl);
-
-    if ($role)
-    {
-	if ($role == 1)
-	{
-	    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
-	}
-	my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
-	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
-	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
-	($session) = $json =~ /"Token" : "(.*?)"/;
-    }
-
-    unless ($awskey || $secret || $signurl)
-    {
-    	($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
-    }
-
-    unless ($awskey || $secret || $signurl)
-    {
-	($awskey, $secret) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY)};
-    }
-
-    unless ($awskey || $secret || $signurl)
-    {
-	if ($secrets_file =~ /s3cfg$/)
-	{
-	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
-	    # 	(can be tested with --secrets-file=s3cfg)
-	    # Poor man's ini parser
-	    my $s3cfg = load_file($secrets_file);
-	    ($awskey, $secret) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
-	}
-	else
-	{
-	    ($awskey, $secret, $signurl) = split(/[\r\s:]+/s, load_file($secrets_file));
-	}
-    }
-
-    die if $signurl =~ /\'/;
-
-    $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
-    if ($session)
-    {
-	$data =~ s/(x-amz-security-token:)_/$1$session/;
-    }
-    else
-    {
-	$data =~ s/^x-amz-security-token:.*?\n//m;
-    }
-
     if ($v)
     {
 	(my $pretty = $data) =~ s/\n/\\n/sg;
 	print STDERR "data = $pretty\n";
     }
 
-    if (!exists $ENV{QUERY_STRING} && $signurl)
-    {
-	(my $pretty = $data) =~ s/\n/\\n/sg;
-	(my $url = $signurl) =~ s/\/\/.*?\@/\/\/\*\*\*\*\*\*\:\*\*\*\*\*\*\@/;
-	print STDERR "signing [$pretty] via $url\n" if $v;
-	my $s = qx[curl $curl_options $insecsign --data @{[cq($data)]} @{[cq($signurl)]}];
-	#S9pr7y07SGtgt7OKjMxMYBy+LCk=
-	#1B5JPHYQCXW13GWKHAG2
-	die "bad signature [$s] from remote signing service (perhaps the password is bad?)\n$s\n" unless $s =~ /^[A-Z0-9\+\/\=\n]+$/i;
-	return (split(/\n/, $s));
-    }
-
-    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey, $session);
+    encode_base64(hmac($data, $secret, \&sha1_sha1), "");
 }
 
 
