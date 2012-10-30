@@ -1619,7 +1619,7 @@ if (!$cmd_data)
     {
 	print ary2tab(xml2ary(GetQueueAttributesResult, $result, {key => Name, value => Value}), {title => "Attributes", empty => "no attributes\n"});
     }
-    elsif ($result =~ /<DescribeTagsResponse/ && $simple)
+    elsif ($result =~ /<DescribeTagsResponse|<DescribeKeyPairsResponse/ && $simple)
     {
 	while ($result =~ /<item>(.*?)<\/item>/sg)
 	{
