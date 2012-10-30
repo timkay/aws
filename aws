@@ -1619,7 +1619,7 @@ if (!$cmd_data)
     {
 	print ary2tab(xml2ary(GetQueueAttributesResult, $result, {key => Name, value => Value}), {title => "Attributes", empty => "no attributes\n"});
     }
-    elsif ($result =~ /<DescribeTagsResponse/ && $simple)
+    elsif ($result =~ /<DescribeTagsResponse|<DescribeKeyPairsResponse/ && $simple)
     {
 	while ($result =~ /<item>(.*?)<\/item>/sg)
 	{
@@ -1971,7 +1971,7 @@ sub xmlpp
 }
 
 # Convert xml string to YAML format
-# Cf.: https://github.com/icy/aws/blob/master/aws2yaml
+# Cf.: https://github.com/timkay/aws/pull/9
 sub xml2yaml {
   my($result) = xmlpp(@_);
   my($rubySymbol) = "";
@@ -1982,7 +1982,7 @@ sub xml2yaml {
   $result =~ s#> #>\n#g;                            # remove all '\n's
   $result =~ s#</.*>##g;                            # remove closing tags
   $result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
-  $result =~ s#($rubySymbol[^:]+): (.+)#\1: > \2#g; # opening tags -> symbols
+  $result =~ s#($rubySymbol[^:]+): (.+)#\1: "\2"#g; # opening tags -> symbols
   $result =~ s#:?(.*)/:#\1:#g;                      # empty values
   $result =~ s#:?(item|bucket|member): #- #gi;      # array items
   $result =~ s#\t#  #g;                             # tabs -> spaces
