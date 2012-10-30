@@ -688,7 +688,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     my(%meta);
     @meta{qw(1 cmd0 curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry ruby quiet
+	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
@@ -841,7 +841,17 @@ if (!-e "$home/.awsrc" || $sanity_check)
 {
     if (!$silent)
     {
-	if (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
+	if ($role)
+	{
+	    if ($role == 1)
+	    {
+		if (qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
+		{
+		    warn "sanity-check: no role found\n";
+		}
+	    }
+	}
+	elsif (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
 	{
 	}
 	elsif (!-e $secrets_file)
@@ -2127,14 +2137,24 @@ sub s3
 	}
     }
 
+    push @header, "x-amz-security-token:_";
+
     my $header_sign = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
     my $header = join(" --header ", undef, map {cq($_)} @header);
 
     if ($isGETobj && !$fail && !$request)
     {
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-	my($sig, $awskey) = sign($data);
+	my($sig, $awskey, $session) = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+	if ($session)
+	{
+	    $header =~ s/(x-amz-security-token:)_/$1$session/;
+	}
+	else
+	{
+	    $header =~ s/^x-amz-security-token:.*?\n//m;
+	}
 	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -2196,7 +2216,15 @@ sub s3
 
     my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 
-    my($sig, $awskey) = sign($data);
+    my($sig, $awskey, $session) = sign($data);
+    if ($session)
+    {
+	$header =~ s/(x-amz-security-token:)_/$1$session/;
+    }
+    else
+    {
+	$header =~ s/^x-amz-security-token:.*?\n//m;
+    }
 
     my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
     $url .= "&marker=@{[encode_url($marker)]}" if $marker;
@@ -2335,7 +2363,7 @@ sub ec2
 	$url .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my($sig, $awskey) = sign("GET\n$endpoint\n$queue\n$url");
+    my($sig, $awskey, $session) = sign("GET\n$endpoint\n$queue\n$url");
     $url =~ s/(AWSAccessKeyId=?)_/$1$awskey/;
     $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
     return $url if $request;
@@ -2424,7 +2452,24 @@ sub sign
 {
     my($data) = @_;
 
-    my($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
+    my($awskey, $secret, $session, $signurl);
+
+    if ($role)
+    {
+	if ($role == 1)
+	{
+	    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+	}
+	my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
+	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
+	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
+	($session) = $json =~ /"Token" : "(.*?)"/;
+    }
+
+    unless ($awskey || $secret || $signurl)
+    {
+    	($awskey, $secret, $signurl) = @ENV{qw(AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SIGN_URL)};
+    }
 
     unless ($awskey || $secret || $signurl)
     {
@@ -2450,6 +2495,14 @@ sub sign
     die if $signurl =~ /\'/;
 
     $data =~ s/(AWSAccessKeyId=?)_/$1$awskey/g;
+    if ($session)
+    {
+	$data =~ s/(x-amz-security-token:)_/$1$session/;
+    }
+    else
+    {
+	$data =~ s/^x-amz-security-token:.*?\n//m;
+    }
 
     if ($v)
     {
@@ -2469,7 +2522,7 @@ sub sign
 	return (split(/\n/, $s));
     }
 
-    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey);
+    (encode_base64(hmac($data, $secret, \&sha1_sha1), ""), $awskey, $session);
 }
 
 
