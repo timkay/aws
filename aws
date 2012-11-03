@@ -2134,7 +2134,7 @@ sub s3
 							|part
 							|versioning|versions))?$/sx;
 
-    if ($uq eq "?upload" || $uq =~ /^partNumber=\d+$/ || $uq eq "?part") # look up uploadId
+    if ($uq eq "?upload" || $uq =~ /^?partNumber=\d+$/ || $uq eq "?part") # look up uploadId
     {
 	my($uploadId, $partNumber, @part);
 
@@ -2185,7 +2185,7 @@ sub s3
 	}
 
 	$uq .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
-	$uq .= "&uploadId=$uploadId" if $uq =~ /^partNumber=\d+$/;		# Upload Part NNN
+	$uq .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
 	$uq .= "Number=$partNumber&uploadId=$uploadId" if $uq eq "?part";	# Upload Part
     }
 
