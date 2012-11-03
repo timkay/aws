@@ -562,6 +562,7 @@ $iam_version = "2010-05-08";
 	["s3", "delete rmdir rm", DELETE],
 	["s3", "copy cp", COPY],
 	["s3", "dmo", DMO],
+	["s3", "post", POST],
 
 	["sqs", "add-permission addperm", AddPermission, [
 							  ["" => QueueUri],
@@ -2124,7 +2125,70 @@ sub s3
 	$verb = GET;
     }
 
-    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment|versioning|versions))?$/s;
+    my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
+							|uploadId=[\.\w]+
+							|upload
+							|uploads
+							|partNumber=\d+&uploadId=[\.\w]+
+							|partNumber=\d+
+							|part
+							|versioning|versions))?$/sx;
+
+    if ($uq eq "?upload" || $uq =~ /^partNumber=\d+$/ || $uq eq "?part") # look up uploadId
+    {
+	my($uploadId, $partNumber, @part);
+
+	my $xml = qx[$0 --cmd0 --xml --region=$region get '@{[cq($ub)]}'?uploads];
+	while ($xml =~ /<Upload>(.*?)<\/Upload>/sg)
+	{
+	    my($upload) = ($1);
+	    if ($upload =~ /<Key>(.*?)<\/Key>/ && $1 eq $uo)
+	    {
+		if ($upload =~ /<UploadId>(.*?)<\/UploadId>/)
+		{
+		    $uploadId = $1;
+		    last;
+		}
+	    }
+	}
+
+	if ($verb eq POST || $uq eq "?part") # look up partNumber
+	{
+	    my $xml = qx[$0 --cmd0 --xml --region=$region get @{[cq($ub)]}/@{[cq($uo)]}?uploadId=$uploadId];
+	    while ($xml =~ /<Part>(.*?)<\/Part>/sg)
+	    {
+		my($part) = ($1);
+		if ($part =~ /<PartNumber>(.*?)<\/PartNumber>.*?<ETag>(.*?)<\/ETag>/s)
+		{
+		    push @part, [$1, $2];
+		    $partNumber = $1;
+		}
+	    }
+	    $partNumber++;
+	}
+
+	if ($verb eq POST && $uq eq "?upload")
+	{
+	    ($temp_fh, my $temp_fn) = tempfile(UNLINK => 1);
+	    print $temp_fh "<CompleteMultipartUpload>\n";
+	    for (@part)
+	    {
+		print $temp_fh "  <Part>\n";
+		print $temp_fh "    <PartNumber>$_->[0]</PartNumber>\n";
+		print $temp_fh "    <ETag>$_->[1]</ETag>\n";
+		print $temp_fh "  </Part>\n";
+	    }
+	    print $temp_fh "</CompleteMultipartUpload>\n";
+	    $temp_fh->flush;
+	    $file = $temp_fn;
+	    system "cat $file" if $v >= 2;
+	}
+
+	$uq .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
+	$uq .= "&uploadId=$uploadId" if $uq =~ /^partNumber=\d+$/;		# Upload Part NNN
+	$uq .= "Number=$partNumber&uploadId=$uploadId" if $uq eq "?part";	# Upload Part
+    }
+
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($uq eq "?delete")
