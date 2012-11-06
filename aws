@@ -91,9 +91,12 @@ $iam_version = "2010-05-08";
 							  ["description", Description],
 							  ]],
 	["ec2", "create-spot-datafeed-subscription addsds", CreateSpotDatafeedSubscription, [
+											     ["", Bucket],
 											     ["b", Bucket],
-											     ["p", Prefix],
+											     ["p", Prefix, "spot/datafeed"],
 											     ]],
+	["ec2", "delete-spot-datafeed-subscription delsds", DeleteSpotDatafeedSubscription, []],
+	["ec2", "describe-spot-datafeed-subscription dsds", DescribeSpotDatafeedSubscription, []],
 	["ec2", "describe-spot-instance-requests dsir", DescribeSpotInstanceRequests, [
 										       ["", SpotInstanceRequestIdN],
 										       ]],
