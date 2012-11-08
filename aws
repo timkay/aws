@@ -851,17 +851,20 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
-    if ($secrets_file =~ /s3cfg$/)
+    if (-s $secrets_file)
     {
-	# if the secrets_file ends with s3cfg, treat it as a s3cmd init file
-	# 	(can be tested with --secrets-file=s3cfg)
-	# Poor man's ini parser
-	my $s3cfg = load_file($secrets_file);
-	($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
-    }
-    else
-    {
-	($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+	if ($secrets_file =~ /s3cfg$/)
+	{
+	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	    # 	(can be tested with --secrets-file=s3cfg)
+	    # Poor man's ini parser
+	    my $s3cfg = load_file($secrets_file);
+	    ($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+	}
+	else
+	{
+	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+	}
     }
 }
 
