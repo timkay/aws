@@ -41,632 +41,633 @@ $iam_version = "2010-05-08";
 #
 
 @cmd = (
-	["ec2", "add-group addgrp", CreateSecurityGroup, [
-							  ["", GroupName],
-							  ["d", GroupDescription],
-							  ]],
-	["ec2", "add-keypair addkey", CreateKeyPair, [["", KeyName]]],
-	["ec2", "add-placement-group", CreatePlacementGroup, [
-							  ["", GroupName],
-							  ["s", Strategy],
-							  ]],
-	["ec2", "allocate-address allad", AllocateAddress],
-	["ec2", "associate-address aad", AssociateAddress, [
-								["", PublicIp],
-								["i", InstanceId],
-								]],
-	["ec2", "attach-volume attvol", AttachVolume, [
-						       ["", VolumeId],
-						       ["i", InstanceId],
-						       ["d", Device],
-						       ]],
-	["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
-								  ["" => GroupName],
-								  ["protocol P" => "IpPermissions.1.IpProtocol"],
-								  [p => undef, undef, sub {
-								      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
-								      ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
-								  }],
-								  [q => "IpPermissions.1.ToPort"],
-								  #["t", icmp type code],
-								  ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
-								  ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
-								  ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
-								  ]],
-	["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
-									   ["", SpotInstanceRequestIdN],
-									   ]],
-	["ec2", "confirm-product-instance", ConfirmProductInstance, [
-								     ["", ProductCode],
-								     ["i", InstanceId],
-								     ]],
-	["ec2", "create-image cimg", CreateImage, [
-                                                   ["", InstanceId],
-                                                   ["n", Name],
-                                                   ["d", Description, ""],
-                                                   ["no-reboot", NoReboot, false],
-                                                   ]],
-	["ec2", "create-snapshot csnap", CreateSnapshot, [
-							  ["", VolumeId],
-							  ["description", Description],
-							  ]],
-	["ec2", "create-spot-datafeed-subscription addsds", CreateSpotDatafeedSubscription, [
-											     ["", Bucket],
-											     ["b", Bucket],
-											     ["p", Prefix, "spot/datafeed"],
-											     ]],
-	["ec2", "delete-spot-datafeed-subscription delsds", DeleteSpotDatafeedSubscription, []],
-	["ec2", "describe-spot-datafeed-subscription dsds", DescribeSpotDatafeedSubscription, []],
-	["ec2", "describe-spot-instance-requests dsir", DescribeSpotInstanceRequests, [
-										       ["", SpotInstanceRequestIdN],
-										       ]],
-	["ec2", "describe-spot-price-history dsph", DescribeSpotPriceHistory, [
-									       ["start", StartTime],
-									       ["end", EndTime],
-									       ["instance-type", InstanceType, "m1.small"],
-									       ["description", ProductDescription, "Linux/UNIX"],
-									       ]],
-	["ec2", "create-volume cvol", CreateVolume, [
-						     ["size", Size],
-						     ["zone", AvailabilityZone],
-						     ["snapshot", SnapshotId],
-						     ]],
-	["ec2", "delete-group delgrp", DeleteSecurityGroup, [["", GroupName]]],
-	["ec2", "delete-placement-group", DeletePlacementGroup, [["", GroupName]]],
-	["ec2", "delete-keypair delkey", DeleteKeyPair, [["", KeyName]]],
-	["ec2", "delete-snapshot delsnap", DeleteSnapshot, [["", SnapshotId]]],
-	["ec2", "delete-volume delvol", DeleteVolume, [["", VolumeId]]],
-	["ec2", "deregister", DeregisterImage, [["", ImageId]]],
-	["ec2", "describe-addresses dad", DescribeAddresses, [["", PublicIpN]]],
-	["ec2", "describe-availability-zones daz", DescribeAvailabilityZones, [["", ZoneNameN]]],
-	["ec2", "describe-groups dgrp", DescribeSecurityGroups, [["", GroupNameN]]],
-	["ec2", "describe-image-attribute", DescribeImageAttribute, [
-								       ["", ImageId],
-								       ["l", launchPermission],
-								       ["p", productCodes],
-								       ["kernel", "kernel"],
-								       ["ramdisk", "ramdisk"],
-								       ["B", "blockDeviceMapping"],
-								       ]],
-	["ec2", "describe-images dim", DescribeImages, [
-							["", ImageIdN],
-							["o", OwnerN],
-							["x", ExecutableByN],
-							]],
-	["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
-	["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
-	["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
-	["ec2", "describe-regions dreg", DescribeRegions],
-	["ec2", "describe-reserved-instances", DescribeReservedInstances, [
-									   ["", ReservedInstanceIdN],
-									   ]],
-	["ec2", "describe-reserved-instances-offerings", DescribeReservedInstancesOfferings, [
-											      ["offering", ReservedInstancesOfferingIdN],
-											      ["instance-type", InstanceType],
-											      ["availability-zone", AvailabilityZone],
-											      ["z", AvailabilityZone],
-											      ["description", ProductDescription],
-											      ]],
-	["ec2", "describe-snapshot-attribute dsa", DescribeSnapshotAttribute, [
-									       ["", SnapshotIdN],
-									       ["attribute", Attribute],
-									       ]],
-	["ec2", "reset-snapshot-attribute rsa", ResetSnapshotAttribute, [
-									 ["", SnapshotIdN],
-									 ["attribute", Attribute],
-									 ]],
-	["ec2", "modify-snapshot-attribute msa", ModifySnapshotAttribute, [
-									   ["", SnapshotId],
-									   ["user", UserId],
-									   ["group", UserGroup],
-									   ["attribute", Attribute],
-									   ["type", OperationType],
-									   ]],
-	["ec2", "describe-snapshots dsnap", DescribeSnapshots, [
-								["", SnapshotIdN],
-								["owner", Owner, "self"],
-								["restorableby", RestorableBy],
-								]],
-	["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
-	["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
-	["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
-	["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
-	["ec2", "purchase-reserved-instance-offering", PurchaseReservedInstancesOffering, [
-											  ["offering-id", ReservedInstancesOfferingId],
-											  ["instance-count", InstanceCount],
-											  ]],
-	["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
-	["ec2", "release-address rad", ReleaseAddress, [["", PublicIp]]],
-	["ec2", "register-image register", RegisterImage, [["", ImageLocation],
-							   ["name n" => Name],
-							   ["description d" => Description],
-							   ["architecture a" => Architecture],
-							   [kernel => KernelId],
-							   [ramdisk => RamdiskId],
-							   ["root-device-name" => RootDeviceName, "/dev/sda1"],
-							   ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
-							   ["device-name" => "BlockDeviceMapping.N.DeviceName"],
-							   ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
-							   ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
-							   [snapshot => "BlockDeviceMapping.N.Ebs.SnapshotId"],
-							   ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
-							   ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
-							   ]],
-	["ec2", "request-spot-instances req-spot rsi", RequestSpotInstances, [
-									      ["" => "LaunchSpecification.ImageId", "ami-4a0df923"],
-									      ["price p" => SpotPrice],
-									      ["instance-count n" => InstanceCount, 1],
-									      ["type r" => Type, "one-time"],
-									      ["valid-from-date" => ValidFrom],
-									      ["valid-until-date" => ValidUntil],
-									      ["launch-group" => LaunchGroup],
-									      ["availability-zone-group" => AvailabilityZoneGroup],
-									      ["user-data d" => "LaunchSpecification.UserData", undef,
-									       sub {encode_base64($_[0], "")}],
-									      ["user-data-file f" => "LaunchSpecification.UserData", undef,
-									       sub {encode_base64(load_file($_[0]))}],
-									      ["group g" => "LaunchSpecification.SecurityGroupN"],
-									      ["a", "LaunchSpecification.AddressingType"],
-									      ["key k" => "LaunchSpecification.KeyName"],
-									      ["instance-type t" => "LaunchSpecification.InstanceType", "t1.micro"],
-									      ["availability-zone z" => "LaunchSpecification.Placement.AvailabilityZone"],
-									      [kernel => "LaunchSpecification.KernelId"],
-									      [ramdisk => "LaunchSpecification.RamdiskId"],
-									      [subnet => "LaunchSpecification.SubnetId"],
-									      ["block-device-mapping b", undef, undef, \&parse_block_device_mapping_with_launch_specification],
-									      ["device-name" => "LaunchSpecification.BlockDeviceMapping.N.DeviceName"],
-									      ["no-device" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.NoDevice"],
-									      ["virtual-name" => "LaunchSpecification.BlockDeviceMapping.N.VirtualName"],
-									      [snapshot => "LaunchSpecification.BlockDeviceMapping.N.Ebs.SnapshotId"],
-									      ["volume-size" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeSize"],
-									      ["delete-on-termination" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
-									      [monitor => "LaunchSpecification.Monitoring.Enabled"],
-								 ]],
-	["ec2", "revoke", RevokeSecurityGroupIngress, [
-						       ["" => GroupName],
-						       ["protocol P" => "IpPermissions.1.IpProtocol"],
-						       ["p" => undef, undef, sub
-							{
-							    my($min, $max) = split(/-/, $_[0]."-".$_[0]);
-							    ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
-							}],
-						       ["q", "IpPermissions.1.ToPort"],
-						       #["t", icmp type code],
-						       ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
-						       ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
-						       ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
-						       ]],
-	["ec2", "run-instances run-instance run", RunInstances, [
-								 ["", ImageId],
-								 ["instance-count n", undef, 1, sub
-								  {
-								      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
-								      [MinCount => $min, MaxCount => $max];
-								  }],
-								 ["group g", SecurityGroupN],
-								 ["key k", KeyName],
-								 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
-								 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
-								 ["a", AddressingType],
-								 ["instance-type type t i", InstanceType],
-								 ["availability-zone z", "Placement.AvailabilityZone"],
-								 ["kernel", KernelId],
-								 ["ramdisk", RamdiskId],
-								 ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
-								 ["device-name" => "BlockDeviceMapping.N.DeviceName"],
-								 ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
-								 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
-								 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
-								 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
-								 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
-								 ["monitor m" => "Monitoring.Enabled"],
-								 ["disable-api-termination" => DisableApiTermination],
-								 ["instance-initiated-shutdown-behavior" => InstanceInitiatedShutdownBehavior],
-								 ["placement-group" => "Placement.GroupName"],
-								 ["subnet s" => SubnetId],
-								 ["private-ip-address" => PrivateIpAddress],
-								 ["client-token" => ClientToken],
-								 ]],
-        ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
-        ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
-	["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
-	["ec2", "create-tags ctags", CreateTags, [
-						  ["" => "ResourceIdN"],
-						  ["tag", undef, undef, \&parse_tags],
-						  ]],
-	["ec2", "describe-tags dtags", DescribeTags, [
-						      ["filter", undef, undef, \&parse_tags_describe],
-						      ]],
-	["ec2", "delete-tags deltags", DeleteTags, [
-						    ["" => ResourceIdN],
-						    ["tag", undef, undef, \&parse_tags_delete],
-						    ]],
+    ["ec2", "add-group addgrp", CreateSecurityGroup, [
+	 ["", GroupName],
+	 ["d", GroupDescription],
+     ]],
+    ["ec2", "add-keypair addkey", CreateKeyPair, [["", KeyName]]],
+    ["ec2", "add-placement-group", CreatePlacementGroup, [
+	 ["", GroupName],
+	 ["s", Strategy],
+     ]],
+    ["ec2", "allocate-address allad", AllocateAddress],
+    ["ec2", "associate-address aad", AssociateAddress, [
+	 ["", PublicIp],
+	 ["i", InstanceId],
+     ]],
+    ["ec2", "attach-volume attvol", AttachVolume, [
+	 ["", VolumeId],
+	 ["i", InstanceId],
+	 ["d", Device],
+     ]],
+    ["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
+	 ["" => GroupName],
+	 ["protocol P" => "IpPermissions.1.IpProtocol"],
+	 [p => undef, undef, sub {
+	     my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+	     ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
+	  }],
+	 [q => "IpPermissions.1.ToPort"],
+	 #["t", icmp type code],
+	 ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
+	 ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+	 ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
+     ]],
+    ["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
+	 ["", SpotInstanceRequestIdN],
+     ]],
+    ["ec2", "confirm-product-instance", ConfirmProductInstance, [
+	 ["", ProductCode],
+	 ["i", InstanceId],
+     ]],
+    ["ec2", "create-image cimg", CreateImage, [
+	 ["", InstanceId],
+	 ["n", Name],
+	 ["d", Description, ""],
+	 ["no-reboot", NoReboot, false],
+     ]],
+    ["ec2", "create-snapshot csnap", CreateSnapshot, [
+	 ["", VolumeId],
+	 ["description", Description],
+     ]],
+    ["ec2", "create-spot-datafeed-subscription addsds", CreateSpotDatafeedSubscription, [
+	 ["", Bucket],
+	 ["b", Bucket],
+	 ["p", Prefix, "spot/datafeed"],
+     ]],
+    ["ec2", "delete-spot-datafeed-subscription delsds", DeleteSpotDatafeedSubscription, []],
+    ["ec2", "describe-spot-datafeed-subscription dsds", DescribeSpotDatafeedSubscription, []],
+    ["ec2", "describe-spot-instance-requests dsir", DescribeSpotInstanceRequests, [
+	 ["", SpotInstanceRequestIdN],
+     ]],
+    ["ec2", "describe-spot-price-history dsph", DescribeSpotPriceHistory, [
+	 ["start", StartTime],
+	 ["end", EndTime],
+	 ["instance-type", InstanceType, "m1.small"],
+	 ["description", ProductDescription, "Linux/UNIX"],
+     ]],
+    ["ec2", "create-volume cvol", CreateVolume, [
+	 ["size", Size],
+	 ["zone", AvailabilityZone],
+	 ["snapshot", SnapshotId],
+     ]],
+    ["ec2", "delete-group delgrp", DeleteSecurityGroup, [["", GroupName]]],
+    ["ec2", "delete-placement-group", DeletePlacementGroup, [["", GroupName]]],
+    ["ec2", "delete-keypair delkey", DeleteKeyPair, [["", KeyName]]],
+    ["ec2", "delete-snapshot delsnap", DeleteSnapshot, [["", SnapshotId]]],
+    ["ec2", "delete-volume delvol", DeleteVolume, [["", VolumeId]]],
+    ["ec2", "deregister", DeregisterImage, [["", ImageId]]],
+    ["ec2", "describe-addresses dad", DescribeAddresses, [["", PublicIpN]]],
+    ["ec2", "describe-availability-zones daz", DescribeAvailabilityZones, [["", ZoneNameN]]],
+    ["ec2", "describe-groups dgrp", DescribeSecurityGroups, [["", GroupNameN]]],
+    ["ec2", "describe-image-attribute", DescribeImageAttribute, [
+	 ["", ImageId],
+	 ["l", launchPermission],
+	 ["p", productCodes],
+	 ["kernel", "kernel"],
+	 ["ramdisk", "ramdisk"],
+	 ["B", "blockDeviceMapping"],
+     ]],
+    ["ec2", "describe-images dim", DescribeImages, [
+	 ["", ImageIdN],
+	 ["o", OwnerN],
+	 ["x", ExecutableByN],
+     ]],
+    ["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
+    ["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
+    ["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
+    ["ec2", "describe-regions dreg", DescribeRegions],
+    ["ec2", "describe-reserved-instances", DescribeReservedInstances, [
+	 ["", ReservedInstanceIdN],
+     ]],
+    ["ec2", "describe-reserved-instances-offerings", DescribeReservedInstancesOfferings, [
+	 ["offering", ReservedInstancesOfferingIdN],
+	 ["instance-type", InstanceType],
+	 ["availability-zone", AvailabilityZone],
+	 ["z", AvailabilityZone],
+	 ["description", ProductDescription],
+     ]],
+    ["ec2", "describe-snapshot-attribute dsa", DescribeSnapshotAttribute, [
+	 ["", SnapshotIdN],
+	 ["attribute", Attribute],
+     ]],
+    ["ec2", "reset-snapshot-attribute rsa", ResetSnapshotAttribute, [
+	 ["", SnapshotIdN],
+	 ["attribute", Attribute],
+     ]],
+    ["ec2", "modify-snapshot-attribute msa", ModifySnapshotAttribute, [
+	 ["", SnapshotId],
+	 ["user", UserId],
+	 ["group", UserGroup],
+	 ["attribute", Attribute],
+	 ["type", OperationType],
+     ]],
+    ["ec2", "describe-snapshots dsnap", DescribeSnapshots, [
+	 ["", SnapshotIdN],
+	 ["owner", Owner, "self"],
+	 ["restorableby", RestorableBy],
+     ]],
+    ["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
+    ["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
+    ["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
+    ["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
+    ["ec2", "purchase-reserved-instance-offering", PurchaseReservedInstancesOffering, [
+	 ["offering-id", ReservedInstancesOfferingId],
+	 ["instance-count", InstanceCount],
+     ]],
+    ["ec2", "reboot-instances reboot", RebootInstances, [["", InstanceIdN]]],
+    ["ec2", "release-address rad", ReleaseAddress, [["", PublicIp]]],
+    ["ec2", "register-image register", RegisterImage, [
+	 ["", ImageLocation],
+	 ["name n" => Name],
+	 ["description d" => Description],
+	 ["architecture a" => Architecture],
+	 [kernel => KernelId],
+	 [ramdisk => RamdiskId],
+	 ["root-device-name" => RootDeviceName, "/dev/sda1"],
+	 ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+	 ["device-name" => "BlockDeviceMapping.N.DeviceName"],
+	 ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
+	 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
+	 [snapshot => "BlockDeviceMapping.N.Ebs.SnapshotId"],
+	 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+     ]],
+    ["ec2", "request-spot-instances req-spot rsi", RequestSpotInstances, [
+	 ["" => "LaunchSpecification.ImageId", "ami-4a0df923"],
+	 ["price p" => SpotPrice],
+	 ["instance-count n" => InstanceCount, 1],
+	 ["type r" => Type, "one-time"],
+	 ["valid-from-date" => ValidFrom],
+	 ["valid-until-date" => ValidUntil],
+	 ["launch-group" => LaunchGroup],
+	 ["availability-zone-group" => AvailabilityZoneGroup],
+	 ["user-data d" => "LaunchSpecification.UserData", undef,
+	  sub {encode_base64($_[0], "")}],
+	 ["user-data-file f" => "LaunchSpecification.UserData", undef,
+	  sub {encode_base64(load_file($_[0]))}],
+	 ["group g" => "LaunchSpecification.SecurityGroupN"],
+	 ["a", "LaunchSpecification.AddressingType"],
+	 ["key k" => "LaunchSpecification.KeyName"],
+	 ["instance-type t" => "LaunchSpecification.InstanceType", "t1.micro"],
+	 ["availability-zone z" => "LaunchSpecification.Placement.AvailabilityZone"],
+	 [kernel => "LaunchSpecification.KernelId"],
+	 [ramdisk => "LaunchSpecification.RamdiskId"],
+	 [subnet => "LaunchSpecification.SubnetId"],
+	 ["block-device-mapping b", undef, undef, \&parse_block_device_mapping_with_launch_specification],
+	 ["device-name" => "LaunchSpecification.BlockDeviceMapping.N.DeviceName"],
+	 ["no-device" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.NoDevice"],
+	 ["virtual-name" => "LaunchSpecification.BlockDeviceMapping.N.VirtualName"],
+	 [snapshot => "LaunchSpecification.BlockDeviceMapping.N.Ebs.SnapshotId"],
+	 ["volume-size" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["delete-on-termination" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+	 [monitor => "LaunchSpecification.Monitoring.Enabled"],
+     ]],
+    ["ec2", "revoke", RevokeSecurityGroupIngress, [
+	 ["" => GroupName],
+	 ["protocol P" => "IpPermissions.1.IpProtocol"],
+	 ["p" => undef, undef, sub
+	  {
+	      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+	      ["IpPermissions.1.FromPort" => $min, "IpPermissions.1.ToPort" => $max];
+	  }],
+	 ["q", "IpPermissions.1.ToPort"],
+	 #["t", icmp type code],
+	 ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
+	 ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+	 ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
+     ]],
+    ["ec2", "run-instances run-instance run", RunInstances, [
+	 ["", ImageId],
+	 ["instance-count n", undef, 1, sub
+	  {
+	      my($min, $max) = split(/-/, $_[0]."-".$_[0]);
+	      [MinCount => $min, MaxCount => $max];
+	  }],
+	 ["group g", SecurityGroupN],
+	 ["key k", KeyName],
+	 ["user-data d", UserData, undef, sub {encode_base64($_[0], "")}],
+	 ["user-data-file f", UserData, undef, sub {encode_base64(load_file($_[0]))}],
+	 ["a", AddressingType],
+	 ["instance-type type t i", InstanceType],
+	 ["availability-zone z", "Placement.AvailabilityZone"],
+	 ["kernel", KernelId],
+	 ["ramdisk", RamdiskId],
+	 ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+	 ["device-name" => "BlockDeviceMapping.N.DeviceName"],
+	 ["no-device" => "BlockDeviceMapping.N.Ebs.NoDevice"],
+	 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
+	 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
+	 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
+	 ["monitor m" => "Monitoring.Enabled"],
+	 ["disable-api-termination" => DisableApiTermination],
+	 ["instance-initiated-shutdown-behavior" => InstanceInitiatedShutdownBehavior],
+	 ["placement-group" => "Placement.GroupName"],
+	 ["subnet s" => SubnetId],
+	 ["private-ip-address" => PrivateIpAddress],
+	 ["client-token" => ClientToken],
+     ]],
+    ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
+    ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
+    ["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
+    ["ec2", "create-tags ctags", CreateTags, [
+	 ["" => "ResourceIdN"],
+	 ["tag", undef, undef, \&parse_tags],
+     ]],
+    ["ec2", "describe-tags dtags", DescribeTags, [
+	 ["filter", undef, undef, \&parse_tags_describe],
+     ]],
+    ["ec2", "delete-tags deltags", DeleteTags, [
+	 ["" => ResourceIdN],
+	 ["tag", undef, undef, \&parse_tags_delete],
+     ]],
 
-	#############
-	###  ELB  ###
-	#############
+    #############
+    ###  ELB  ###
+    #############
 
-	["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
-								   ["", LoadBalancerName],
-								   ["target", "HealthCheck.Target"],
-								   ["healthy-threshold", "HealthCheck.HealthyThreshold"],
-								   ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
-								   ["interval", "HealthCheck.Interval"],
-								   ["timeout", "HealthCheck.Timeout"],
-								   ]],
-	["elb", "create-app-cookie-stickiness-policy cacsp", CreateAppCookieStickinessPolicy, [
-											       ["", LoadBalancerName],
-											       ["policy-name", PolicyName],
-											       ["cookie-name", CookieName],
-											       ]],
-	["elb", "create-lb-cookie-stickiness-policy clbcsp", CreateLBCookieStickinessPolicy, [
-											      ["", LoadBalancerName],
-											      ["policy-name", PolicyName],
-											      ["expiration-period", "policy-name", PolicyName],
-											      ]],
-	["elb", "create-lb clb", CreateLoadBalancer, [
-						      ["", LoadBalancerName],
-						      ["availability-zone", "AvailabilityZones.memberN"],
-						      ["protocol", "Listeners.member.1.Protocol"],
-						      ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
-						      ["instanceport", "Listeners.member.1.InstancePort"],
-						      ]],
-	["elb", "create-lb-listeners clbl", CreateLoadBalancerListeners, [
-								     ["", LoadBalancerName],
-								     ["listener", "Listeners.memberN"],
-								     ]],
-	["elb", "delete-lb dellb", DeleteLoadBalancer, [
-						  ["", LoadBalancerName],
-						  ]],
-	["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
-								     ["", LoadBalancerName],
-								     ["loadbalancerport", "LoadBalancerPorts.member.1"],
-								     ]],
-	["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
-								    ["", LoadBalancerName],
-								    ["policy-name", PolicyName],
-								    ]],
-	["elb", "describe-instance-health dih", DescribeInstanceHealth, [
-								     ["", LoadBalancerName],
-								     ["listener", "Listeners.memberN"],
-								     ]],
-	["elb", "describe-lbs dlb", DescribeLoadBalancers, [
-							    ["", LoadBalancerNameN],
-							    ]],
-	["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
-										       ["", LoadBalancerName],
-										       ["availability-zone", "AvailabilityZones.memberN"],
-										       ]],
-	["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
-										     ["", LoadBalancerName],
-										     ["availability-zone", "AvailabilityZones.memberN"],
-										     ]],
-	["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
-										       ["", LoadBalancerName],
-										       ["instance", "Instances.member.N.InstanceId"],
-										       ]],
-	["elb", "deregister-instances-from-lb dlbi", DeregisterInstancesFromLoadBalancer, [
-											   ["", LoadBalancerName],
-											   ["instance", "Instances.member.N.InstanceId"],
-											   ]],
-	["elb", "set-lb-listener-ssl-cert slblsc", SetLoadBalancerListenerSSLCertificate, [
-										    ["", LoadBalancerName],
-										    ["lb-port", LoadBalancerPort],
-										    ["cert-id", SSLCertificateId],
-										    ]],
-	["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
-											  ["", LoadBalancerName],
-											  ["policy-name", "PolicyNames.memberN"],
-											  ]],
+    ["elb", "configure-healthcheck ch", ConfigureHealthCheck, [
+	 ["", LoadBalancerName],
+	 ["target", "HealthCheck.Target"],
+	 ["healthy-threshold", "HealthCheck.HealthyThreshold"],
+	 ["unhealthy-threshold", "HealthCheck.UnhealthyThreshold"],
+	 ["interval", "HealthCheck.Interval"],
+	 ["timeout", "HealthCheck.Timeout"],
+     ]],
+    ["elb", "create-app-cookie-stickiness-policy cacsp", CreateAppCookieStickinessPolicy, [
+	 ["", LoadBalancerName],
+	 ["policy-name", PolicyName],
+	 ["cookie-name", CookieName],
+     ]],
+    ["elb", "create-lb-cookie-stickiness-policy clbcsp", CreateLBCookieStickinessPolicy, [
+	 ["", LoadBalancerName],
+	 ["policy-name", PolicyName],
+	 ["expiration-period", "policy-name", PolicyName],
+     ]],
+    ["elb", "create-lb clb", CreateLoadBalancer, [
+	 ["", LoadBalancerName],
+	 ["availability-zone", "AvailabilityZones.memberN"],
+	 ["protocol", "Listeners.member.1.Protocol"],
+	 ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
+	 ["instanceport", "Listeners.member.1.InstancePort"],
+     ]],
+    ["elb", "create-lb-listeners clbl", CreateLoadBalancerListeners, [
+	 ["", LoadBalancerName],
+	 ["listener", "Listeners.memberN"],
+     ]],
+    ["elb", "delete-lb dellb", DeleteLoadBalancer, [
+	 ["", LoadBalancerName],
+     ]],
+    ["elb", "delete-lb-listeners dlbl", DeleteLoadBalancerListeners, [
+	 ["", LoadBalancerName],
+	 ["loadbalancerport", "LoadBalancerPorts.member.1"],
+     ]],
+    ["elb", "delete-lb-policy dlbp", DeleteLoadBalancerPolicy, [
+	 ["", LoadBalancerName],
+	 ["policy-name", PolicyName],
+     ]],
+    ["elb", "describe-instance-health dih", DescribeInstanceHealth, [
+	 ["", LoadBalancerName],
+	 ["listener", "Listeners.memberN"],
+     ]],
+    ["elb", "describe-lbs dlb", DescribeLoadBalancers, [
+	 ["", LoadBalancerNameN],
+     ]],
+    ["elb", "disable-zones-for-lb dlbz", DisableAvailabilityZonesForLoadBalancer, [
+	 ["", LoadBalancerName],
+	 ["availability-zone", "AvailabilityZones.memberN"],
+     ]],
+    ["elb", "enable-zones-for-lb elbz", EnableAvailabilityZonesForLoadBalancer, [
+	 ["", LoadBalancerName],
+	 ["availability-zone", "AvailabilityZones.memberN"],
+     ]],
+    ["elb", "register-instances-with-lb rlbi", RegisterInstancesWithLoadBalancer, [
+	 ["", LoadBalancerName],
+	 ["instance", "Instances.member.N.InstanceId"],
+     ]],
+    ["elb", "deregister-instances-from-lb dlbi", DeregisterInstancesFromLoadBalancer, [
+	 ["", LoadBalancerName],
+	 ["instance", "Instances.member.N.InstanceId"],
+     ]],
+    ["elb", "set-lb-listener-ssl-cert slblsc", SetLoadBalancerListenerSSLCertificate, [
+	 ["", LoadBalancerName],
+	 ["lb-port", LoadBalancerPort],
+	 ["cert-id", SSLCertificateId],
+     ]],
+    ["elb", "set-lb-policies-of-listener slbpol", SetLoadBalancerPoliciesOfListener, [
+	 ["", LoadBalancerName],
+	 ["policy-name", "PolicyNames.memberN"],
+     ]],
 
-	#############
-	###  IAM  ###
-	#############
+    #############
+    ###  IAM  ###
+    #############
 
-	["iam", "groupaddpolicy pgp", PutGroupPolicy, [
-						   [" g" => GroupName],
-						   [p => PolicyName],
-						   [e, undef, undef, \&parse_addpolicy_effect],
-						   [a, undef, undef, \&parse_addpolicy_action],
-						   [r, undef, undef, \&parse_addpolicy_resource],
-						   [o, undef, undef, \&parse_addpolicy_output],
-						   ]],
-	["iam", "groupadduser", AddUserToGroup, [
-						 [" g" => GroupName],
-						 [u => UserName],
-						 ]],
-	["iam", "groupcreate cg", CreateGroup, [
-					     [" g" => GroupName],
-					     [p => Path],
-					     ]],
-	["iam", "groupdel", DeleteGroup, [
-					  [" g" => GroupName],
-					  ]],
-	["iam", "groupdelpolicy", DeleteGroupPolicy, [
-						      [" g" => GroupName],
-						      [p => PolicyName],
-						      ]],
-	["iam", "grouplistbypath lg", ListGroups],
-	["iam", "grouplistpolicies lgp", ListGroupPolicies, [
-							     [" g" => GroupName],
-							     [p => PolicyName],
-							     ]],
-	# GetGroupPolicy is automatically invoked when grouplistpolicies has a -p PolicyName
-	["iam", "groupgetpolicy", GetGroupPolicy, [
-						   [" g" => GroupName],
-						   [p => PolicyName],
-						   ]],
-	["iam", "grouplistusers gg", GetGroup, [
-						[" g" => GroupName],
-						]],
-	["iam", "groupmod", UpdateGroup, [
-					  [" g" => GroupName],
-					  [n => NewGroupName],
-					  [p => NewPath],
-					  ]],
-	["iam", "groupremoveuser", RemoveUserFromGroup, [
-							 [" g" => GroupName],
-							 [u => UserName],
-							 ]],
-	["iam", "groupuploadpolicy", PutGroupPolicy, [
-						      [" g" => GroupName],
-						      [p => PolicyName],
-						      [o => PolicyDocument],
-						      [f => PolicyDocument, undef, sub {load_file($_[0])}],
-						      ]],
-	["iam", "useraddcert", UploadSigningCertificate, [
-							  [" u" => UserName],
-							  [c => CertificateBody],
-							  [f => CertificateBody, undef, sub {load_file($_[0])}],
-							  ]],
-	["iam", "useraddkey cak", CreateAccessKey, [
-						    [" u" => UserName],
-						    ]],
-	["iam", "useraddloginprofile clp", CreateLoginProfile, [
-							    [" u" => UserName],
-							    [p => Password],
-							    ]],
-	["iam", "useraddpolicy pup", PutUserPolicy, [
-						     [" u" => UserName],
-						     [p => PolicyName],
-						     [e, undef, undef, \&parse_addpolicy_effect],
-						     [a, undef, undef, \&parse_addpolicy_action],
-						     [r, undef, undef, \&parse_addpolicy_resource],
-						     [o, undef, undef, \&parse_addpolicy_output],
-						     ]],
-	["iam", "usercreate cu", CreateUser, [
-					      [" u" => UserName],
-					      [p => Path],
-					      ]],
-	["iam", "userdeactivatemfadevice", DeactivateMFADevice, [
-								 [" u" => UserName],
-								 [s => SerialNumber],
-								 ]],
-	["iam", "userdel", DeleteUser, [
-					[" u" => UserName],
-					[s => XXX],
-					]],
-	["iam", "userdelcert", DeleteSigningCertificate, [
-							  [" u" => UserName],
-							  [c => CertificateId],
-							  ]],
-	["iam", "userdelkey", DeleteAccessKey, [
-						[" u" => UserName],
-						[k => AccessKeyId],
-						]],
-	["iam", "userdelloginprofile dlp", DeleteLoginProfile, [
-							    [" u" => UserName],
-							    ]],
-	["iam", "userdelpolicy", DeleteUserPolicy, [
-						    [" u" => UserName],
-						    [p => PolicyName],
-						    ]],
-	["iam", "userenablemfadevice", EnableMFADevice, [
-							 [" u" => UserName],
-							 [s => SerialNumber],
-							 [c1 => AuthenticationCode1],
-							 [c2 => AuthenticationCode2],
-							 ]],
-	["iam", "usergetattributes gu", GetUser, [
-						  [" u" => UserName],
-						  ]],
-	["iam", "usergetloginprofile glp", GetLoginProfile, [
-							 [" u" => UserName],
-							 ]],
-	["iam", "userlistbypath lu", ListUsers, [
-						 [" p" => PathPrefix],
-						 ]],
-	["iam", "userlistcerts", ListSigningCertificates, [
-							   [" u" => UserName],
-							   ]],
-	["iam", "userlistgroups", ListGroupsForUser, [
-						      [" u" => Username],
-						      ]],
-	["iam", "userlistkeys", ListAccessKeys, [
-						 [" u" => UserName],
-						 ]],
-	["iam", "userlistmfadevices", ListMFADevices, [
-						       [" u" => UserName],
-						       ]],
-	["iam", "userlistpolicies lup", ListUserPolicies, [
-						       [" u" => UserName],
-						       [p => PolicyName],
-						       ]],
-	# GetUserPolicy is automatically invoked when userlistpolicies has a -p PolicyName
-	["iam", "usergetpolicy", GetUserPolicy, [
-				       [" u" => UserName],
-				       [p => PolicyName],
-				       ]],
-	["iam", "usermod", UpdateUser, [
-					[" u" => UserName],
-					[n => NewUserName],
-					[p => NewPath],
-					]],
-	["iam", "usermodcert", UpdateSigningCertificate, [
-							  [" u" => UserName],
-							  [c => CertificateId],
-							  [s => Status],
-							  ]],
-	["iam", "usermodkey", UpdateAccessKey, [
-						[" u" => UserName],
-						[a => AccessKeyId],
-						[s => Status],
-						]],
-	["iam", "usermodloginprofile ulp", UpdateLoginProfile, [
-							    [" u" => UserName],
-							    [p => Password],
-							    ]],
-	["iam", "userresyncmfadevice", ResyncMFADevice, [
-							 [" u" => UserName],
-							 [s => SerialNumber],
-							 [c1 => AuthenticationCode1],
-							 [c2 => AuthenticationCode2],
-							 ]],
-	["iam", "useruploadpolicy", PutUserPolicy, [
-						    [" u" => UserName],
-						    [p => PolicyName],
-						    [o => PolicyDocument],
-						    [f => PolicyDocument, undef, sub {load_file($_[0])}],
-						    ]],
-	["iam", "servercertdel", DeleteServerCertificate, [
-							   [" s" => ServerCertificateName],
-							   ]],
-	["iam", "servercertgetattributes", GetServerCertificate, [
-								  [" s" => ServerCertificate],
-								  ]],
-	["iam", "servercertlistbypath", ListServerCertificates, [
-								 [" p" => PathPrefix],
-								 ]],
-	["iam", "servercertmod", UpdateServerCertificate, [
-							   [" p" => NewPath],
-							   [s => ServerCertificateName],
-							   [n => NewServerCertificateName],
-							   ]],
-	["iam", "servercertupload", UploadServerCertificate, [
-							      [" s" => ServerCertificateName],
-							      [p => Path],
-							      [b => CertificateBody, undef, sub {load_file($_[0])}],
-							      [k => PrivateKey, undef, sub {load_file($_[0])}],
-							      [c => CertificateChain, undef, sub {load_file($_[0])}],
-							      ]],
-	["iam", "accountaliascreate caa", CreateAccountAlias,[
-							      ["" => AccountAlias],
-							      ]],
-	["iam", "accountaliasdelete daa", DeleteAccountAlias,[
-							      ["" => AccountAlias],
-							      ]],
-	["iam", "accountaliaslist laa", ListAccountAliases],
+    ["iam", "groupaddpolicy pgp", PutGroupPolicy, [
+	 [" g" => GroupName],
+	 [p => PolicyName],
+	 [e, undef, undef, \&parse_addpolicy_effect],
+	 [a, undef, undef, \&parse_addpolicy_action],
+	 [r, undef, undef, \&parse_addpolicy_resource],
+	 [o, undef, undef, \&parse_addpolicy_output],
+     ]],
+    ["iam", "groupadduser", AddUserToGroup, [
+	 [" g" => GroupName],
+	 [u => UserName],
+     ]],
+    ["iam", "groupcreate cg", CreateGroup, [
+	 [" g" => GroupName],
+	 [p => Path],
+     ]],
+    ["iam", "groupdel", DeleteGroup, [
+	 [" g" => GroupName],
+     ]],
+    ["iam", "groupdelpolicy", DeleteGroupPolicy, [
+	 [" g" => GroupName],
+	 [p => PolicyName],
+     ]],
+    ["iam", "grouplistbypath lg", ListGroups],
+    ["iam", "grouplistpolicies lgp", ListGroupPolicies, [
+	 [" g" => GroupName],
+	 [p => PolicyName],
+     ]],
+    # GetGroupPolicy is automatically invoked when grouplistpolicies has a -p PolicyName
+    ["iam", "groupgetpolicy", GetGroupPolicy, [
+	 [" g" => GroupName],
+	 [p => PolicyName],
+     ]],
+    ["iam", "grouplistusers gg", GetGroup, [
+	 [" g" => GroupName],
+     ]],
+    ["iam", "groupmod", UpdateGroup, [
+	 [" g" => GroupName],
+	 [n => NewGroupName],
+	 [p => NewPath],
+     ]],
+    ["iam", "groupremoveuser", RemoveUserFromGroup, [
+	 [" g" => GroupName],
+	 [u => UserName],
+     ]],
+    ["iam", "groupuploadpolicy", PutGroupPolicy, [
+	 [" g" => GroupName],
+	 [p => PolicyName],
+	 [o => PolicyDocument],
+	 [f => PolicyDocument, undef, sub {load_file($_[0])}],
+     ]],
+    ["iam", "useraddcert", UploadSigningCertificate, [
+	 [" u" => UserName],
+	 [c => CertificateBody],
+	 [f => CertificateBody, undef, sub {load_file($_[0])}],
+     ]],
+    ["iam", "useraddkey cak", CreateAccessKey, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "useraddloginprofile clp", CreateLoginProfile, [
+	 [" u" => UserName],
+	 [p => Password],
+     ]],
+    ["iam", "useraddpolicy pup", PutUserPolicy, [
+	 [" u" => UserName],
+	 [p => PolicyName],
+	 [e, undef, undef, \&parse_addpolicy_effect],
+	 [a, undef, undef, \&parse_addpolicy_action],
+	 [r, undef, undef, \&parse_addpolicy_resource],
+	 [o, undef, undef, \&parse_addpolicy_output],
+     ]],
+    ["iam", "usercreate cu", CreateUser, [
+	 [" u" => UserName],
+	 [p => Path],
+     ]],
+    ["iam", "userdeactivatemfadevice", DeactivateMFADevice, [
+	 [" u" => UserName],
+	 [s => SerialNumber],
+     ]],
+    ["iam", "userdel", DeleteUser, [
+	 [" u" => UserName],
+	 [s => XXX],
+     ]],
+    ["iam", "userdelcert", DeleteSigningCertificate, [
+	 [" u" => UserName],
+	 [c => CertificateId],
+     ]],
+    ["iam", "userdelkey", DeleteAccessKey, [
+	 [" u" => UserName],
+	 [k => AccessKeyId],
+     ]],
+    ["iam", "userdelloginprofile dlp", DeleteLoginProfile, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "userdelpolicy", DeleteUserPolicy, [
+	 [" u" => UserName],
+	 [p => PolicyName],
+     ]],
+    ["iam", "userenablemfadevice", EnableMFADevice, [
+	 [" u" => UserName],
+	 [s => SerialNumber],
+	 [c1 => AuthenticationCode1],
+	 [c2 => AuthenticationCode2],
+     ]],
+    ["iam", "usergetattributes gu", GetUser, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "usergetloginprofile glp", GetLoginProfile, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "userlistbypath lu", ListUsers, [
+	 [" p" => PathPrefix],
+     ]],
+    ["iam", "userlistcerts", ListSigningCertificates, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "userlistgroups", ListGroupsForUser, [
+	 [" u" => Username],
+     ]],
+    ["iam", "userlistkeys", ListAccessKeys, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "userlistmfadevices", ListMFADevices, [
+	 [" u" => UserName],
+     ]],
+    ["iam", "userlistpolicies lup", ListUserPolicies, [
+	 [" u" => UserName],
+	 [p => PolicyName],
+     ]],
+    # GetUserPolicy is automatically invoked when userlistpolicies has a -p PolicyName
+    ["iam", "usergetpolicy", GetUserPolicy, [
+	 [" u" => UserName],
+	 [p => PolicyName],
+     ]],
+    ["iam", "usermod", UpdateUser, [
+	 [" u" => UserName],
+	 [n => NewUserName],
+	 [p => NewPath],
+     ]],
+    ["iam", "usermodcert", UpdateSigningCertificate, [
+	 [" u" => UserName],
+	 [c => CertificateId],
+	 [s => Status],
+     ]],
+    ["iam", "usermodkey", UpdateAccessKey, [
+	 [" u" => UserName],
+	 [a => AccessKeyId],
+	 [s => Status],
+     ]],
+    ["iam", "usermodloginprofile ulp", UpdateLoginProfile, [
+	 [" u" => UserName],
+	 [p => Password],
+     ]],
+    ["iam", "userresyncmfadevice", ResyncMFADevice, [
+	 [" u" => UserName],
+	 [s => SerialNumber],
+	 [c1 => AuthenticationCode1],
+	 [c2 => AuthenticationCode2],
+     ]],
+    ["iam", "useruploadpolicy", PutUserPolicy, [
+	 [" u" => UserName],
+	 [p => PolicyName],
+	 [o => PolicyDocument],
+	 [f => PolicyDocument, undef, sub {load_file($_[0])}],
+     ]],
+    ["iam", "servercertdel", DeleteServerCertificate, [
+	 [" s" => ServerCertificateName],
+     ]],
+    ["iam", "servercertgetattributes", GetServerCertificate, [
+	 [" s" => ServerCertificate],
+     ]],
+    ["iam", "servercertlistbypath", ListServerCertificates, [
+	 [" p" => PathPrefix],
+     ]],
+    ["iam", "servercertmod", UpdateServerCertificate, [
+	 [" p" => NewPath],
+	 [s => ServerCertificateName],
+	 [n => NewServerCertificateName],
+     ]],
+    ["iam", "servercertupload", UploadServerCertificate, [
+	 [" s" => ServerCertificateName],
+	 [p => Path],
+	 [b => CertificateBody, undef, sub {load_file($_[0])}],
+	 [k => PrivateKey, undef, sub {load_file($_[0])}],
+	 [c => CertificateChain, undef, sub {load_file($_[0])}],
+     ]],
+    ["iam", "accountaliascreate caa", CreateAccountAlias,[
+	 ["" => AccountAlias],
+     ]],
+    ["iam", "accountaliasdelete daa", DeleteAccountAlias,[
+	 ["" => AccountAlias],
+     ]],
+    ["iam", "accountaliaslist laa", ListAccountAliases],
 
-	["s3", "ls", LS],
-	["s3", "get cat", GET],
-	["s3", "head", HEAD],
-	["s3", "mkdir", MKDIR],
-	["s3", "put", PUT],
-	["s3", "delete rmdir rm", DELETE],
-	["s3", "copy cp", COPY],
-	["s3", "dmo", DMO],
-	["s3", "post", POST],
+    ["s3", "ls", LS],
+    ["s3", "get cat", GET],
+    ["s3", "head", HEAD],
+    ["s3", "mkdir", MKDIR],
+    ["s3", "put", PUT],
+    ["s3", "delete rmdir rm", DELETE],
+    ["s3", "copy cp", COPY],
+    ["s3", "dmo", DMO],
+    ["s3", "post", POST],
 
-	["sqs", "add-permission addperm", AddPermission, [
-							  ["" => QueueUri],
-							  [label => Label],
-							  [account => AWSAccountIdN],
-							  [action => ActionNameN],
-							  ]],
+    ["sqs", "add-permission addperm", AddPermission, [
+	 ["" => QueueUri],
+	 [label => Label],
+	 [account => AWSAccountIdN],
+	 [action => ActionNameN],
+     ]],
 
-	["sqs", "change-message-visibility cmv", ChangeMessageVisibility, [
-									   ["" => QueueUri],
-									   [handle => ReceiptHandle],
-									   [timeout => VisibilityTimeout],
-									   ]],
+    ["sqs", "change-message-visibility cmv", ChangeMessageVisibility, [
+	 ["" => QueueUri],
+	 [handle => ReceiptHandle],
+	 [timeout => VisibilityTimeout],
+     ]],
 
-	["sqs", "create-queue cq", CreateQueue, [
-						 ["" => QueueName],
-						 [timeout => DefaultVisibilityTimeout],
-						 ]],
+    ["sqs", "create-queue cq", CreateQueue, [
+	 ["" => QueueName],
+	 [timeout => DefaultVisibilityTimeout],
+     ]],
 
-	["sqs", "delete-message dm", DeleteMessage, [
-						     ["" => QueueUri],
-						     [handle => ReceiptHandle],
-						     ]],
+    ["sqs", "delete-message dm", DeleteMessage, [
+	 ["" => QueueUri],
+	 [handle => ReceiptHandle],
+     ]],
 
-	["sqs", "delete-queue dq", DeleteQueue, [
-						 ["" => QueueUri],
-						 ]],
+    ["sqs", "delete-queue dq", DeleteQueue, [
+	 ["" => QueueUri],
+     ]],
 
-	["sqs", "get-queue-attributes gqa", GetQueueAttributes, [
-							["" => QueueUri],
-							[attribute => AttributeNameN],
-							]],
+    ["sqs", "get-queue-attributes gqa", GetQueueAttributes, [
+	 ["" => QueueUri],
+	 [attribute => AttributeNameN],
+     ]],
 
-	["sqs", "list-queues lq", ListQueues, [
-						 ["" => QueueNamePrefix],
-						 ]],
+    ["sqs", "list-queues lq", ListQueues, [
+	 ["" => QueueNamePrefix],
+     ]],
 
-	["sqs", "receive-message recv", ReceiveMessage, [
-							 ["" => QueueUri],
-							 [attribute => AttributeNameN],
-							 [n => MaxNumberOfMessages],
-							 [timeout => VisibilityTimeout],
-							 ]],
+    ["sqs", "receive-message recv", ReceiveMessage, [
+	 ["" => QueueUri],
+	 [attribute => AttributeNameN],
+	 [n => MaxNumberOfMessages],
+	 [timeout => VisibilityTimeout],
+     ]],
 
-	["sqs", "remove-permission remperm", RemovePermission, [
-								["" => QueueUri],
-								[label => Label],
-								]],
+    ["sqs", "remove-permission remperm", RemovePermission, [
+	 ["" => QueueUri],
+	 [label => Label],
+     ]],
 
-	["sqs", "send-message send", SendMessage, [
-						   ["" => QueueUri],
-						   [message => MessageBody, "", sub {encode_url($_[0])}],
-						   ]],
+    ["sqs", "send-message send", SendMessage, [
+	 ["" => QueueUri],
+	 [message => MessageBody, "", sub {encode_url($_[0])}],
+     ]],
 
-	["sqs", "set-queue-attributes sqa", SetQueueAttributes, [
-								 ["" => QueueUri],
-								 [attribute => "Attribute.Name"],
-								 [value => "Attribute.Value"],
-								 ]],
+    ["sqs", "set-queue-attributes sqa", SetQueueAttributes, [
+	 ["" => QueueUri],
+	 [attribute => "Attribute.Name"],
+	 [value => "Attribute.Value"],
+     ]],
 
-	["sdb", "create-domain cdom", CreateDomain, [
-						     ["" => DomainName],
-						     ]],
-	["sdb", "delete-attributes datt", DeleteAttributes, [
-							     ["" => DomainName],
-							     [i => ItemName],
-							     [n => "Attribute.N.Name"],
-							     [v => "Attribute.N.Value"],
-							     [xn => "Expected.N.Name"],
-							     [xv => "Expected.N.Value"],
-							     [exists => "Expected.N.Exists"],
-							     ]],
-	["sdb", "delete-domain ddom", DeleteDomain, [
-						     ["" => DomainName],
-						     ]],
-	["sdb", "get-attributes gatt", GetAttributes, [
-						       ["" => DomainName],
-						       [i => ItemName],
-						       [n => AttributeName],
-						       [c => ConsistentRead],
-						       ]],
-	["sdb", "list-domains ldom", ListDomains, [
-						   [max => MaxNumberOfDomains],
-						   [next => NextToken],
-						   ]],
-	["sdb", "put-attributes patt", PutAttributes, [
-						       ["" => DomainName],
-						       [i => ItemName],
-						       [n => "Attribute.N.Name"],
-						       [v => "Attribute.N.Value"],
-						       [replace => "Attribute.N.Replace"],
-						       [xn => "Expected.N.Name"],
-						       [xv => "Expected.N.Value"],
-						       [exists => "Expected.N.Exists"],
-						       ]],
-	["sdb", "select", Select, [
-				   ["" => SelectExpression],
-				   [c => ConsistentRead],
-				   [next => NextToken],
-				   ]],
-	);
+    ["sdb", "create-domain cdom", CreateDomain, [
+	 ["" => DomainName],
+     ]],
+    ["sdb", "delete-attributes datt", DeleteAttributes, [
+	 ["" => DomainName],
+	 [i => ItemName],
+	 [n => "Attribute.N.Name"],
+	 [v => "Attribute.N.Value"],
+	 [xn => "Expected.N.Name"],
+	 [xv => "Expected.N.Value"],
+	 [exists => "Expected.N.Exists"],
+     ]],
+    ["sdb", "delete-domain ddom", DeleteDomain, [
+	 ["" => DomainName],
+     ]],
+    ["sdb", "get-attributes gatt", GetAttributes, [
+	 ["" => DomainName],
+	 [i => ItemName],
+	 [n => AttributeName],
+	 [c => ConsistentRead],
+     ]],
+    ["sdb", "list-domains ldom", ListDomains, [
+	 [max => MaxNumberOfDomains],
+	 [next => NextToken],
+     ]],
+    ["sdb", "put-attributes patt", PutAttributes, [
+	 ["" => DomainName],
+	 [i => ItemName],
+	 [n => "Attribute.N.Name"],
+	 [v => "Attribute.N.Value"],
+	 [replace => "Attribute.N.Replace"],
+	 [xn => "Expected.N.Name"],
+	 [xv => "Expected.N.Value"],
+	 [exists => "Expected.N.Exists"],
+     ]],
+    ["sdb", "select", Select, [
+	 ["" => SelectExpression],
+	 [c => ConsistentRead],
+	 [next => NextToken],
+     ]],
+    );
 
 
 $isUnix = guess_is_unix();
@@ -693,7 +694,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @meta{qw(1 cmd0 curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry role ruby quiet
-	     s3host sanity_check secrets_file set_acl sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
+	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -851,20 +852,17 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
-    if (-s $secrets_file)
+    if ($secrets_file =~ /s3cfg$/)
     {
-	if ($secrets_file =~ /s3cfg$/)
-	{
-	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
-	    # 	(can be tested with --secrets-file=s3cfg)
-	    # Poor man's ini parser
-	    my $s3cfg = load_file($secrets_file);
-	    ($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
-	}
-	else
-	{
-	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
-	}
+	# if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	# 	(can be tested with --secrets-file=s3cfg)
+	# Poor man's ini parser
+	my $s3cfg = load_file($secrets_file);
+	($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+    }
+    else
+    {
+	($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
     }
 }
 
@@ -1092,15 +1090,15 @@ if (!$cmd_data)
     {
 	$output .= "\t$service";
 	while ($output{$service} =~ /\s*(.{1,80})(?:\s|$)/g)
-	{
-	    my($one) = ($1);
-	    $output .= "\t" if $output =~ /\n$/;
-	    $output .= "\t\t$one\n";
-	}
+	       {
+		   my($one) = ($1);
+		   $output .= "\t" if $output =~ /\n$/;
+		   $output .= "\t\t$one\n";
+	       }
+	    }
+	$output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
+	die $output;
     }
-    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
-    die $output;
-}
 
 
 {
@@ -1870,7 +1868,7 @@ sub xml2tab
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
 			   |SendMessageResult|CreateTagsResponse|DeleteTagsResponse
-			   )$/x
+	    )$/x
 	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
@@ -1879,7 +1877,7 @@ sub xml2tab
 			   |GetAttributesResult-Attribute|SelectResult-Item
 			   |CreateGroupResult-Group|Groups-member|CreateUserResult-User|Users-member|GetUserResult-User
 			   |CreateAccessKeyResult-AccessKey|AccessKeyMetadata-member|tagSet-item
-			   )$/x
+	    )$/x
 	    || $i == @xml)
 	{
 	    $depth = $depth[$i];
@@ -1980,25 +1978,25 @@ sub xmlpp
 # Convert xml string to YAML format
 # Cf.: https://github.com/timkay/aws/pull/9
 sub xml2yaml {
-  my($result) = xmlpp(@_);
-  my($rubySymbol) = "";
+    my($result) = xmlpp(@_);
+    my($rubySymbol) = "";
 
-  $rubySymbol = ":" if $ruby;
+    $rubySymbol = ":" if $ruby;
 
-  $result =~ s#\n# #g;
-  $result =~ s#> #>\n#g;                            # remove all '\n's
-  $result =~ s#</.*>##g;                            # remove closing tags
-  $result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
-  $result =~ s#($rubySymbol[^:]+): (.+)#\1: "\2"#g; # opening tags -> symbols
-  $result =~ s#:?(.*)/:#\1:#g;                      # empty values
-  $result =~ s#:?(item|bucket|member): #- #gi;      # array items
-  $result =~ s#\t#  #g;                             # tabs -> spaces
-  $result =~ s#^[ :]*\n##mg;                        # remove all empty lines
-  $result =~ s#[ ]+$##gm;                           # remove all trailing spaces
-  $result =~ s#^[^ \n]+:\n#---\n#;                  # new document indicator
-  $result =~ s#^  ##mg;                             # shift left
+    $result =~ s#\n# #g;
+	$result =~ s#> #>\n#g;                            # remove all '\n's
+	$result =~ s#</.*>##g;                            # remove closing tags
+	$result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
+	$result =~ s#($rubySymbol[^:]+): (.+)#\1: "\2"#g; # opening tags -> symbols
+	$result =~ s#:?(.*)/:#\1:#g;                      # empty values
+	$result =~ s#:?(item|bucket|member): #- #gi;      # array items
+	$result =~ s#\t#  #g;                             # tabs -> spaces
+	$result =~ s#^[ :]*\n##mg;                        # remove all empty lines
+	$result =~ s#[ ]+$##gm;                           # remove all trailing spaces
+	$result =~ s#^[^ \n]+:\n#---\n#;                  # new document indicator
+	$result =~ s#^  ##mg;                             # shift left
 
-  $result;
+	$result;
 }
 
 sub s3
@@ -2292,9 +2290,9 @@ sub s3
 	    $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
 	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
 	    print $temp_fh qq[<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-				<LocationConstraint>$region</LocationConstraint>
+			      <LocationConstraint>$region</LocationConstraint>
 			      </CreateBucketConfiguration>
-			      ];
+		];
 	    $temp_fh->flush;
 	    $content = "--upload-file @{[cq($xml)]}";
 	}
@@ -2391,7 +2389,7 @@ sub ec2
     $version .= $iam_version if $service eq "iam";
 
     my @session = (SecurityToken => $session) if $session;
-    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => HmacSHA1, SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -2430,7 +2428,7 @@ sub ec2
     $queue ||= "/";
 
     my($url);
-
+    
     for (sort keys %data)
     {
 	if ($service eq "sqs" && $_ eq "QueueUri")
@@ -2442,13 +2440,13 @@ sub ec2
 	$url .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my $sig = sign("GET\n$endpoint\n$queue\n$url");
+    my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
     $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
     my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
-    print STDERR "$cmd\n" if $v;
+    print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
 
@@ -2460,12 +2458,14 @@ sub encode_url
     $s;
 }
 
+
 sub decode_url
 {
     my($s) = @_;
     $s =~ s/%(..)/@{[uc pack(H2,$1)]}/ig;
     $s;
 }
+
 
 sub dentity
 {
@@ -2477,6 +2477,7 @@ sub dentity
     }
     $s;
 }
+
 
 sub printable
 {
@@ -2495,6 +2496,7 @@ sub load_file
     <$io>;
 }
 
+
 sub save_file
 {
     my $nfn = my $fn = shift;
@@ -2512,12 +2514,14 @@ sub load_file_silent
     <$io>;
 }
 
+
 sub guess_is_unix
 {
     return 1 if $ENV{OS} =~ /windows/i && $ENV{OSTYPE} =~ /cygwin/i;
     return 1 if $ENV{OS} !~ /windows/i;
     return 0;
 }
+
 
 sub get_home_directory
 {
@@ -2528,15 +2532,15 @@ sub get_home_directory
 
 sub sign
 {
-    my($data) = @_;
+    my($data, $shaX) = @_;
 
     if ($v)
     {
 	(my $pretty = $data) =~ s/\n/\\n/sg;
-	print STDERR "data = $pretty\n";
+	print STDERR "data = [$pretty]\n";
     }
-
-    encode_base64(hmac($data, $secret, \&sha1_sha1), "");
+    
+    encode_base64(hmac($data, $secret, $shaX eq HmacSHA256? \&sha256_sha256: \&sha1_sha1), "");
 }
 
 
@@ -2573,6 +2577,7 @@ sub parse_block_device_mapping
     [@result];
 }
 
+
 sub parse_block_device_mapping_with_launch_specification
 {
     my $result = &parse_block_device_mapping;
@@ -2583,11 +2588,14 @@ sub parse_block_device_mapping_with_launch_specification
     $result;
 }
 
+
 sub parse_addpolicy_effect
 {
     parse_addpolicy_finish() if @parse_addpolicy_resource;
     $parse_addpolicy_effect = lc $_[0] eq "allow"? "Allow": "Deny";
 }
+
+
 sub parse_addpolicy_action
 {
     @parse_addpolicy_action = () if @parse_addpolicy_resource;
@@ -2596,6 +2604,8 @@ sub parse_addpolicy_action
     parse_addpolicy_finish() if @parse_addpolicy_resource;
     push @parse_addpolicy_action, $_[0];
 }
+
+
 sub parse_addpolicy_resource
 {
     push @parse_addpolicy_resource, $_[0];
@@ -2613,16 +2623,20 @@ sub parse_addpolicy_resource
     $parse_policy = qq[{\n\t"Statement":\n\t[\n@{[join(",\n", @parse_policy)]}\n\t]\n}\n];
     @final_list = (PolicyDocument, $parse_policy);
 }
+
+
 sub parse_addpolicy_output
 {
     print $parse_policy;
 }
+
 
 sub parse_tags
 {
     my($key, $value) = split(/=/, $_[0], 2);
     ["Tag.N.Key" => $key, "Tag.N.Value" => $value];
 }
+
 
 sub parse_tags_describe
 {
@@ -2636,6 +2650,7 @@ sub parse_tags_describe
     }
     \@data;
 }
+
 
 sub parse_tags_delete
 {
@@ -2657,6 +2672,7 @@ sub cq
     "'$s'";
 }
 
+
 sub curlq
 {
     # quote for sending URL to curl via shell
@@ -2676,20 +2692,20 @@ sub xcmp
 
     for (;;)
     {
-        return @a - @b unless @a && @b;
+	return @a - @b unless @a && @b;
 
-        last if $a[0] cmp $b[0];
+	last if $a[0] cmp $b[0];
 
-        shift @a;
-        shift @b;
+	shift @a;
+	shift @b;
     }
 
     my $cmp = $a[0] cmp $b[0];
 
     for (;;)
     {
-        return ($a[0] =~ /\d/) - ($b[0] =~ /\d/) if ($a[0] =~ /\d/) - ($b[0] =~ /\d/);
-        last unless (shift @a) =~ /\d/ && (shift @b) =~ /\d/;
+	return ($a[0] =~ /\d/) - ($b[0] =~ /\d/) if ($a[0] =~ /\d/) - ($b[0] =~ /\d/);
+	last unless (shift @a) =~ /\d/ && (shift @b) =~ /\d/;
     }
 
     return $cmp;
@@ -2713,7 +2729,7 @@ sub hmac
     my $k_ipad = $key ^ (chr(0x36) x $block_size);
     my $k_opad = $key ^ (chr(0x5c) x $block_size);
 
-    &$hash_func($k_opad, &$hash_func($k_ipad, $data));
+    $hash_func->($k_opad, $hash_func->($k_ipad, $data));
 }
 
 #
@@ -2759,13 +2775,13 @@ sub sha1_sha1
 
     for (my $i = 0; $i < $N; $i += 16)
     {
-        # 1 - prepare message schedule 'W'
+	# 1 - prepare message schedule 'W'
 	my @W = @M[$i..$i + 15];
 
-        # 2 - initialise five working variables a, b, c, d, e with previous hash value
+	# 2 - initialise five working variables a, b, c, d, e with previous hash value
 	my($a, $b, $c, $d, $e) = @H;
 
-        # 3 - main loop
+	# 3 - main loop
 	for (my $t = 0; $t < 80; $t++)
 	{
 	    $W[$t] = sha1_rotl($W[$t - 3] ^ $W[$t - 8] ^ $W[$t - 14] ^ $W[$t - 16], 1) if $t >= 16;
@@ -2774,7 +2790,7 @@ sub sha1_sha1
 	    ($e, $d, $c, $b, $a) = ($d, $c, sha1_rotl($b, 30), $a, $T);
 	}
 
-        # 4 - compute the new intermediate hash value
+	# 4 - compute the new intermediate hash value
 	$H[0] += $a;
 	$H[1] += $b;
 	$H[2] += $c;
@@ -2785,9 +2801,11 @@ sub sha1_sha1
     pack("N*", @H);
 }
 
+
 #
 # function 'f' [4.1.1]
 #
+
 sub sha1_f
 {
     my($s, $x, $y, $z) = @_;
@@ -2797,19 +2815,23 @@ sub sha1_f
     return ($x & $y) ^ ($x & $z) ^ ($y & $z) if $s == 2;
 }
 
+
 #
 # rotate left (circular left shift) value x by n positions [3.2.5]
 #
+
 sub sha1_rotl
 {
     my($x, $n) = @_;
     ($x << $n) | (($x & 0xffffffff) >> (32 - $n));
 }
 
+
 #
 # logical shift right value x by n positions
 # done using floating point, so that it works for more than 32 bits
 #
+
 sub sha1_lsr
 {
     no integer;
@@ -2840,7 +2862,7 @@ sub encode_base64 ($;$)
     if ($] >= 5.006) {
 	require bytes;
 	if (bytes::length($_[0]) > length($_[0]) ||
-	        ($] >= 5.008 && $_[0] =~ /[^\0-\xFF]/))
+	    ($] >= 5.008 && $_[0] =~ /[^\0-\xFF]/))
 	{
 	    require Carp;
 	    Carp::croak("The Base64 encoding is only defined for bytes");
@@ -2858,8 +2880,8 @@ sub encode_base64 ($;$)
     $res =~ s/\n//g;
 
     $res =~ tr|` -_|AA-Za-z0-9+/|;               # `# help emacs
-    # fix padding at the end
-    my $padding = (3 - length($_[0]) % 3) % 3;
+	# fix padding at the end
+	my $padding = (3 - length($_[0]) % 3) % 3;
     $res =~ s/.{$padding}$/'=' x $padding/e if $padding;
     # break encoded string into lines of no more than 76 characters each
     if (length $eol) {
@@ -2867,6 +2889,7 @@ sub encode_base64 ($;$)
     }
     return $res;
 }
+
 
 sub decode_base64 ($)
 {
@@ -2877,8 +2900,8 @@ sub decode_base64 ($)
     $str =~ tr|A-Za-z0-9+=/||cd;            # remove non-base64 chars
     if (length($str) % 4) {
 	require Carp;
-      Carp::carp("Length of base64 data not a multiple of 4")
-      }
+	Carp::carp("Length of base64 data not a multiple of 4")
+    }
     $str =~ s/=+$//;                        # remove padding
     $str =~ tr|A-Za-z0-9+/| -_|;            # convert to uuencoded format
     return "" unless length $str;
@@ -2904,3 +2927,239 @@ sub decode_base64 ($)
 #
 # end of encode_base64()
 #
+
+
+# 
+# sha256 interface
+#
+
+sub sha256_sha256
+{
+    SHA256->new(join("", @_))->get_hash;
+}
+
+
+package SHA256;
+
+sub _sum_mod32
+{
+    my $result = 0;
+    for (@_)
+    {
+	my $lsw = ($_ & 0xffff) + ($result & 0xffff);
+	my $msw = ($_ >> 16) + ($result >> 16) + ($lsw >> 16);
+	$result = (($msw & 0xffff) << 16) | ($lsw & 0xffff);
+    }
+    $result;
+}
+
+sub _ch
+{
+    my ($x, $y, $z) = @_;
+    ($x & $y) ^ (~$x & $z & 0xffffffff);
+}
+
+sub _maj
+{
+    my ($x, $y, $z) = @_;
+    ($x & $y) ^ ($x & $z) ^ ($y & $z);
+}
+
+# Gets:
+#    $b  number of bits to rotate (should be < 32)
+#    $x  value to rotate (word32)
+# Returns value rotated right by n bits
+sub _rotr_32
+{
+    my ($b, $x) = @_;
+    ($x >> $b) | (($x & ((1 << $b) - 1)) << (32 - $b));
+}
+
+sub _SIGMA0_32
+{
+    my $x = shift;
+    _rotr_32(2, $x) ^ _rotr_32(13, $x) ^ _rotr_32(22, $x);
+}
+
+sub _SIGMA1_32
+{
+    my $x = shift;
+    _rotr_32(6, $x) ^ _rotr_32(11, $x) ^ _rotr_32(25, $x);
+}
+
+sub _sigma0_32
+{
+    my $x = shift;
+    _rotr_32(7, $x) ^ _rotr_32(18, $x) ^ ($x >> 3);
+}
+
+sub _sigma1_32
+{
+    my $x = shift;
+    _rotr_32(17, $x) ^ _rotr_32(19, $x) ^ ($x >> 10);
+}
+
+# Word32 to Byte list
+# Gets a Word32 integer (truncates to 32 bit if bigger)
+# Returns a 4 Byte list
+sub _w32_to_bl
+{
+    my $j = shift;
+    ($j >> 24) & 0xff, ($j >> 16) & 0xff, ($j >> 8) & 0xff, $j & 0xff;
+}
+
+# Gets a word32 array
+sub _sha256_transform
+{
+    my($self, @W256) = @_;
+
+    my($T1, $T2);
+    my($a, $b, $c, $d, $e, $f, $g, $h) = @{$self->{_state}};
+    
+    for (my $t = 0; $t < 64; $t++)
+    {
+	if ($t >= 16)
+	{
+	    $W256[$t] = _sum_mod32(
+		_sigma1_32($W256[$t - 2]),
+		$W256[$t - 7],
+		_sigma0_32($W256[$t - 15]),
+		$W256[$t - 16]
+		);
+	}
+
+	$T1 = _sum_mod32($h, _SIGMA1_32($e), _ch($e, $f, $g), $K256[$t], $W256[$t]);
+	$T2 = _sum_mod32(_SIGMA0_32($a), _maj($a, $b, $c));
+
+	$h = $g;
+	$g = $f;
+	$f = $e;
+	$e = _sum_mod32($d, $T1);
+	$d = $c;
+	$c = $b;
+	$b = $a;
+	$a = _sum_mod32($T1, $T2);
+    }
+
+    $self->{_state}[0] = _sum_mod32($self->{_state}[0], $a);
+    $self->{_state}[1] = _sum_mod32($self->{_state}[1], $b);
+    $self->{_state}[2] = _sum_mod32($self->{_state}[2], $c);
+    $self->{_state}[3] = _sum_mod32($self->{_state}[3], $d);
+    $self->{_state}[4] = _sum_mod32($self->{_state}[4], $e);
+    $self->{_state}[5] = _sum_mod32($self->{_state}[5], $f);
+    $self->{_state}[6] = _sum_mod32($self->{_state}[6], $g);
+    $self->{_state}[7] = _sum_mod32($self->{_state}[7], $h);
+}
+
+###################################################
+
+# Gets:
+#    Reference to Array of Bytes
+# Returns:
+#    Hash as an hexadecimal string
+sub calc_hash
+{
+    my $self = shift;
+    my $data_ref = shift;
+
+    return if !defined $data_ref;
+    my $len = @$data_ref;
+    return if $len == 0;
+
+    $self->{_state} = [
+	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+	];
+
+    $self->{_bitcount}[1] = $len >> 29;
+    $self->{_bitcount}[0] = ($len & 0x1fffffff) << 3;
+
+    # Process data in chunks of 64 bytes
+    for (my $j = 0; $j < $len; $j += 64)
+    {
+	if (($len - $j) < 64)
+	{
+	    @{$self->{_buffer}} = (@$data_ref[$j .. ($len - 1)], 0x80, (0) x (64 - ($len - $j) - 1));
+	    $len++;
+
+	    if (($len - $j) > 56)
+	    {
+		$self->_sha256_transform(unpack("N*", pack("C*", @{$self->{_buffer}})));
+		@{$self->{_buffer}} = (0) x 64;
+	    }
+
+	    @{$self->{_buffer}}[56 .. (64 - 1)] = (
+		_w32_to_bl($self->{_bitcount}[1]),
+		_w32_to_bl($self->{_bitcount}[0])
+		);
+	}
+	else
+	{
+	    @{$self->{_buffer}} = @$data_ref[$j .. ($j + 64 - 1)];
+	}
+
+	$self->_sha256_transform(unpack("N*", pack("C*", @{$self->{_buffer}})));
+    }
+    
+    $self;
+}
+
+sub get_hash_hex
+{
+    my $self = shift;
+    
+    return unless defined $self->{_state};
+    
+    my $hex = "";
+    $hex .= sprintf("%08x", $_) for @{$self->{_state}};
+
+    $hex;
+}
+
+sub get_hash
+{
+    my $self = shift;
+    return unless defined $self->{_state};
+    return pack("N*", @{$self->{_state}});
+}
+
+sub new
+{
+    @K256 = (
+	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+	0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+	0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+	0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+	0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+	0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+	0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+	0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+	0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+	0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+	0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+	0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+	0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+	);
+
+    my $class = shift;
+    my $datastring = shift;
+
+    my $self =
+    {
+	_bitcount => [0, 0],
+	_buffer => [(0) x 64],
+	_state => undef,
+    };
+
+    bless $self, $class;
+
+    if (defined $datastring)
+    {
+	$self->calc_hash([unpack("C*", $datastring)]);
+    }
+
+    $self;
+}
