@@ -691,9 +691,9 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 no_vhost prefix private progress public queue r region request requester retry role ruby quiet
+	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
@@ -794,15 +794,13 @@ $v ||= $verbose;
 $v = 2 if $vv;
 $v = 3 if $vvv;
 
+$ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
+
 if ($cut)
 {
     my $columns = $ENV{COLUMNS};
     ($columns) = qx[stty -a <&2] =~ /;\s*columns\s*(\d+);/s unless $columns;
-    if ($columns)
-    {
-	$columns -= !!$ENV{EMACS};
-	open STDOUT, "|cut -c -$columns";
-    }
+    open STDOUT, "|cut -c -$columns" if $columns;
 }
 
 # Exercise for the reader: why is this END block here?  (Hint: bug in Perl?)
@@ -852,17 +850,20 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
-    if ($secrets_file =~ /s3cfg$/)
+    if (-s $secrets_file)
     {
-	# if the secrets_file ends with s3cfg, treat it as a s3cmd init file
-	# 	(can be tested with --secrets-file=s3cfg)
-	# Poor man's ini parser
-	my $s3cfg = load_file($secrets_file);
-	($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
-    }
-    else
-    {
-	($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+	if ($secrets_file =~ /s3cfg$/)
+	{
+	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
+	    # 	(can be tested with --secrets-file=s3cfg)
+	    # Poor man's ini parser
+	    my $s3cfg = load_file($secrets_file);
+	    ($awskey, $secret, $session) = map {$s3cfg =~ /^$_\s*=\s*(\S+)/im} qw/access_key secret_key/;
+	}
+	else
+	{
+	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+	}
     }
 }
 
@@ -1090,15 +1091,15 @@ if (!$cmd_data)
     {
 	$output .= "\t$service";
 	while ($output{$service} =~ /\s*(.{1,80})(?:\s|$)/g)
-	       {
-		   my($one) = ($1);
-		   $output .= "\t" if $output =~ /\n$/;
-		   $output .= "\t\t$one\n";
-	       }
-	    }
-	$output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
-	die $output;
+	{
+	    my($one) = ($1);
+	    $output .= "\t" if $output =~ /\n$/;
+	    $output .= "\t\t$one\n";
+	}
     }
+    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
+    die $output;
+}
 
 
 {
@@ -1283,21 +1284,45 @@ if (!$cmd_data)
 	my $file = shift @file;
 	warn "ignored: @file\n" if @file;
 
-	my($last_marker, $marker);
+	my $GB5 = 5 * 1024 * 1024 * 1024;
+	my $SZ = -s $file;
 
-	for (;;)
+	if ($action eq PUT && ($SZ > $GB5 || $parts))
 	{
-	    my $r = s3($action, $marker, $bucket, $file, @head);
-	    if ($r !~ /^<\?xml/)
+	    $parts = int(($SZ + $GB5 - 1) / $GB5) unless $parts > 1;
+	    my $slice = int($SZ / $parts);
+	    my($uploadId) = s3(POST, undef, "$bucket?uploads") =~ /<UploadId>(.*?)<\/UploadId>/;
+	    print "uploadId = $uploadId\n";
+	    for (my $i = 0; $i < $parts; $i++)
 	    {
-		print $r;
-		exit;
+		my $beg = $i * $slice + 1;
+		my $end = $beg + $slice - 1;
+		$end = $SZ if $end > $SZ;
+		local $content_length = $end - $beg + 1;
+		print "cut -b $beg-$end $file ($content_length) bytes\n";
+		open STDIN, "cut -b $beg-$end $file|" or die "part @{[$i + 1]}: $!";
+		s3(PUT, undef, "$bucket?part&uploadId=$uploadId", "-");
 	    }
-	    $r =~ s/<\?xml.*?>\r?\s*//;
-	    $result .= $r;
-	    ($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
-	    last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
-	    $last_marker = $marker;
+	    s3(POST, undef, "$bucket?uploadId=$uploadId");
+	}
+	else
+	{
+	    my($last_marker, $marker);
+
+	    for (;;)
+	    {
+		my $r = s3($action, $marker, $bucket, $file, @head);
+		if ($r !~ /^<\?xml/)
+		{
+		    print $r;
+		    exit;
+		}
+		$r =~ s/<\?xml.*?>\r?\s*//;
+		$result .= $r;
+		($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
+		last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
+		$last_marker = $marker;
+	    }
 	}
     }
     else
@@ -2018,7 +2043,12 @@ sub s3
 
     my($temp_fh);
 
-    if ($verb eq PUT && ($file eq "-" || $file eq "" && $name !~ /\?acl$/))
+    if ($verb eq PUT && $file eq "-" && $content_length)
+    {
+	push @header, "Content-Length: $content_length";
+	push @header, "Transfer-Encoding:";
+    }
+    elsif ($verb eq PUT && ($file eq "-" || $file eq "" && $name !~ /\?acl$/))
     {
 	# and not when a terminal
 	die "$0: will not to read from terminal (use \"-\" for filename to force)\n" if -t && $file ne "-";
@@ -2138,20 +2168,23 @@ sub s3
 							|part
 							|versioning|versions))?$/sx;
 
-    if ($uq eq "?upload" || $uq =~ /^?partNumber=\d+$/ || $uq eq "?part") # look up uploadId
+    if ($uq eq "?upload" || $uq =~ /^?uploadId=(.*)$/ || $uq =~ /^?partNumber=\d+$/ || $uq eq "?part") # look up uploadId
     {
-	my($uploadId, $partNumber, @part);
+	my($uploadId, $partNumber, @part) = ($1);
 
-	my $xml = qx[$0 --cmd0 --xml --region=$region get '@{[cq($ub)]}'?uploads];
-	while ($xml =~ /<Upload>(.*?)<\/Upload>/sg)
+	unless ($uploadId)
 	{
-	    my($upload) = ($1);
-	    if ($upload =~ /<Key>(.*?)<\/Key>/ && $1 eq $uo)
+	    my $xml = qx[$0 --cmd0 --xml --region=$region get '@{[cq($ub)]}'?uploads];
+	    while ($xml =~ /<Upload>(.*?)<\/Upload>/sg)
 	    {
-		if ($upload =~ /<UploadId>(.*?)<\/UploadId>/)
+		my($upload) = ($1);
+		if ($upload =~ /<Key>(.*?)<\/Key>/ && $1 eq $uo)
 		{
-		    $uploadId = $1;
-		    last;
+		    if ($upload =~ /<UploadId>(.*?)<\/UploadId>/)
+		    {
+			$uploadId = $1;
+			last;
+		    }
 		}
 	    }
 	}
