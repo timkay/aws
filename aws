@@ -1284,24 +1284,31 @@ if (!$cmd_data)
 	my $file = shift @file;
 	warn "ignored: @file\n" if @file;
 
-	my $GB5 = 5 * 1024 * 1024 * 1024;
+	my $MB5 = 5 * 1024 * 1024;
+	my $GB5 = 5 * $MB5 * 1024;
 	my $SZ = -s $file;
 
 	if ($action eq PUT && ($SZ > $GB5 || $parts))
 	{
 	    $parts = int(($SZ + $GB5 - 1) / $GB5) unless $parts > 1;
-	    my $slice = int($SZ / $parts);
+	    my $slice = int(($SZ + $parts - 1) / $parts);
+	    if ($slice < $MB5 && $parts > 1)
+	    {
+		$parts = int(($SZ + $MB5 - 1) / $MB5);
+		$slice = $MB5;
+		print STDERR "multipart upload: Too many parts makes slice too small; adjusting to $parts parts\n";
+	    }
 	    my($uploadId) = s3(POST, undef, "$bucket?uploads") =~ /<UploadId>(.*?)<\/UploadId>/;
-	    print "uploadId = $uploadId\n";
+	    print "uploadId = $uploadId\n" if $v;
 	    for (my $i = 0; $i < $parts; $i++)
 	    {
 		my $beg = $i * $slice + 1;
 		my $end = $beg + $slice - 1;
 		$end = $SZ if $end > $SZ;
 		local $content_length = $end - $beg + 1;
-		print "cut -b $beg-$end $file ($content_length) bytes\n";
+		print "cut -b $beg-$end $file ($content_length) bytes\n" if $v;
 		open STDIN, "cut -b $beg-$end $file|" or die "part @{[$i + 1]}: $!";
-		s3(PUT, undef, "$bucket?part&uploadId=$uploadId", "-");
+		s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
 	    }
 	    s3(POST, undef, "$bucket?uploadId=$uploadId");
 	}
@@ -2168,13 +2175,15 @@ sub s3
 							|part
 							|versioning|versions))?$/sx;
 
-    if ($uq eq "?upload" || $uq =~ /^?uploadId=(.*)$/ || $uq =~ /^?partNumber=\d+$/ || $uq eq "?part") # look up uploadId
+    my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
+
+    if ($uq =~ /^\?(?:uploadId=(.*)|upload|partNumber=(\d+)(?:&uploadId=(.*))?|part)$/)
     {
-	my($uploadId, $partNumber, @part) = ($1);
+	my($uploadId, $partNumber, @part) = ($1 || $3, $2);
 
 	unless ($uploadId)
 	{
-	    my $xml = qx[$0 --cmd0 --xml --region=$region get '@{[cq($ub)]}'?uploads];
+	    my $xml = s3(GET, undef, "$ub?uploads");
 	    while ($xml =~ /<Upload>(.*?)<\/Upload>/sg)
 	    {
 		my($upload) = ($1);
@@ -2191,7 +2200,7 @@ sub s3
 
 	if ($verb eq POST || $uq eq "?part") # look up partNumber
 	{
-	    my $xml = qx[$0 --cmd0 --xml --region=$region get @{[cq($ub)]}/@{[cq($uo)]}?uploadId=$uploadId];
+	    my $xml = s3(GET, undef, "$ub/$uo?uploadId=$uploadId");
 	    while ($xml =~ /<Part>(.*?)<\/Part>/sg)
 	    {
 		my($part) = ($1);
@@ -2204,7 +2213,7 @@ sub s3
 	    $partNumber++;
 	}
 
-	if ($verb eq POST && $uq eq "?upload")
+	if ($verb eq POST && $uq =~ /^\?(?:uploadId=.*|upload)$/)
 	{
 	    ($temp_fh, my $temp_fn) = tempfile(UNLINK => 1);
 	    print $temp_fh "<CompleteMultipartUpload>\n";
@@ -2225,8 +2234,6 @@ sub s3
 	$uq .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
 	$uq .= "Number=$partNumber&uploadId=$uploadId" if $uq eq "?part";	# Upload Part
     }
-
-    my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
     if ($uq eq "?delete")
     {
