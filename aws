@@ -1288,8 +1288,11 @@ if (!$cmd_data)
 	my $GB5 = 5 * $MB5 * 1024;
 	my $SZ = -s $file;
 
-	if ($action eq PUT && ($SZ > $GB5 || $parts))
+	if ($action eq PUT && ($parts || $bucket !~ /\?/ && $SZ > $GB5))
 	{
+	    $bucket =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs; # turn abc or abc? into abc/ or abc/?
+	    $bucket .= $file if $bucket =~ /\/$/;
+
 	    $parts = int(($SZ + $GB5 - 1) / $GB5) unless $parts > 1;
 	    my $slice = int(($SZ + $parts - 1) / $parts);
 	    if ($slice < $MB5 && $parts > 1)
@@ -2037,7 +2040,7 @@ sub s3
 
     $file ||= $name if $verb eq PUT && $ENV{S3_DIR};
     $name = "$ENV{S3_DIR}/$name" if $ENV{S3_DIR};
-    $name =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs;
+    $name =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs; # turn abc or abc? into abc/ or abc/?
     $name .= $file if $verb eq PUT && $name =~ /\/$/;
 
     # read from stdin when
@@ -2428,9 +2431,6 @@ sub ec2
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
 
-    my @session = (SecurityToken => $session) if $session;
-    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
-
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
 
@@ -2438,6 +2438,7 @@ sub ec2
     {
 	$endpoint = "ec2.amazonaws.com";
 	$endpoint = "ec2.$region.amazonaws.com" if $region;
+	$sha1 = 1 if $region;	# sha256 does not seem to work with region specified
     }
 
     if ($service eq "sqs")
@@ -2464,6 +2465,9 @@ sub ec2
 	$endpoint = "iam.amazonaws.com";
 	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
+
+    my @session = (SecurityToken => $session) if $session;
+    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     $queue ||= "/";
 
