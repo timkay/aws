@@ -1285,7 +1285,7 @@ if (!$cmd_data)
 	warn "ignored: @file\n" if @file;
 
 	my $MB5 = 5 * 1024 * 1024;
-	my $GB5 = 5 * $MB5 * 1024;
+	my $GB5 = 1024 * $MB5;
 	my $SZ = -s $file;
 
 	if ($action eq PUT && ($parts || $bucket !~ /\?/ && $SZ > $GB5))
