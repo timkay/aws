@@ -832,10 +832,13 @@ if ($role)
     {
 	($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     }
-    my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
-    ($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
-    ($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
-    ($session) = $json =~ /"Token" : "(.*?)"/;
+    if ($role)
+    {
+	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
+	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
+	($session) = $json =~ /"Token" : "(.*?)"/;
+    }
 }
 
 unless ($awskey && $secret)
@@ -872,7 +875,7 @@ unless ($awskey && $secret)
     ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     if ($role)
     {
-	my $json = qx[curl -s --fail '@{[cq("http://169.254.169.254/latest/meta-data/iam/security-credentials/$role")]}'];
+	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
