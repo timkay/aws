@@ -168,6 +168,10 @@ $iam_version = "2010-05-08";
 	 ["restorableby", RestorableBy],
      ]],
     ["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
+    ["ec2", "describe-volume-status dvs", DescribeVolumeStatus, [
+	 ["", VolumeIdN],
+	 ["filter f", undef, undef, \&parse_filter],
+     ]],
     ["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
     ["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
     ["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
