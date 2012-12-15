@@ -24,6 +24,7 @@ $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
+$sts_version = "2011-06-15";
 
 
 #
@@ -695,7 +696,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
@@ -884,6 +885,51 @@ unless ($awskey && $secret)
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
     }
+}
+
+if ($assume)
+{
+    $assume =~ s/\'//g;
+
+    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset);
+    my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+
+    my %data = (
+	AWSAccessKeyId => $awskey, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $sts_version, Timestamp => $zulu,
+	Action => AssumeRole,
+	RollSessionName => TimKayAWS,
+	RoleArn => $assume,
+	);
+    $data{SecurityToken} = $session if $session;
+
+    my($url);
+    
+    for (sort keys %data)
+    {
+	$url .= "&" if $url;
+	$url .= "$_=@{[encode_url($data{$_})]}";
+    }
+
+    my $sig = sign("GET\nsts.amazonaws.com\n/\n$url", $data{SignatureMethod});
+    $url = "https://sts.amazonaws.com/?Signature=@{[encode_url($sig)]}&$url";
+    my $xml = qx[curl -s '$url'];
+
+    if ($xml !~ /<AccessKeyId>/)
+    {
+	print $xml unless $fail;
+	exit 22;
+    }
+
+    for ($xml)
+    {
+	($awskey) = /<AccessKeyId>\s*(.*?)\s*<\/AccessKeyId>/s;
+	($secret) = /<SecretAccessKey>\s*(.*?)\s*<\/SecretAccessKey>/s;
+	($session) = /<SessionToken>\s*(.*?)\s*<\/SessionToken>/s;
+    }
+
+    print "awskey = $awskey\n";
+    print "secret = $secret\n";
+    print "session = $session\n";
 }
 
 
