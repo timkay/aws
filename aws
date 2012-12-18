@@ -1439,13 +1439,17 @@ if (!$cmd_data)
 
 	my(@result);
 
-	while ($result =~ /<(?:Contents|Bucket)>\s*(.*?)\s*<\/(?:Contents|Bucket)>/sg)
+	my($prefix) = $result =~ /<Prefix>(.*?)<\/Prefix>/;
+
+	while ($result =~ /<(?:Contents|Bucket|CommonPrefixes)>\s*(.*?)\s*<\/(?:Contents|Bucket|CommonPrefixes)>/sg)
 	{
 	    my($item) = ($1);
-	    my $key = dentity($item =~ /<(?:Key|Name)>(.*?)<\/(?:Key|Name)>/s);
+	    my $key = dentity($item =~ /<(?:Key|Name|Prefix)>(.*?)<\/(?:Key|Name|Prefix)>/s);
 	    my($size) = $item =~ /<Size>(.*?)<\/Size>/s;
 	    my($mod) = $item =~ /<(?:LastModified|CreationDate)>(.*?)<\/(?:LastModified|CreationDate)>/s;
 	    my($owner) = $item =~ /<DisplayName>(.*?)<\/DisplayName>/s;
+
+	    $key =~ s/^\Q$prefix\E//;
 
 	    for ($mod)
 	    {
@@ -1947,7 +1951,7 @@ sub xml2tab
 	my $tag2 = "$parent[$depth[$i] - 1]-$tag[$i]";
 
 	if ($tag[$i] =~ /^(?:LocationConstraint|Grant
-			   |AttachVolumeResponse|Bucket|Contents|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
+			   |AttachVolumeResponse|Bucket|Contents|CommonPrefixes|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
 			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateImageResponse|CreateSnapshotResponse|CreateVolumeResponse
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
