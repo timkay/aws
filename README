@@ -1,14 +1,11 @@
-"aws" is a command line program that accesses Amazon Web Services:
+"aws" is a command line program that accesses Amazon Web Services: EC2, S3, SQS, SDB, ELB, IAM
 
-EC2
-S3
-SQS
-SDB
-ELB
-IAM
+To run "aws", all you need is a single file!
 
-To run "aws", all you need is a single file! Download http://github.com/timkay/aws/raw/master/aws, make it executable, create ~/.awssecrets or set EC2_ACCESS_KEY and EC2_SECRET_KEY, and you are done.
+1. download https://raw.github.com/timkay/aws/master/aws
+2. make it executable
+3. create ~/.awssecrets or set EC2_ACCESS_KEY and EC2_SECRET_KEY
 
-For more documentation, see http://timkay.com/aws/
+and you are done.
 
-If you can help improve the "aws" documentation, please let me know.
+For more documentation, see http://timkay.com/aws/ and also the GitHub Wiki.

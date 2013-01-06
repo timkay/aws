@@ -24,6 +24,7 @@ $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
+$sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
 
 
@@ -120,7 +121,13 @@ $pa_version  = "2009-01-06";
     ["ec2", "deregister", DeregisterImage, [["", ImageId]]],
     ["ec2", "describe-addresses dad", DescribeAddresses, [["", PublicIpN]]],
     ["ec2", "describe-availability-zones daz", DescribeAvailabilityZones, [["", ZoneNameN]]],
-    ["ec2", "describe-groups dgrp", DescribeSecurityGroups, [["", GroupNameN]]],
+    ["ec2", "describe-security-groups describe-group describe-groups dgrp", DescribeSecurityGroups, [
+	 ["", GroupNameN],
+	 ["GroupName g" => "GroupNameN"],
+	 ["GroupId i" => "GroupIdN"],
+	 ["filter F", undef, undef, \&parse_tags_describe],
+     ]],
+ 
     ["ec2", "describe-image-attribute", DescribeImageAttribute, [
 	 ["", ImageId],
 	 ["l", launchPermission],
@@ -169,6 +176,10 @@ $pa_version  = "2009-01-06";
 	 ["restorableby", RestorableBy],
      ]],
     ["ec2", "describe-volumes dvol", DescribeVolumes, [["", VolumeIdN]]],
+    ["ec2", "describe-volume-status dvs", DescribeVolumeStatus, [
+	 ["", VolumeIdN],
+	 ["filter f", undef, undef, \&parse_filter],
+     ]],
     ["ec2", "detach-volume detvol", DetachVolume, [["", VolumeId]]],
     ["ec2", "disassociate-address disad", DisassociateAddress, [["", PublicIp]]],
     ["ec2", "get-console-output gco", GetConsoleOutput, [["", InstanceId]]],
@@ -221,6 +232,8 @@ $pa_version  = "2009-01-06";
 	 ["virtual-name" => "LaunchSpecification.BlockDeviceMapping.N.VirtualName"],
 	 [snapshot => "LaunchSpecification.BlockDeviceMapping.N.Ebs.SnapshotId"],
 	 ["volume-size" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["profile-arn" => "LaunchSpecification.IamInstanceProfile.Arn"],
+	 ["profile-name" => "LaunchSpecification.IamInstanceProfile.Name"],
 	 ["delete-on-termination" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
 	 [monitor => "LaunchSpecification.Monitoring.Enabled"],
      ]],
@@ -260,6 +273,8 @@ $pa_version  = "2009-01-06";
 	 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
 	 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
 	 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["profile-arn" => "LaunchSpecification.IamInstanceProfile.Arn"],
+	 ["profile-name" => "LaunchSpecification.IamInstanceProfile.Name"],
 	 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
 	 ["monitor m" => "Monitoring.Enabled"],
 	 ["disable-api-termination" => DisableApiTermination],
@@ -558,6 +573,11 @@ $pa_version  = "2009-01-06";
 	 ["" => AccountAlias],
      ]],
     ["iam", "accountaliaslist laa", ListAccountAliases],
+    ["iam", "listroles lr", ListRoles, [
+	 [" p" => "PathPrefix", "/"],
+	 ["marker m" => "Marker"],
+	 ["maxitems i" => "MaxItems"],
+     ]],
 
     ["s3", "ls", LS],
     ["s3", "get cat", GET],
@@ -700,7 +720,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
@@ -889,6 +909,51 @@ unless ($awskey && $secret)
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
     }
+}
+
+if ($assume)
+{
+    $assume =~ s/\'//g;
+
+    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset);
+    my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+
+    my %data = (
+	AWSAccessKeyId => $awskey, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $sts_version, Timestamp => $zulu,
+	Action => AssumeRole,
+	RollSessionName => TimKayAWS,
+	RoleArn => $assume,
+	);
+    $data{SecurityToken} = $session if $session;
+
+    my($url);
+    
+    for (sort keys %data)
+    {
+	$url .= "&" if $url;
+	$url .= "$_=@{[encode_url($data{$_})]}";
+    }
+
+    my $sig = sign("GET\nsts.amazonaws.com\n/\n$url", $data{SignatureMethod});
+    $url = "https://sts.amazonaws.com/?Signature=@{[encode_url($sig)]}&$url";
+    my $xml = qx[curl -s '$url'];
+
+    if ($xml !~ /<AccessKeyId>/)
+    {
+	print $xml unless $fail;
+	exit 22;
+    }
+
+    for ($xml)
+    {
+	($awskey) = /<AccessKeyId>\s*(.*?)\s*<\/AccessKeyId>/s;
+	($secret) = /<SecretAccessKey>\s*(.*?)\s*<\/SecretAccessKey>/s;
+	($session) = /<SessionToken>\s*(.*?)\s*<\/SessionToken>/s;
+    }
+
+    print "awskey = $awskey\n";
+    print "secret = $secret\n";
+    print "session = $session\n";
 }
 
 
@@ -1328,8 +1393,9 @@ if (!$cmd_data)
 		my $end = $beg + $slice - 1;
 		$end = $SZ if $end > $SZ;
 		local $content_length = $end - $beg + 1;
-		print "cut -b $beg-$end $file ($content_length) bytes\n" if $v;
-		open STDIN, "cut -b $beg-$end $file|" or die "part @{[$i + 1]}: $!";
+		my $cmd = "tail -c +$beg $file |head -c $content_length";
+		print "$cmd ($content_length) bytes\n" if $v;
+		open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
 		s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
 	    }
 	    s3(POST, undef, "$bucket?uploadId=$uploadId");
@@ -1404,13 +1470,17 @@ if (!$cmd_data)
 
 	my(@result);
 
-	while ($result =~ /<(?:Contents|Bucket)>\s*(.*?)\s*<\/(?:Contents|Bucket)>/sg)
+	my($prefix) = $result =~ /<Prefix>(.*?)<\/Prefix>/;
+
+	while ($result =~ /<(?:Contents|Bucket|CommonPrefixes)>\s*(.*?)\s*<\/(?:Contents|Bucket|CommonPrefixes)>/sg)
 	{
 	    my($item) = ($1);
-	    my $key = dentity($item =~ /<(?:Key|Name)>(.*?)<\/(?:Key|Name)>/s);
+	    my $key = dentity($item =~ /<(?:Key|Name|Prefix)>(.*?)<\/(?:Key|Name|Prefix)>/s);
 	    my($size) = $item =~ /<Size>(.*?)<\/Size>/s;
 	    my($mod) = $item =~ /<(?:LastModified|CreationDate)>(.*?)<\/(?:LastModified|CreationDate)>/s;
 	    my($owner) = $item =~ /<DisplayName>(.*?)<\/DisplayName>/s;
+
+	    $key =~ s/^\Q$prefix\E//;
 
 	    for ($mod)
 	    {
@@ -1912,7 +1982,7 @@ sub xml2tab
 	my $tag2 = "$parent[$depth[$i] - 1]-$tag[$i]";
 
 	if ($tag[$i] =~ /^(?:LocationConstraint|Grant
-			   |AttachVolumeResponse|Bucket|Contents|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
+			   |AttachVolumeResponse|Bucket|Contents|CommonPrefixes|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
 			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateImageResponse|CreateSnapshotResponse|CreateVolumeResponse
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
@@ -2190,8 +2260,8 @@ sub s3
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
 							|uploadId=[\.\w]+
-							|upload
 							|uploads
+							|upload
 							|partNumber=\d+&uploadId=[\.\w]+
 							|partNumber=\d+
 							|part
@@ -2252,9 +2322,11 @@ sub s3
 	    system "cat $file" if $v >= 2;
 	}
 
-	$uq .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
-	$uq .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
-	$uq .= "Number=$partNumber&uploadId=$uploadId" if $uq eq "?part";	# Upload Part
+	die "$uname: no matching multipart upload found\n" if $uq eq "?upload" && length($uploadId) == 0;
+
+	$uname .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
+	$uname .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
+	$uname .= "Number=$partNumber&uploadId=$uploadId" if $uq eq "?part";	# Upload Part
     }
 
     if ($uq eq "?delete")
