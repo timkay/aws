@@ -24,6 +24,7 @@ $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
+$pa_version  = "2009-01-06";
 
 
 #
@@ -667,6 +668,14 @@ $iam_version = "2010-05-08";
 	 [c => ConsistentRead],
 	 [next => NextToken],
      ]],
+
+    ["pa", "lookup", ItemLookup, [
+	 ["" => ItemId],
+	 ["type t" => IdType],
+	 ["r" => ResponseGroup],
+	 ["c" => Condition],
+	 ["a" => AssociateTag],
+     ]],
     );
 
 
@@ -676,7 +685,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|s3|sqs|sdb)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
 
 
 # parse meta-parameters, leaving parameters in @argv
@@ -1145,7 +1154,7 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam")
+    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -1230,7 +1239,14 @@ if (!$cmd_data)
 	push @list, @final_list;
 	print STDERR "ec2(@{[join(', ', @list)]})\n" if $v;
 
-	$result = ec2($service, @list);
+	if ($service eq "pa")
+	{
+	    $result = pa(@list);
+	}
+	else
+	{
+	    $result = ec2($service, @list);
+	}
     }
     elsif ($service eq "s3")
     {
@@ -2415,6 +2431,42 @@ sub s3
     }
 
     $body;
+}
+
+
+sub pa
+{
+    my(@p) = @_;
+
+    $p[0] = "Operation" if $p[0] eq "Action";
+
+    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset);
+    my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
+
+    my $version = $pa_version;
+    my $endpoint = "webservices.amazon.com";
+    my $uri = "/onca/xml";
+    my %data = (Service => AWSECommerceService, AWSAccessKeyId => $awskey, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, Timestamp => $zulu, @p);
+    
+    for (sort keys %data)
+    {
+	if ($service eq "sqs" && $_ eq "QueueUri")
+	{
+	    $queue = $data{$_};
+	    next;
+	}
+	$url .= "&" if $url;
+	$url .= "$_=@{[encode_url($data{$_})]}";
+    }
+
+    my $sig = sign("GET\n$endpoint\n$uri\n$url", $data{SignatureMethod});
+    $url = "http://$endpoint$uri?Signature=@{[encode_url($sig)]}&$url";
+    return $url if $request;
+    local($/);			# return a string regardless of wantarray
+    print "$url\n" if $v >= 2;
+    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    print STDERR "cmd=[$cmd]\n" if $v;
+    qx[$cmd];
 }
 
 
