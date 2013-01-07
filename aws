@@ -1480,7 +1480,7 @@ if (!$cmd_data)
 	    my($mod) = $item =~ /<(?:LastModified|CreationDate)>(.*?)<\/(?:LastModified|CreationDate)>/s;
 	    my($owner) = $item =~ /<DisplayName>(.*?)<\/DisplayName>/s;
 
-	    $key =~ s/^\Q$prefix\E//;
+	    $key =~ s/^\Q$prefix\E// if $delimiter;
 
 	    for ($mod)
 	    {
