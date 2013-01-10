@@ -639,7 +639,7 @@ $pa_version  = "2009-01-06";
 
     ["sqs", "send-message send", SendMessage, [
 	 ["" => QueueUri],
-	 [message => MessageBody, "", sub {encode_url($_[0])}],
+	 [message => MessageBody, "", sub {encode_message($_[0])}],
      ]],
 
     ["sqs", "set-queue-attributes sqa", SetQueueAttributes, [
@@ -2634,6 +2634,21 @@ sub decode_url
 {
     my($s) = @_;
     $s =~ s/%(..)/@{[uc pack(H2,$1)]}/ig;
+    $s;
+}
+
+
+#
+# Encode a sqs message. What characters should be encoded. According to http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Query_QuerySendMessage.html
+# not very many characters should be encoded. However, I am disinclined to allow TAB, LF, and CR to be in the message unencoded, so we'll encode them for now. Also, the
+# code currently does not handle Unicode characters. It should probably utf8-encode first.
+#
+# The existing decode_url can be used to decode.
+#
+sub encode_message
+{
+    my($s) = @_;
+    $s =~ s/([^\x20-\x7e])/%@{[uc unpack(H2,$1)]}/ig;
     $s;
 }
 
