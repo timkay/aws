@@ -26,6 +26,7 @@ $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
 $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
+$r53_version = "2012-02-29";
 
 
 #
@@ -687,6 +688,43 @@ $pa_version  = "2009-01-06";
 	 ["" => SelectExpression],
 	 [c => ConsistentRead],
 	 [next => NextToken],
+     ]],
+    #####  R53 (Route 53, DNS)
+    ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
+	 ['' => zone_id],
+	 [xml => __xml],
+	 [simple => __simple],
+	 [name => name],
+	 [type => type],
+	 [identifier => identifier],
+	 [maxitems => maxitems],
+     ]],
+    ["r53", "get-change gch", 'GET|', [
+	 ['' => change_id], 
+     ]],
+    ["r53", "get-hosted-zone ghz", 'GET|', [
+     	 ['', zone_id],
+     ]],
+    ["r53", "create-hosted-zone chz", 'POST|', [
+	 ['' => Name],
+	 ['ref' => CallerReference],
+	 ['comment' => Comment],
+     ]],
+    ["r53", "delete-hosted-zone dhz", 'DELETE|', [
+	 ['' => zone_id],
+     ]],
+    ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
+	 ['' => zone_id],
+     	 [maxitems => maxitems],
+     ]],
+    ["r53", "change-resource-record-set crrs", 'POST|rrset', [
+	 ['' => zone_id],
+	 ['name n', Name],
+	 ['action a', Action],
+	 ['type t', Type],
+	 ['ttl l', TTL],
+	 ['value v', Value],
+	 ['comment c', Comment],
      ]],
 
     ["pa", "lookup", ItemLookup, [
@@ -1419,6 +1457,84 @@ if (!$cmd_data)
 		$last_marker = $marker;
 	    }
 	}
+    }
+    elsif ($service eq "r53")  # which has its own different approach
+    {
+	my $idraw = shift @argv;
+	my ($id) = $idraw =~ /([A-Z0-9]+)/;  # lose any /hostedzone/ or /change/ prefix
+	my ($pname, $aname) = @{ $param->[0] };
+	shift @$param unless $pname;
+	my $r53_endpoint = 'route53.amazonaws.com';
+	my $url="https://$r53_endpoint/$r53_version/"; 
+	my ($method,$reqaction) = split(/\|/, $action);
+	die "No method (action = '$action') for $cmd." unless $method;
+	my (%prefix) = (zone_id => 'hostedzone',
+			change_id => 'change');
+	$url .= "$prefix{$aname}/$id" if $prefix{$aname};  # /hostedzone/xxx or /change/xxx 
+	$url .= "/$reqaction" if $reqaction;
+	$url .= "?" if $method eq 'GET';
+	my %args;
+	my $content;
+	while (@argv)
+	{
+	    my $key = shift @argv;
+	    my ($key1, $val1, $key2) = $key =~ /--(\w+)=(.*)|-(\w+)/;
+	    $key1 ||= $key2;
+	    $val1 ||= shift(@argv);
+	    for (@$param)
+	    {
+		my ($paramkey, $urlkey) = @$_;
+		next unless  $paramkey =~ /(\s+|^)$key1(\s+|$)/;
+		$args{$urlkey} = $val1;
+		last;
+	    }
+	}
+	my (@days)=(qw(Sun Mon Tue Wed Thu Fri Sat));
+	my (@months)=(qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec));
+	my ($sec, $min, $hour, $mday, $mon, $year, $dow, undef, undef) = gmtime(time + $time_offset);
+	my $zulu = sprintf ("%s, %02d %s %04d %02d:%02d:%02d GMT",
+			    $days[$dow], $mday, $months[$mon], 1900 + $year, $hour, $min, $sec);
+	my $algo = 'HmacSHA' . ($sha1 ? '1' : '256');
+	my $sig = sign ($zulu, $algo);
+	my $auth = "AWS3-HTTPS AWSAccessKeyId=$awskey,Algorithm=$algo,Signature=$sig";
+	my @curl = ('-H' => "'X-Amzn-Authorization: $auth'",
+		    '-H' => "'x-amz-date: $zulu'" );
+	push (@curl, '-H' => "x-amz-security-token:$session") if $session;
+	
+	my $cmd;
+	if ($method eq 'GET')
+	{
+	    $url .= join ('&', map { encode_url($_)."=".encode_url($args{$_}) }
+			  grep { ! /^__/ } sort keys %args);
+	}
+	elsif ($method eq 'PUT')
+	{
+	    die "can't put yet";
+	}
+	elsif ($method eq 'DELETE')
+	{
+	    # nothing special to do in this case.  URL is set up.
+	    push (@curl, '-X' => $method); # must make it use this method.
+	}
+	else  # method must be POST 
+	{
+	    my $hdr = R53_xml_data() -> {'header'};
+	    my $xmlsrc = R53_xml_data() -> {$action};
+	    for (keys %args) {
+		my $val = $args{$_};
+		$xmlsrc =~ s/(<$_>)/$1$val/;
+	    }
+	    $xmlsrc =~ s/'/'\\''/g;
+	    push (@curl, '--data' => "'$hdr$xmlsrc'");
+	    push (@curl, '-H' => "'Content-type: text/xml'");
+	}
+
+	$cmd = qq[curl $curl_options @curl $url];
+
+	print "$cmd\n" if $v;
+	$result = qx[$cmd];
+	print "$resp\n" if $v;
+	
     }
     else
     {
@@ -3113,6 +3229,14 @@ sub decode_base64 ($)
 #
 # end of encode_base64()
 #
+
+sub R53_xml_data {
+    return { 'header' => '<?xml version="1.0" encoding="UTF-8"?>',
+	     'POST|' => '<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"><Name></Name><CallerReference></CallerReference><HostedZoneConfig><Comment></Comment></HostedZoneConfig></CreateHostedZoneRequest>',
+	     'POST|rrset' => '<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"> <ChangeBatch> <Comment></Comment> <Changes> <!--REPEAT--> <Change> <Action></Action> <ResourceRecordSet> <Name></Name> <Type></Type> <TTL></TTL> <ResourceRecords> <ResourceRecord> <Value></Value> </ResourceRecord> </ResourceRecords> </ResourceRecordSet> </Change> <!--/REPEAT--> </Changes> </ChangeBatch> </ChangeResourceRecordSetsRequest>',
+
+    };
+}
 
 
 # 
