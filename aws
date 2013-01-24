@@ -758,7 +758,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume cmd0 content_length curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
 	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
@@ -861,6 +861,8 @@ $v ||= $verbose;
 $v = 2 if $vv;
 $v = 3 if $vvv;
 
+$curl ||= "curl";
+
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
 
 if ($cut)
@@ -872,7 +874,6 @@ if ($cut)
 
 # Exercise for the reader: why is this END block here?  (Hint: bug in Perl?)
 END {close STDOUT}
-
 
 $s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
 
@@ -897,11 +898,11 @@ if ($role)
 {
     if ($role == 1)
     {
-	($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+	($role) = qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     }
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -939,10 +940,10 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
-    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+    ($role) = qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -974,7 +975,7 @@ if ($assume)
 
     my $sig = sign("GET\nsts.amazonaws.com\n/\n$url", $data{SignatureMethod});
     $url = "https://sts.amazonaws.com/?Signature=@{[encode_url($sig)]}&$url";
-    my $xml = qx[curl -s '$url'];
+    my $xml = qx[$curl -s '$url'];
 
     if ($xml !~ /<AccessKeyId>/)
     {
@@ -1017,7 +1018,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	{
 	    if ($role == 1)
 	    {
-		if (qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
+		if (qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
 		{
 		    warn "sanity-check: no role found\n";
 		}
@@ -1047,7 +1048,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
     }
 
-    my($curl_version) = qx[curl -V] =~ /^curl\s+([\d\.]+)/s;
+    my($curl_version) = qx[$curl -V] =~ /^curl\s+([\d\.]+)/s;
     print "curl version: $curl_version\n" if $v >= 2;
     if (xcmp($curl_version, "7.12.3") < 0)
     {
@@ -1055,13 +1056,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
+    my $aws = qx[$curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
+	$aws = qx[$curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -1069,7 +1070,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://connection.$s3host/test];
+	    $aws = qx[$curl -q -s --insecure --dump-header - http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1529,7 +1530,7 @@ if (!$cmd_data)
 	    push (@curl, '-H' => "'Content-type: text/xml'");
 	}
 
-	$cmd = qq[curl $curl_options @curl $url];
+	$cmd = qq[$curl $curl_options @curl $url];
 
 	print "$cmd\n" if $v;
 	$result = qx[$cmd];
@@ -2490,7 +2491,7 @@ sub s3
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 	my $sig = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
 
@@ -2566,7 +2567,7 @@ sub s3
 
     if ($isGETobj && !$md5 && $isUnix)
     {
-	my $cmd = qq[curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
 	print STDERR "exec $cmd\n" if $v;
 	exec $cmd;
 	die;
@@ -2576,7 +2577,7 @@ sub s3
     my($accept);
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
-    my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
@@ -2652,7 +2653,7 @@ sub pa
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
@@ -2732,7 +2733,7 @@ sub ec2
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
