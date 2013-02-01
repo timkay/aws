@@ -759,7 +759,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
 
     my(%meta);
     @meta{qw(1 assume cmd0 content_length curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
-	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
+	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link
 	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
@@ -1550,6 +1550,10 @@ if (!$cmd_data)
     {
         print xml2yaml($result);
     }
+    elsif ($json)
+    {
+        print xml2json($result);
+    }
     elsif ($result =~ /<ListBucketResult|<ListAllMyBucketsResult/ && ($l || $d1 || $exec || $simple))
     {
 	#	<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -2238,6 +2242,22 @@ sub xml2yaml {
 	$result =~ s#^  ##mg;                             # shift left
 
 	$result;
+}
+
+# Convert xml string to JSON format
+sub xml2json
+{
+ my $xml = shift @_;
+
+ return unless (eval {require XML::Simple} &&
+                eval {require JSON});
+
+ return unless $xml;
+
+ my $coder = JSON->new()->relaxed()->utf8()->allow_blessed->convert_blessed->allow_nonref();
+
+ my $ref = XML::Simple::XMLin($xml, ForceArray => [qw/Attribute Item/]);
+ return $coder->encode($ref);
 }
 
 sub s3
