@@ -892,6 +892,13 @@ $retry = 3 unless length($retry);
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
 $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
 $secrets_file ||= "$home/.passwd-s3fs" if -e "$home/.passwd-s3fs";
+
+foreach (qw/authinfo netrc/)
+{
+    $secrets_file ||= "$home/.$_" if -e "$home/.$_";
+    $secrets_file ||= "$home/.$_.gpg" if -e "$home/.$_.gpg";
+}
+
 $secrets_file ||= "$home/.awssecret";
 
 if ($role)
@@ -923,6 +930,13 @@ unless ($awskey && $secret)
 {
     if (-s $secrets_file)
     {
+	if ($secrets_file =~ /\.gpg$/)
+	{
+	    # if the secrets_file ends with .gpg, try to decrypt it
+            $secrets_file = "gpg --decrypt $secrets_file|";
+            print STDERR "Overriding --secrets-file to [$secrets_file" if $v;
+	}
+
 	if ($secrets_file =~ /s3cfg$/)
 	{
 	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
@@ -933,7 +947,21 @@ unless ($awskey && $secret)
 	}
 	else
 	{
-	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+           my $secret_data = load_file($secrets_file);
+
+           # handle authinfo/netrc format
+           if ($secret_data =~ m/^\s*
+                                 machine\s+AWS\s+.*?
+                                 login\s+(\S+)\s+.*?
+                                 password\s+(\S+)\s+.*?
+                                 (\s+session\s+(\S+?))?/xm)
+           {
+	       ($awskey, $secret, $session) = ($1, $2, $4),
+           }
+           else # normal space-separated tokens
+           {
+	       ($awskey, $secret, $session) = split(/[\r\s:]+/s, $data);
+           }
 	}
     }
 }
@@ -1027,7 +1055,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	elsif (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
 	{
 	}
-	elsif (!-e $secrets_file)
+	elsif (!-e $secrets_file && $secrets_file !~ m/\|$/)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSecretAccessKey\\n)\n";
 	}
