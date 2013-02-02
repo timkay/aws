@@ -950,17 +950,17 @@ unless ($awskey && $secret)
            my $secret_data = load_file($secrets_file);
 
            # handle authinfo/netrc format
-           if ($secret_data =~ m/^\s*
-                                 machine\s+AWS\s+.*?
-                                 login\s+(\S+)\s+.*?
-                                 password\s+(\S+)\s+.*?
-                                 (\s+session\s+(\S+?))?/xm)
+           if ($secret_data =~ /^\s*
+	       machine\s+AWS\s+.*?
+	       login\s+(\S+)\s+.*?
+	       password\s+(\S+)\s+.*?
+	       (\s+session\s+(\S+?))?/xm)
            {
 	       ($awskey, $secret, $session) = ($1, $2, $4),
            }
            else # normal space-separated tokens
            {
-	       ($awskey, $secret, $session) = split(/[\r\s:]+/s, $data);
+	       ($awskey, $secret, $session) = split(/[\r\s:]+/s, $secret_data);
            }
 	}
     }
