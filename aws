@@ -760,7 +760,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     my(%meta);
     @meta{qw(1 assume cmd0 content_length curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link
-	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
+	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
@@ -901,6 +901,9 @@ foreach (qw/authinfo netrc/)
 
 $secrets_file ||= "$home/.awssecret";
 
+# by default look for "machine AWS" in netrc files
+$netrc_machine ||= 'AWS';
+
 if ($role)
 {
     if ($role == 1)
@@ -949,14 +952,44 @@ unless ($awskey && $secret)
 	{
            my $secret_data = load_file($secrets_file);
 
-           # handle authinfo/netrc format
-           if ($secret_data =~ m/^\s*
-                                 machine\s+AWS\s+.*?
-                                 login\s+(\S+)\s+.*?
-                                 password\s+(\S+)\s+.*?
-                                 (\s+session\s+(\S+?))?/xm)
+           # netrc format, triggered by "machine" and "login" in the text
+           if ($secret_data =~ m/machine/ && $secret_data =~ m/login/)
            {
-	       ($awskey, $secret, $session) = ($1, $2, $4),
+               # these are the netrc tokens we recognize
+               my %recognized = ( machine => undef,
+                                  login => undef,
+                                  session => undef,
+                                  password => undef);
+           LINE:
+               foreach my $line (split "\n", $secret_data)
+               {
+                   my @tok;
+                   # gratefully stolen from Net::Netrc
+                   while (length $line &&
+                          $line =~ s/^("((?:[^"]+|\\.)*)"|((?:[^\\\s]+|\\.)*))\s*//)
+                   {
+                       (my $tok = $+) =~ s/\\(.)/$1/g;
+                       push(@tok, $tok);
+                   }
+
+                   my %tokens;
+                   while (@tok)
+                   {
+                       my ($k, $v) = (shift @tok, shift @tok);
+                       next unless defined $v;
+                       next unless exists $recognized{$k};
+                       $recognized{$k} = $v;
+                   }
+
+                   # skip this line unless it had "machine AWS"
+                   next LINE unless (defined $recognized{machine} &&
+                                     $recognized{machine} eq $netrc_machine);
+
+                   # grab the AWS key from "login KEY",
+                   # secret key from "password SECRET",
+                   # session from "session SESS" (all optional)
+                   ($awskey, $secret, $session) = @recognized{login,password,session};
+               }
            }
            else # normal space-separated tokens
            {
