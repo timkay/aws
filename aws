@@ -991,6 +991,9 @@ unless ($awskey && $secret)
                        push(@tok, $tok);
                    }
 
+                   # skip blank lines, comments, etc.
+                   next LINE unless scalar @tok;
+
                    my %tokens;
                    while (@tok)
                    {
