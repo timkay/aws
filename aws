@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.77";
+$program_version = "1.80";
 $ec2_version = "2012-10-01";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
@@ -2424,6 +2424,7 @@ sub s3
     }
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
+							|website
 							|uploadId=[\.\w]+
 							|uploads
 							|upload
