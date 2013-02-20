@@ -56,6 +56,7 @@ $r53_version = "2012-02-29";
     ["ec2", "allocate-address allad", AllocateAddress],
     ["ec2", "associate-address aad", AssociateAddress, [
 	 ["", PublicIp],
+	 ["a", AllocationId],
 	 ["i", InstanceId],
      ]],
     ["ec2", "attach-volume attvol", AttachVolume, [
