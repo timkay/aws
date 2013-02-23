@@ -297,7 +297,8 @@ $r53_version = "2012-02-29";
 									  ["kernel", "Kernel.Value"],
 									  ["ramdisk", "Ramdisk.Value"],
 									  ["source-dest-check", "SourceDestCheck.Value"],
-									  ["user-data", "UserData.Value"],
+									  ["user-data d", "UserData.Value", undef, sub {encode_base64($_[0], "")}],
+									  ["user-data-file f", "UserData.Value", undef, sub {encode_base64(load_file($_[0]))}],
 									  ]],
     ["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
     ["ec2", "create-tags ctags", CreateTags, [
