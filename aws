@@ -2259,10 +2259,10 @@ sub s3
     }
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
-							|uploadId=[\.\w]+
+							|uploadId=[\.\-\w]+
 							|uploads
 							|upload
-							|partNumber=\d+&uploadId=[\.\w]+
+							|partNumber=\d+&uploadId=[\.\-\w]+
 							|partNumber=\d+
 							|part
 							|versioning|versions))?$/sx;
