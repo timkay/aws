@@ -18,7 +18,7 @@
 #
 
 
-$program_version = "1.77";
+$program_version = "1.80";
 $ec2_version = "2012-10-01";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
@@ -26,6 +26,7 @@ $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
 $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
+$r53_version = "2012-02-29";
 
 
 #
@@ -286,6 +287,19 @@ $pa_version  = "2009-01-06";
      ]],
     ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
     ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
+    ["ec2", "modify-instance-attribute minatt", ModifyInstanceAttribute, [["", InstanceId],
+									  ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+									  ["disable-api-termination", "DisableApiTermination.Value"],
+									  ["ebs-optimized", EbsOptimized],
+									  ["group-id g", "GroupIdN"],
+									  ["instance-initiated-shutdown-behavior", "InstanceInitiatedShutdownBehavior.Value"],
+									  ["instance-type t", "InstanceType.Value"],
+									  ["kernel", "Kernel.Value"],
+									  ["ramdisk", "Ramdisk.Value"],
+									  ["source-dest-check", "SourceDestCheck.Value"],
+									  ["user-data d", "UserData.Value", undef, sub {encode_base64($_[0], "")}],
+									  ["user-data-file f", "UserData.Value", undef, sub {encode_base64(load_file($_[0]))}],
+									  ]],
     ["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
     ["ec2", "create-tags ctags", CreateTags, [
 	 ["" => "ResourceIdN"],
@@ -639,7 +653,7 @@ $pa_version  = "2009-01-06";
 
     ["sqs", "send-message send", SendMessage, [
 	 ["" => QueueUri],
-	 [message => MessageBody, "", sub {encode_url($_[0])}],
+	 [message => MessageBody, "", sub {encode_message($_[0])}],
      ]],
 
     ["sqs", "set-queue-attributes sqa", SetQueueAttributes, [
@@ -688,6 +702,43 @@ $pa_version  = "2009-01-06";
 	 [c => ConsistentRead],
 	 [next => NextToken],
      ]],
+    #####  R53 (Route 53, DNS)
+    ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
+	 ['' => zone_id],
+	 [xml => __xml],
+	 [simple => __simple],
+	 [name => name],
+	 [type => type],
+	 [identifier => identifier],
+	 [maxitems => maxitems],
+     ]],
+    ["r53", "get-change gch", 'GET|', [
+	 ['' => change_id], 
+     ]],
+    ["r53", "get-hosted-zone ghz", 'GET|', [
+     	 ['', zone_id],
+     ]],
+    ["r53", "create-hosted-zone chz", 'POST|', [
+	 ['' => Name],
+	 ['ref' => CallerReference],
+	 ['comment' => Comment],
+     ]],
+    ["r53", "delete-hosted-zone dhz", 'DELETE|', [
+	 ['' => zone_id],
+     ]],
+    ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
+	 ['' => zone_id],
+     	 [maxitems => maxitems],
+     ]],
+    ["r53", "change-resource-record-set crrs", 'POST|rrset', [
+	 ['' => zone_id],
+	 ['name n', Name],
+	 ['action a', Action],
+	 ['type t', Type],
+	 ['ttl l', TTL],
+	 ['value v', Value],
+	 ['comment c', Comment],
+     ]],
 
     ["pa", "lookup", ItemLookup, [
 	 ["" => ItemId],
@@ -720,8 +771,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
-	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
+    @meta{qw(1 assume cmd0 content_length curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link
 	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
 
@@ -823,6 +874,8 @@ $v ||= $verbose;
 $v = 2 if $vv;
 $v = 3 if $vvv;
 
+$curl ||= "curl";
+
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
 
 if ($cut)
@@ -834,7 +887,6 @@ if ($cut)
 
 # Exercise for the reader: why is this END block here?  (Hint: bug in Perl?)
 END {close STDOUT}
-
 
 $s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
 
@@ -853,17 +905,24 @@ $retry = 3 unless length($retry);
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
 $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
 $secrets_file ||= "$home/.passwd-s3fs" if -e "$home/.passwd-s3fs";
+
+foreach (qw/authinfo netrc/)
+{
+    $secrets_file ||= "$home/.$_" if -e "$home/.$_";
+    $secrets_file ||= "$home/.$_.gpg" if -e "$home/.$_.gpg";
+}
+
 $secrets_file ||= "$home/.awssecret";
 
 if ($role)
 {
     if ($role == 1)
     {
-	($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+	($role) = qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     }
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -884,6 +943,13 @@ unless ($awskey && $secret)
 {
     if (-s $secrets_file)
     {
+	if ($secrets_file =~ /\.gpg$/)
+	{
+	    # if the secrets_file ends with .gpg, try to decrypt it
+            $secrets_file = "gpg --decrypt $secrets_file|";
+            print STDERR "Overriding --secrets-file to [$secrets_file" if $v;
+	}
+
 	if ($secrets_file =~ /s3cfg$/)
 	{
 	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
@@ -894,17 +960,31 @@ unless ($awskey && $secret)
 	}
 	else
 	{
-	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+           my $secret_data = load_file($secrets_file);
+
+           # handle authinfo/netrc format
+           if ($secret_data =~ /^\s*
+	       machine\s+AWS\s+.*?
+	       login\s+(\S+)\s+.*?
+	       password\s+(\S+)\s+.*?
+	       (\s+session\s+(\S+?))?/xm)
+           {
+	       ($awskey, $secret, $session) = ($1, $2, $4),
+           }
+           else # normal space-separated tokens
+           {
+	       ($awskey, $secret, $session) = split(/[\r\s:]+/s, $secret_data);
+           }
 	}
     }
 }
 
 unless ($awskey && $secret)
 {
-    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+    ($role) = qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -936,7 +1016,7 @@ if ($assume)
 
     my $sig = sign("GET\nsts.amazonaws.com\n/\n$url", $data{SignatureMethod});
     $url = "https://sts.amazonaws.com/?Signature=@{[encode_url($sig)]}&$url";
-    my $xml = qx[curl -s '$url'];
+    my $xml = qx[$curl -s '$url'];
 
     if ($xml !~ /<AccessKeyId>/)
     {
@@ -979,7 +1059,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	{
 	    if ($role == 1)
 	    {
-		if (qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
+		if (qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
 		{
 		    warn "sanity-check: no role found\n";
 		}
@@ -988,7 +1068,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	elsif (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
 	{
 	}
-	elsif (!-e $secrets_file)
+	elsif (!-e $secrets_file && $secrets_file !~ m/\|$/)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSecretAccessKey\\n)\n";
 	}
@@ -1009,7 +1089,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
     }
 
-    my($curl_version) = qx[curl -V] =~ /^curl\s+([\d\.]+)/s;
+    my($curl_version) = qx[$curl -V] =~ /^curl\s+([\d\.]+)/s;
     print "curl version: $curl_version\n" if $v >= 2;
     if (xcmp($curl_version, "7.12.3") < 0)
     {
@@ -1017,13 +1097,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
+    my $aws = qx[$curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
+	$aws = qx[$curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -1031,7 +1111,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://connection.$s3host/test];
+	    $aws = qx[$curl -q -s --insecure --dump-header - http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1420,6 +1500,84 @@ if (!$cmd_data)
 	    }
 	}
     }
+    elsif ($service eq "r53")  # which has its own different approach
+    {
+	my $idraw = shift @argv;
+	my ($id) = $idraw =~ /([A-Z0-9]+)/;  # lose any /hostedzone/ or /change/ prefix
+	my ($pname, $aname) = @{ $param->[0] };
+	shift @$param unless $pname;
+	my $r53_endpoint = 'route53.amazonaws.com';
+	my $url="https://$r53_endpoint/$r53_version/"; 
+	my ($method,$reqaction) = split(/\|/, $action);
+	die "No method (action = '$action') for $cmd." unless $method;
+	my (%prefix) = (zone_id => 'hostedzone',
+			change_id => 'change');
+	$url .= "$prefix{$aname}/$id" if $prefix{$aname};  # /hostedzone/xxx or /change/xxx 
+	$url .= "/$reqaction" if $reqaction;
+	$url .= "?" if $method eq 'GET';
+	my %args;
+	my $content;
+	while (@argv)
+	{
+	    my $key = shift @argv;
+	    my ($key1, $val1, $key2) = $key =~ /--(\w+)=(.*)|-(\w+)/;
+	    $key1 ||= $key2;
+	    $val1 ||= shift(@argv);
+	    for (@$param)
+	    {
+		my ($paramkey, $urlkey) = @$_;
+		next unless  $paramkey =~ /(\s+|^)$key1(\s+|$)/;
+		$args{$urlkey} = $val1;
+		last;
+	    }
+	}
+	my (@days)=(qw(Sun Mon Tue Wed Thu Fri Sat));
+	my (@months)=(qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec));
+	my ($sec, $min, $hour, $mday, $mon, $year, $dow, undef, undef) = gmtime(time + $time_offset);
+	my $zulu = sprintf ("%s, %02d %s %04d %02d:%02d:%02d GMT",
+			    $days[$dow], $mday, $months[$mon], 1900 + $year, $hour, $min, $sec);
+	my $algo = 'HmacSHA' . ($sha1 ? '1' : '256');
+	my $sig = sign ($zulu, $algo);
+	my $auth = "AWS3-HTTPS AWSAccessKeyId=$awskey,Algorithm=$algo,Signature=$sig";
+	my @curl = ('-H' => "'X-Amzn-Authorization: $auth'",
+		    '-H' => "'x-amz-date: $zulu'" );
+	push (@curl, '-H' => "x-amz-security-token:$session") if $session;
+	
+	my $cmd;
+	if ($method eq 'GET')
+	{
+	    $url .= join ('&', map { encode_url($_)."=".encode_url($args{$_}) }
+			  grep { ! /^__/ } sort keys %args);
+	}
+	elsif ($method eq 'PUT')
+	{
+	    die "can't put yet";
+	}
+	elsif ($method eq 'DELETE')
+	{
+	    # nothing special to do in this case.  URL is set up.
+	    push (@curl, '-X' => $method); # must make it use this method.
+	}
+	else  # method must be POST 
+	{
+	    my $hdr = R53_xml_data() -> {'header'};
+	    my $xmlsrc = R53_xml_data() -> {$action};
+	    for (keys %args) {
+		my $val = $args{$_};
+		$xmlsrc =~ s/(<$_>)/$1$val/;
+	    }
+	    $xmlsrc =~ s/'/'\\''/g;
+	    push (@curl, '--data' => "'$hdr$xmlsrc'");
+	    push (@curl, '-H' => "'Content-type: text/xml'");
+	}
+
+	$cmd = qq[$curl $curl_options @curl $url];
+
+	print "$cmd\n" if $v;
+	$result = qx[$cmd];
+	print "$resp\n" if $v;
+	
+    }
     else
     {
 	die;
@@ -1432,6 +1590,10 @@ if (!$cmd_data)
     elsif ($yaml)
     {
         print xml2yaml($result);
+    }
+    elsif ($json)
+    {
+        print xml2json($result);
     }
     elsif ($result =~ /<ListBucketResult|<ListAllMyBucketsResult/ && ($l || $d1 || $exec || $simple))
     {
@@ -1480,7 +1642,7 @@ if (!$cmd_data)
 	    my($mod) = $item =~ /<(?:LastModified|CreationDate)>(.*?)<\/(?:LastModified|CreationDate)>/s;
 	    my($owner) = $item =~ /<DisplayName>(.*?)<\/DisplayName>/s;
 
-	    $key =~ s/^\Q$prefix\E//;
+	    $key =~ s/^\Q$prefix\E// if $delimiter;
 
 	    for ($mod)
 	    {
@@ -2123,6 +2285,22 @@ sub xml2yaml {
 	$result;
 }
 
+# Convert xml string to JSON format
+sub xml2json
+{
+ my $xml = shift @_;
+
+ return unless (eval {require XML::Simple} &&
+                eval {require JSON});
+
+ return unless $xml;
+
+ my $coder = JSON->new()->relaxed()->utf8()->allow_blessed->convert_blessed->allow_nonref();
+
+ my $ref = XML::Simple::XMLin($xml, ForceArray => [qw/Attribute Item/]);
+ return $coder->encode($ref);
+}
+
 sub s3
 {
     my($verb, $marker, $name, $file, @header) = @_;
@@ -2265,7 +2443,7 @@ sub s3
 							|partNumber=\d+&uploadId=[\.\-\w]+
 							|partNumber=\d+
 							|part
-							|versioning|versions))?$/sx;
+							|versioning|versions|website))?$/sx;
 
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
@@ -2374,7 +2552,7 @@ sub s3
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 	my $sig = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
 
@@ -2450,7 +2628,7 @@ sub s3
 
     if ($isGETobj && !$md5 && $isUnix)
     {
-	my $cmd = qq[curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
 	print STDERR "exec $cmd\n" if $v;
 	exec $cmd;
 	die;
@@ -2460,7 +2638,7 @@ sub s3
     my($accept);
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
-    my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
@@ -2536,7 +2714,7 @@ sub pa
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
@@ -2616,7 +2794,7 @@ sub ec2
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
@@ -2634,6 +2812,21 @@ sub decode_url
 {
     my($s) = @_;
     $s =~ s/%(..)/@{[uc pack(H2,$1)]}/ig;
+    $s;
+}
+
+
+#
+# Encode a sqs message. What characters should be encoded. According to http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Query_QuerySendMessage.html
+# not very many characters should be encoded. However, I am disinclined to allow TAB, LF, and CR to be in the message unencoded, so we'll encode them for now. Also, the
+# code currently does not handle Unicode characters. It should probably utf8-encode first.
+#
+# The existing decode_url can be used to decode.
+#
+sub encode_message
+{
+    my($s) = @_;
+    $s =~ s/([^\x20-\x7e])/%@{[uc unpack(H2,$1)]}/ig;
     $s;
 }
 
@@ -3098,6 +3291,14 @@ sub decode_base64 ($)
 #
 # end of encode_base64()
 #
+
+sub R53_xml_data {
+    return { 'header' => '<?xml version="1.0" encoding="UTF-8"?>',
+	     'POST|' => '<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"><Name></Name><CallerReference></CallerReference><HostedZoneConfig><Comment></Comment></HostedZoneConfig></CreateHostedZoneRequest>',
+	     'POST|rrset' => '<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"> <ChangeBatch> <Comment></Comment> <Changes> <!--REPEAT--> <Change> <Action></Action> <ResourceRecordSet> <Name></Name> <Type></Type> <TTL></TTL> <ResourceRecords> <ResourceRecord> <Value></Value> </ResourceRecord> </ResourceRecords> </ResourceRecordSet> </Change> <!--/REPEAT--> </Changes> </ChangeBatch> </ChangeResourceRecordSetsRequest>',
+
+    };
+}
 
 
 # 
