@@ -15,6 +15,9 @@ Notes:
 *** Switching to github: http://github.com/timkay/aws
 Future changes will be tracked there.
 
+THIS FILE REFERS TO VERSION NUMBERS.
+WE NO LONGER USE VERSION NUMBERS, AND INSTEAD RELY ON GIT TO TRACK CHANGES.
+
 aws-1.33
 	* don't use exec() for Windows - it runs asynchronously
 
