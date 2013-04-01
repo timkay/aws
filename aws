@@ -891,7 +891,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1258,7 +1258,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
     die $output;
 }
 
@@ -2441,14 +2441,13 @@ sub s3
     }
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
-							|website
-							|uploadId=[\.\w]+
+							|uploadId=[\.\-\w]+
 							|uploads
 							|upload
-							|partNumber=\d+&uploadId=[\.\w]+
+							|partNumber=\d+&uploadId=[\.\-\w]+
 							|partNumber=\d+
 							|part
-							|versioning|versions))?$/sx;
+							|versioning|versions|website))?$/sx;
 
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
