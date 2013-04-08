@@ -1481,7 +1481,7 @@ if (!$cmd_data)
 		$slice = $MB5;
 		print STDERR "multipart upload: Too many parts makes slice too small; adjusting to $parts parts\n";
 	    }
-	    my($uploadId) = s3(POST, undef, "$bucket?uploads") =~ /<UploadId>(.*?)<\/UploadId>/;
+	    my($uploadId) = s3(POST, undef, "$bucket?uploads", undef, @head) =~ /<UploadId>(.*?)<\/UploadId>/;
 	    print "uploadId = $uploadId\n" if $v;
 	    die "missing uploadId\n" if !$uploadId;
 	    for (my $i = 0; $i < $parts; $i++)
@@ -1499,7 +1499,7 @@ if (!$cmd_data)
 		    print "$cmd (bytes)\n" if $v;
 		    open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
 		    s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
-		    last if !$exit_code;
+		    last unless $exit_code == 23;
 		}
 		if ($exit_code)
 		{
@@ -2429,7 +2429,8 @@ sub s3
 
     $set_acl = "public-read"	if $public;
     $set_acl = "private"	if $private;
-    push @header, "x-amz-acl: $set_acl" if $verb eq PUT && $set_acl;
+    # the multipart upload stuff is getting icky
+    push @header, "x-amz-acl: $set_acl" if $set_acl && $verb =~ /^(?:POST|PUT)$/ && $name !~ /\?partNumber=|\?uploadId=/;
 
     $requester = "requester" if $requester == 1;
     push @header, "x-amz-request-payer: $requester" if $requester;
@@ -2684,6 +2685,8 @@ sub s3
     {
 	print STDERR "$code\n" unless $v;
 	$exit_code = 22;
+	# exit code 23 means that there was no reply - happens with multipart upload sometimes
+	$exit_code = 23 if !length($code);
 	return if $fail;
     }
 
