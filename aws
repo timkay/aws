@@ -1101,13 +1101,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[$curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
+    my $aws = qx[$curl -q -s $insecureaws --include $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[$curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
+	$aws = qx[$curl -q -s --insecure --include $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -1115,7 +1115,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[$curl -q -s --insecure --dump-header - http://connection.$s3host/test];
+	    $aws = qx[$curl -q -s --insecure --include http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1461,6 +1461,18 @@ if (!$cmd_data)
 	    $bucket =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs; # turn abc or abc? into abc/ or abc/?
 	    $bucket .= $file if $bucket =~ /\/$/;
 
+	    # delete previous partial multi-part uploads
+	    for (1..10)
+	    {
+		print "deleting multipart uploads $bucket...\n" if $v;
+		my $xml = s3(DELETE, undef, "$bucket?upload");
+		if ($xml)
+		{
+		    print $xml if $v;
+		    last;
+		}
+	    }
+
 	    $parts = int(($SZ + $GB5 - 1) / $GB5) unless $parts > 1;
 	    my $slice = int(($SZ + $parts - 1) / $parts);
 	    if ($slice < $MB5 && $parts > 1)
@@ -1471,16 +1483,30 @@ if (!$cmd_data)
 	    }
 	    my($uploadId) = s3(POST, undef, "$bucket?uploads") =~ /<UploadId>(.*?)<\/UploadId>/;
 	    print "uploadId = $uploadId\n" if $v;
+	    die "missing uploadId\n" if !$uploadId;
 	    for (my $i = 0; $i < $parts; $i++)
 	    {
 		my $beg = $i * $slice + 1;
 		my $end = $beg + $slice - 1;
 		$end = $SZ if $end > $SZ;
 		local $content_length = $end - $beg + 1;
-		my $cmd = "tail -c +$beg $file |head -c $content_length";
-		print "$cmd ($content_length) bytes\n" if $v;
-		open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
-		s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
+		local($exit_code);
+		for my $iter (0..$retry)
+		{
+		    print "failed to upload partNumber=@{[$i + 1]}... retrying #$iter of $retry...\n" if $iter && !$fail;
+		    undef $exit_code;
+		    my $cmd = "tail -c +$beg $file |head -c $content_length";
+		    print "$cmd (bytes)\n" if $v;
+		    open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
+		    s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
+		    last if !$exit_code;
+		}
+		if ($exit_code)
+		{
+		    print "failed to upload partNumber=@{[$i + 1]}\n" if !$fail;
+		    s3(DELETE, undef, "$bucket?uploadId=$uploadId");
+		    exit $exit_code;
+		}
 	    }
 	    s3(POST, undef, "$bucket?uploadId=$uploadId");
 	}
@@ -2504,7 +2530,7 @@ sub s3
 	    system "cat $file" if $v >= 2;
 	}
 
-	die "$uname: no matching multipart upload found\n" if $uq eq "?upload" && length($uploadId) == 0;
+	return "$uname: no matching multipart upload found\n" if $uq eq "?upload" && length($uploadId) == 0;
 
 	$uname .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
 	$uname .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
@@ -2642,7 +2668,7 @@ sub s3
     my($accept);
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
-    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --include $content --location @{[cq($url)]}];
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
