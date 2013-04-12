@@ -2669,7 +2669,7 @@ sub s3
     my($accept);
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
-    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --include $content --location @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
