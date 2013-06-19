@@ -81,20 +81,19 @@ aws has only one dependency (curl), in addition to perl, which is often pre-inst
 <p>
 To use aws, follow these steps:
 <ol>
-<li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)
+<li>Install <tt>curl</tt> if necessary (either <tt>apt-get install curl</tt> or <tt>yum install curl</tt>)</li>
 <li>Download <a href=https://raw.github.com/timkay/aws/master/aws>aws</a> to your computer <blockquote><tt>curl
 https://raw.github.com/timkay/aws/master/aws -o aws</tt></blockquote></li>
-<li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.  Just make sure to set "aws" to be executable:  "<code>chmod +x aws</code>".
-<p>
-Perform the optional install it with
+<li>Put your AWS credentials in <tt>~/.awssecret</tt>:  the Access Key
+ID on the first line and the Secret Access Key on the second line.  Example:  <blockquote><tt>1B5JYHPQCXW13GWKHAG2<br>2GAHKWG3+1wxcqyhpj5b1Ggqc0TIxj21DKkidjfz</tt></blockquote></li>
+<li>Alternately, set the EC2_ACCESS_KEY and EC2_SECRET_KEY environment variables.</li>
+<li><i>OPTIONAL</i>.  Perform this step if you want to use commands like <code>s3ls</code> and <code>ec2run</code>.  If you prefer commands like <code>aws ls</code> or <code>aws run</code>, then you may skip this step.
+Perform the optional install with:
 <blockquote><tt>perl aws --install</tt></blockquote>
 (This step sets <tt>aws</tt> to be executable, copies it
 to /usr/bin if you are root, and then symlinks the aliases, the same as
 <tt>aws --link</tt> does.)</li>
-<p>
-<li>Put your AWS credentials in <tt>~/.awssecret</tt>:  the Access Key
-ID on the first line and the Secret Access Key on the second line.  Example:  <blockquote><tt>1B5JYHPQCXW13GWKHAG2<br>2GAHKWG3+1wxcqyhpj5b1Ggqc0TIxj21DKkidjfz</tt></blockquote></li>
-<li>Alternately, set the EC2_ACCESS_KEY and EC2_SECRET_KEY environment variables.</li>
+<li>Alternately, set "aws" to be executable:  <blockquote><tt>chmod +x aws</tt></blockquote></li>
 </ol>
 <p>
 If you are logged in as root, aws will be installed in /usr/bin.
