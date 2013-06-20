@@ -18,7 +18,7 @@
 #
 
 
-$ec2_version = "2012-10-01";
+$ec2_version = "2013-02-01";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
@@ -142,6 +142,10 @@ $r53_version = "2012-02-29";
 	 ["x", ExecutableByN],
      ]],
     ["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
+    ["ec2", "describe-instance-attributes dinatt", DescribeInstanceAttribute, [
+	 ["", InstanceId],
+	 ["attribute a" => "Attribute"],
+     ]],
     ["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
     ["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
     ["ec2", "describe-regions dreg", DescribeRegions],
