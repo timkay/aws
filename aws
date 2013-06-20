@@ -1738,6 +1738,10 @@ if (!$cmd_data)
     {
 	print decode_base64($result =~ /<output>(.*?)<\/output>/s);
     }
+    elsif ($result =~ /<DescribeInstanceAttributeResponse/ && $simple)
+    {
+	print+ $result =~ /<value>(.*?)<\/value>/, "\n";
+    }
     elsif ($result =~ /<RunInstancesResponse|<DescribeInstancesResponse|<RequestSpotInstancesResponse|<DescribeSpotInstanceRequestsResponse/ && ($simple || $wait))
     {
 	if ($result =~ /<RequestSpotInstancesResponse|<DescribeSpotInstanceRequestsResponse/)
