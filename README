@@ -4,7 +4,7 @@ To run "aws", all you need is a single file!
 
 1. download https://raw.github.com/timkay/aws/master/aws
 2. make it executable
-3. create ~/.awssecrets or set EC2_ACCESS_KEY and EC2_SECRET_KEY
+3. create ~/.awssecret or set EC2_ACCESS_KEY and EC2_SECRET_KEY
 
 and you are done.
 
