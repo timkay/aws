@@ -2930,7 +2930,7 @@ sub guess_is_unix
 
 sub get_home_directory
 {
-    return "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
+    return $ENV{HOME} || "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
     return (getpwuid($<))[7];
 }
 
