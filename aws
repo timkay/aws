@@ -2638,7 +2638,15 @@ sub s3
     {
 	if ($region)
 	{
-	    $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
+	    $region = {
+	        eu      => "eu-west-1",
+	        us      => "us-east-1",
+	        uswest  => "us-west-1",
+	        uswest2 => "us-west-1",
+	        ap      => "ap-southeast-1"
+	        ap2     => "ap-southeast-2"
+	        sa      => "sa-east-1",
+	    }->{lc $region} || $region;
 	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
 	    print $temp_fh qq[<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 			      <LocationConstraint>$region</LocationConstraint>
