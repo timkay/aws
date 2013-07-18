@@ -146,6 +146,10 @@ $r53_version = "2012-02-29";
 	 ["", InstanceId],
 	 ["attribute a" => "Attribute"],
      ]],
+    ["ec2", "describe-instance-status dins", DescribeInstanceStatus, [
+      ["", InstanceIdN],
+      ["a", IncludeAllInstances],
+     ]],
     ["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
     ["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
     ["ec2", "describe-regions dreg", DescribeRegions],
@@ -2193,7 +2197,7 @@ sub xml2tab
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
 			   |SendMessageResult|CreateTagsResponse|DeleteTagsResponse
 	    )$/x
-	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
+	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item|instanceStatusSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
 			   |LoadBalancerDescriptions-member
