@@ -43,6 +43,9 @@ $r53_version = "2012-02-29";
 #
 
 @cmd = (
+    ["aws", "xml-version", XMLVERSION, [
+        ["", Service],
+    ]],
     ["ec2", "add-group addgrp", CreateSecurityGroup, [
 	 ["", GroupName],
 	 ["d", GroupDescription],
@@ -1311,7 +1314,25 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa")
+    if ($service eq "aws")
+    {
+       if ($action eq "XMLVERSION") 
+       {
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version };
+          if ($#ARGV > 0)
+          {
+               print "$versions->{$argv[0]}\n";
+          }
+          else
+          {
+               for (keys %$versions)
+               {
+                    print "$_: $versions->{$_}\n";
+               }
+          }
+       }
+    }
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
