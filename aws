@@ -26,7 +26,7 @@ $iam_version = "2010-05-08";
 $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
 $r53_version = "2012-02-29";
-
+$ebn_version = "2010-12-01";
 
 #
 # Need to implement:
@@ -323,6 +323,149 @@ $r53_version = "2012-02-29";
 	 ["tag", undef, undef, \&parse_tags_delete],
      ]],
 
+    ###########################
+    ###  Elastic BeaNstalk  ###
+    ###########################
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CheckDNSAvailability.html
+    ["ebn", "check-dns-vailability", CheckDNSAvailability, [
+     ["", CNAMEPrefix],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateApplication.html
+    ["ebn", "create-application", CreateApplication, [
+     ["", ApplicationName],
+     ["description", ApplicationDescription]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateApplicationVersion.html
+    ["ebn", "create-application-version", CreateApplicationVersion, [
+     ["", ApplicationName],
+     ["autocreate", AutoCreateApplication],
+     ["description", Description],
+     ["sourcebucket", 'SourceBundle.S3Bucket'],
+     ["sourcekey", 'SourceBundle.S3Key'],
+     ["versionlabel", VersionLabel]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateConfigurationTemplate.html
+    ["ebn", "create-configuration-template", CreateConfigurationTemplate, [
+     ["", ApplicationName],
+     ["description", Description],
+     ["environmentid", EnvironmentId],
+     ["solutionstackname", SolutionStackName],
+     ["sourceconfiguration", SourceConfiguration],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateStorageLocation.html
+    ["ebn", "create-storage-location", CreateStorageLocation, [
+     ["", S3Bucket]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteApplication.html
+    ["ebn", "delete-application", DeleteApplication, [
+     ["", ApplicationName],
+     ["forceterminate", TerminateEnvByForce]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteApplicationVersion.html
+    ["ebn", "delete-application-version", DeleteApplicationVersion, [
+     ["", ApplicationName],
+     ["deletesourcebundle", DeleteSourceBundle],
+     ["versionlabel", VersionLabel]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteConfigurationTemplate.html
+    ["ebn", "delete-configuration-template", DeleteConfigurationTemplate, [
+     ["", ApplicationName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteEnvironmentConfiguration.html
+    ["ebn", "delete-environment-configuration", DeleteEnvironmentConfiguration, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeApplicationVersions.html
+    ["ebn", "describe-application-versions", DescribeApplicationVersions, [
+     ["", ApplicationName],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeApplications.html
+    ["ebn", "describe-applications", DescribeApplications, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeConfigurationOptions.html
+    ["ebn", "describe-configuration-options", DescribeConfigurationOptions, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName],
+     ["solutionstackname", SolutionStackName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeConfigurationSettings.html
+    ["ebn", "describe-configuration-settings", DescribeConfigurationSettings, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironmentResources.html
+    ["ebn", "describe-configuration-options", DescribeEnvironmentResources, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironments.html
+    ["ebn", "describe-environments", DescribeEnvironments, [
+     ["", ApplicationName],
+     ["includedeleted", IncludeDeleted],
+     ["includedeletedbackto", IncludeDeletedBackTo],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEvents.html
+    ###
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_ListAvailableSolutionStacks.html
+    ["ebn", "list-solution-stacks", ListAvailableSolutionStacks, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RebuildEnvironment.html
+    ["ebn", "rebuild-environment", RebuildEnvironment, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RequestEnvironmentInfo.html
+    ["ebn", "request-environment-info", RequestEnvironmentInfo, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RestartAppServer.html
+    ["ebn", "restart-app-server", RestartAppServer, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RetrieveEnvironmentInfo.html
+    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_SwapEnvironmentCNAMEs.html
+    ["ebn", "swap-environment-cnames", SwapEnvironmentCNAMEs, [
+     ["destinationenvironmentid", DestinationEnvironmentId],
+     ["destinationenvironmentname", DestinationEnvironmentName],
+     ["sourceenvironmentid", SourceEnvironmentId],
+     ["sourceenvironmentname", SourceEnvironmentName],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_TerminateEnvironment.html
+    ["ebn", "terminate-environment", TerminateEnvironment, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateApplication.html
+    ["ebn", "update-application", UpdateApplication, [
+     ["", ApplicationName],
+     ["description", ApplicationDescription]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateApplicationVersion.html
+    ["ebn", "update-application-version", UpdateApplicationVersion, [
+     ["", ApplicationName],
+     ["description", Description],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateConfigurationTemplate.html
+    ###
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateEnvironment.html
+    ["ebn", "update-environment", UpdateEnvironment, [
+     ["description", Description],
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["templatename", TemplateName],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_ValidateConfigurationSettings.html
+    ###
+    
     #############
     ###  ELB  ###
     #############
@@ -902,7 +1045,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1269,7 +1412,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version)\n";
     die $output;
 }
 
@@ -1318,7 +1461,7 @@ if (!$cmd_data)
     {
        if ($action eq "XMLVERSION") 
        {
-          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version };
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version };
           if ($#ARGV > 0)
           {
                print "$versions->{$argv[0]}\n";
@@ -1332,7 +1475,7 @@ if (!$cmd_data)
           }
        }
     }
-    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa")
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -2801,6 +2944,7 @@ sub ec2
     $version .= $elb_version if $service eq "elb";
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
+    $version .= $ebn_version if $service eq "ebn";
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -2837,6 +2981,11 @@ sub ec2
 	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
+    if ( $service eq "ebn" )
+    {
+    $endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
+    $endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
+    }
     my @session = (SecurityToken => $session) if $session;
     my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
