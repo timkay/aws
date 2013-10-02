@@ -494,6 +494,7 @@ $ebn_version = "2010-12-01";
 	 ["protocol", "Listeners.member.1.Protocol"],
 	 ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
 	 ["instanceport", "Listeners.member.1.InstancePort"],
+	 ["sslcertificateid", "Listeners.member.1.SSLCertificateId"],
      ]],
     ["elb", "create-lb-listeners clbl", CreateLoadBalancerListeners, [
 	 ["", LoadBalancerName],
