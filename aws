@@ -925,8 +925,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume cmd0 content_length credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
-	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link
+    @meta{qw(1 assume batch cmd0 content_length credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
 	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
@@ -1101,23 +1101,26 @@ unless ($awskey && $secret)
     ($awskey, $secret, $session) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY AWS_SESSION_TOKEN)};
 }
 
-unless ($awskey && $secret && $credential_helper)
+if ($credential_helper)
 {
-    require IPC::Open2;
-    my($out, $in);
-    my $pid = IPC::Open2::open2($out, $in, $credential_helper);
-    print $in "host=$netrc_machine\n";
-    close $in;
-    print STDERR "Waiting for [$credential_helper] to respond...\n" if $v;
-    while (<$out>)
+    unless ($awskey && $secret)
     {
-        print STDERR "Credential helper gave us $_" if $v;
-        chomp;
-        next unless m/(\w+)=(.+)/;
-        $awskey = $2 if $1 eq 'username';
-        $secret = $2 if $1 eq 'password';
+	require IPC::Open2;
+	my($out, $in);
+	my $pid = IPC::Open2::open2($out, $in, $credential_helper);
+	print $in "host=$netrc_machine\n";
+	close $in;
+	print STDERR "Waiting for [$credential_helper] to respond...\n" if $v;
+	while (<$out>)
+	{
+	    print STDERR "Credential helper gave us $_" if $v;
+	    chomp;
+	    next unless m/(\w+)=(.+)/;
+	    $awskey = $2 if $1 eq 'username';
+	    $secret = $2 if $1 eq 'password';
+	}
+	waitpid($pid, 0);
     }
-    waitpid($pid, 0);
 }
 
 unless ($awskey && $secret)
@@ -1750,7 +1753,8 @@ if (!$cmd_data)
 	}
 	else
 	{
-	    my($last_marker, $marker);
+	    my $marker = $batch;
+	    my($last_marker);
 
 	    for (;;)
 	    {
@@ -1763,7 +1767,7 @@ if (!$cmd_data)
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
 		($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
-		last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
+		last if $batch || $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
 		$last_marker = $marker;
 	    }
 	}
@@ -2902,6 +2906,7 @@ sub s3
     $url .= "&marker=@{[encode_url($marker)]}" if $marker;
     $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
     $url .= "&delimiter=$delimiter" if $delimiter;
+    $url .= "&max-keys=$max_keys" if $max_keys;
 
     return $url if $request;
 
