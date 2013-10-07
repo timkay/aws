@@ -925,9 +925,9 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume cmd0 content_length curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume cmd0 content_length credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link
-	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
+	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
@@ -1069,6 +1069,9 @@ foreach (qw/authinfo netrc/)
 
 $secrets_file ||= "$home/.awssecret";
 
+# by default look for "machine AWS" in netrc files
+$netrc_machine ||= 'AWS';
+
 if ($role)
 {
     if ($role == 1)
@@ -1098,6 +1101,25 @@ unless ($awskey && $secret)
     ($awskey, $secret, $session) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY AWS_SESSION_TOKEN)};
 }
 
+unless ($awskey && $secret && $credential_helper)
+{
+    require IPC::Open2;
+    my($out, $in);
+    my $pid = IPC::Open2::open2($out, $in, $credential_helper);
+    print $in "host=$netrc_machine\n";
+    close $in;
+    print STDERR "Waiting for [$credential_helper] to respond...\n" if $v;
+    while (<$out>)
+    {
+        print STDERR "Credential helper gave us $_" if $v;
+        chomp;
+        next unless m/(\w+)=(.+)/;
+        $awskey = $2 if $1 eq 'username';
+        $secret = $2 if $1 eq 'password';
+    }
+    waitpid($pid, 0);
+}
+
 unless ($awskey && $secret)
 {
     # try to resolve any globs
@@ -1112,7 +1134,7 @@ unless ($awskey && $secret)
 	{
 	    # if the secrets_file ends with .gpg, try to decrypt it
             $secrets_file = "gpg --decrypt $secrets_file|";
-            print STDERR "Overriding --secrets-file to [$secrets_file" if $v;
+            print STDERR "Overriding --secrets-file to [$secrets_file]\n" if $v;
 	}
 
 	if ($secrets_file =~ /s3cfg$/)
@@ -1134,7 +1156,44 @@ unless ($awskey && $secret)
 	       password\s+(\S+)\s+.*?
 	       (\s+session\s+(\S+?))?/xm)
            {
-	       ($awskey, $secret, $session) = ($1, $2, $4),
+               # these are the netrc tokens we recognize
+               my %recognized = ( machine => undef,
+                                  login => undef,
+                                  session => undef,
+                                  password => undef);
+           LINE:
+               foreach my $line (split "\n", $secret_data)
+               {
+                   my @tok;
+                   # modeled after Net::Netrc (Perl Artistic License: This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.)
+                   while (length $line &&
+                          $line =~ s/^("((?:[^"]+|\\.)*)"|((?:[^\\\s]+|\\.)*))\s*//)
+                   {
+                       (my $tok = $+) =~ s/\\(.)/$1/g;
+                       push(@tok, $tok);
+                   }
+
+                   # skip blank lines, comments, etc.
+                   next LINE unless scalar @tok;
+
+                   my %tokens;
+                   while (@tok)
+                   {
+                       my ($k, $v) = (shift @tok, shift @tok);
+                       next unless defined $v;
+                       next unless exists $recognized{$k};
+                       $recognized{$k} = $v;
+                   }
+
+                   # skip this line unless it had "machine AWS"
+                   next LINE unless (defined $recognized{machine} &&
+                                     $recognized{machine} eq $netrc_machine);
+
+                   # grab the AWS key from "login KEY",
+                   # secret key from "password SECRET",
+                   # session from "session SESS" (all optional)
+                   ($awskey, $secret, $session) = @recognized{login,password,session};
+               }
            }
            else # normal space-separated tokens
            {
