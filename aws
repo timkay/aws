@@ -2617,7 +2617,10 @@ sub s3
     {
 	if ($name =~ /\/$/)
 	{
-	    my($what) = $file =~ /([^\/]+)$/;
+		@stuff = split('/', $file);
+		shift(@stuff);
+		shift(@stuff);
+		my($what) = join('/', @stuff);
 	    $name .= $what;
 	}
 	if ($file !~ /^\//)
