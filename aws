@@ -1767,7 +1767,7 @@ if (!$cmd_data)
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
 		($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
-		last if $batch || $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
+		last if defined $batch || $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
 		$last_marker = $marker;
 	    }
 	}
