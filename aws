@@ -1100,6 +1100,12 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
+    # try to resolve any globs
+    unless (-s $secrets_file)
+    {
+         $secrets_file = glob($secrets_file);
+    }
+
     if (-s $secrets_file)
     {
 	if ($secrets_file =~ /\.gpg$/)
