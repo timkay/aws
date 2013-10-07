@@ -2821,8 +2821,8 @@ sub s3
 	        us      => "us-east-1",
 	        uswest  => "us-west-1",
 	        uswest2 => "us-west-1",
-	        ap      => "ap-southeast-1"
-	        ap2     => "ap-southeast-2"
+	        ap      => "ap-southeast-1",
+	        ap2     => "ap-southeast-2",
 	        sa      => "sa-east-1",
 	    }->{lc $region} || $region;
 	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
