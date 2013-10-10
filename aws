@@ -2566,8 +2566,12 @@ sub xml2json
 {
  my $xml = shift @_;
 
- return unless (eval {require XML::Simple} &&
-                eval {require JSON});
+ unless (eval {require XML::Simple} &&
+         eval {require JSON})
+ {
+  warn "Could not load the required modules XML::Simple and JSON";
+  return;
+ }
 
  return unless $xml;
 
