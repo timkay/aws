@@ -18,8 +18,7 @@
 #
 
 
-$program_version = "1.77";
-$ec2_version = "2012-10-01";
+$ec2_version = "2013-02-01";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
@@ -27,7 +26,7 @@ $iam_version = "2010-05-08";
 $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
 $r53_version = "2012-02-29";
-
+$ebn_version = "2010-12-01";
 
 #
 # Need to implement:
@@ -44,6 +43,9 @@ $r53_version = "2012-02-29";
 #
 
 @cmd = (
+    ["aws", "xml-version", XMLVERSION, [
+        ["", Service],
+    ]],
     ["ec2", "add-group addgrp", CreateSecurityGroup, [
 	 ["", GroupName],
 	 ["d", GroupDescription],
@@ -143,6 +145,14 @@ $r53_version = "2012-02-29";
 	 ["x", ExecutableByN],
      ]],
     ["ec2", "describe-instances din", DescribeInstances, [["", InstanceIdN]]],
+    ["ec2", "describe-instance-attributes dinatt", DescribeInstanceAttribute, [
+	 ["", InstanceId],
+	 ["attribute a" => "Attribute"],
+     ]],
+    ["ec2", "describe-instance-status dins", DescribeInstanceStatus, [
+      ["", InstanceIdN],
+      ["a", IncludeAllInstances],
+     ]],
     ["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
     ["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
     ["ec2", "describe-regions dreg", DescribeRegions],
@@ -274,8 +284,8 @@ $r53_version = "2012-02-29";
 	 ["virtual-name" => "BlockDeviceMapping.N.VirtualName"],
 	 ["snapshot s" => "BlockDeviceMapping.N.Ebs.SnapshotId"],
 	 ["volume-size" => "BlockDeviceMapping.N.Ebs.VolumeSize"],
-	 ["profile-arn" => "LaunchSpecification.IamInstanceProfile.Arn"],
-	 ["profile-name" => "LaunchSpecification.IamInstanceProfile.Name"],
+	 ["profile-arn" => "IamInstanceProfile.Arn"],
+	 ["profile-name role" => "IamInstanceProfile.Name"],
 	 ["delete-on-termination" => "BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
 	 ["monitor m" => "Monitoring.Enabled"],
 	 ["disable-api-termination" => DisableApiTermination],
@@ -287,6 +297,19 @@ $r53_version = "2012-02-29";
      ]],
     ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
     ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
+    ["ec2", "modify-instance-attribute minatt", ModifyInstanceAttribute, [["", InstanceId],
+									  ["block-device-mapping b", undef, undef, \&parse_block_device_mapping],
+									  ["disable-api-termination", "DisableApiTermination.Value"],
+									  ["ebs-optimized", EbsOptimized],
+									  ["group-id g", "GroupIdN"],
+									  ["instance-initiated-shutdown-behavior", "InstanceInitiatedShutdownBehavior.Value"],
+									  ["instance-type t", "InstanceType.Value"],
+									  ["kernel", "Kernel.Value"],
+									  ["ramdisk", "Ramdisk.Value"],
+									  ["source-dest-check", "SourceDestCheck.Value"],
+									  ["user-data d", "UserData.Value", undef, sub {encode_base64($_[0], "")}],
+									  ["user-data-file f", "UserData.Value", undef, sub {encode_base64(load_file($_[0]))}],
+									  ]],
     ["ec2", "terminate-instances tin", TerminateInstances, [["", InstanceIdN]]],
     ["ec2", "create-tags ctags", CreateTags, [
 	 ["" => "ResourceIdN"],
@@ -300,6 +323,149 @@ $r53_version = "2012-02-29";
 	 ["tag", undef, undef, \&parse_tags_delete],
      ]],
 
+    ###########################
+    ###  Elastic BeaNstalk  ###
+    ###########################
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CheckDNSAvailability.html
+    ["ebn", "check-dns-vailability", CheckDNSAvailability, [
+     ["", CNAMEPrefix],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateApplication.html
+    ["ebn", "create-application", CreateApplication, [
+     ["", ApplicationName],
+     ["description", ApplicationDescription]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateApplicationVersion.html
+    ["ebn", "create-application-version", CreateApplicationVersion, [
+     ["", ApplicationName],
+     ["autocreate", AutoCreateApplication],
+     ["description", Description],
+     ["sourcebucket", 'SourceBundle.S3Bucket'],
+     ["sourcekey", 'SourceBundle.S3Key'],
+     ["versionlabel", VersionLabel]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateConfigurationTemplate.html
+    ["ebn", "create-configuration-template", CreateConfigurationTemplate, [
+     ["", ApplicationName],
+     ["description", Description],
+     ["environmentid", EnvironmentId],
+     ["solutionstackname", SolutionStackName],
+     ["sourceconfiguration", SourceConfiguration],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateStorageLocation.html
+    ["ebn", "create-storage-location", CreateStorageLocation, [
+     ["", S3Bucket]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteApplication.html
+    ["ebn", "delete-application", DeleteApplication, [
+     ["", ApplicationName],
+     ["forceterminate", TerminateEnvByForce]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteApplicationVersion.html
+    ["ebn", "delete-application-version", DeleteApplicationVersion, [
+     ["", ApplicationName],
+     ["deletesourcebundle", DeleteSourceBundle],
+     ["versionlabel", VersionLabel]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteConfigurationTemplate.html
+    ["ebn", "delete-configuration-template", DeleteConfigurationTemplate, [
+     ["", ApplicationName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DeleteEnvironmentConfiguration.html
+    ["ebn", "delete-environment-configuration", DeleteEnvironmentConfiguration, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeApplicationVersions.html
+    ["ebn", "describe-application-versions", DescribeApplicationVersions, [
+     ["", ApplicationName],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeApplications.html
+    ["ebn", "describe-applications", DescribeApplications, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeConfigurationOptions.html
+    ["ebn", "describe-configuration-options", DescribeConfigurationOptions, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName],
+     ["solutionstackname", SolutionStackName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeConfigurationSettings.html
+    ["ebn", "describe-configuration-settings", DescribeConfigurationSettings, [
+     ["", ApplicationName],
+     ["environmentname", EnvironmentName],
+     ["templatename", TemplateName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironmentResources.html
+    ["ebn", "describe-configuration-options", DescribeEnvironmentResources, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironments.html
+    ["ebn", "describe-environments", DescribeEnvironments, [
+     ["", ApplicationName],
+     ["includedeleted", IncludeDeleted],
+     ["includedeletedbackto", IncludeDeletedBackTo],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEvents.html
+    ###
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_ListAvailableSolutionStacks.html
+    ["ebn", "list-solution-stacks", ListAvailableSolutionStacks, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RebuildEnvironment.html
+    ["ebn", "rebuild-environment", RebuildEnvironment, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RequestEnvironmentInfo.html
+    ["ebn", "request-environment-info", RequestEnvironmentInfo, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RestartAppServer.html
+    ["ebn", "restart-app-server", RestartAppServer, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RetrieveEnvironmentInfo.html
+    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, []],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_SwapEnvironmentCNAMEs.html
+    ["ebn", "swap-environment-cnames", SwapEnvironmentCNAMEs, [
+     ["destinationenvironmentid", DestinationEnvironmentId],
+     ["destinationenvironmentname", DestinationEnvironmentName],
+     ["sourceenvironmentid", SourceEnvironmentId],
+     ["sourceenvironmentname", SourceEnvironmentName],
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_TerminateEnvironment.html
+    ["ebn", "terminate-environment", TerminateEnvironment, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateApplication.html
+    ["ebn", "update-application", UpdateApplication, [
+     ["", ApplicationName],
+     ["description", ApplicationDescription]
+    ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateApplicationVersion.html
+    ["ebn", "update-application-version", UpdateApplicationVersion, [
+     ["", ApplicationName],
+     ["description", Description],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateConfigurationTemplate.html
+    ###
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_UpdateEnvironment.html
+    ["ebn", "update-environment", UpdateEnvironment, [
+     ["description", Description],
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["templatename", TemplateName],
+     ["versionlabel", VersionLabel]
+    ]],
+    ###
+    ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_ValidateConfigurationSettings.html
+    ###
+    
     #############
     ###  ELB  ###
     #############
@@ -328,6 +494,7 @@ $r53_version = "2012-02-29";
 	 ["protocol", "Listeners.member.1.Protocol"],
 	 ["loadbalancerport", "Listeners.member.1.LoadBalancerPort"],
 	 ["instanceport", "Listeners.member.1.InstancePort"],
+	 ["sslcertificateid", "Listeners.member.1.SSLCertificateId"],
      ]],
     ["elb", "create-lb-listeners clbl", CreateLoadBalancerListeners, [
 	 ["", LoadBalancerName],
@@ -758,10 +925,10 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\.
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume cmd0 content_length curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
-	     insecure insecure_signing insecure_aws insecureaws install l limit_rate link
-	     max_time marker md5 no_vhost parts prefix private progress public queue r region request requester retry role ruby quiet
-	     s3host sanity_check secrets_file set_acl sha1 sign silent simple t v verbose vv vvv wait xml yaml)} = undef;
+    @meta{qw(1 assume batch cmd0 content_length credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
+	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
+	     s3host sanity_check secrets_file set_acl sha1 sign silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -861,6 +1028,8 @@ $v ||= $verbose;
 $v = 2 if $vv;
 $v = 3 if $vvv;
 
+$curl ||= "curl";
+
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
 
 if ($cut)
@@ -873,11 +1042,11 @@ if ($cut)
 # Exercise for the reader: why is this END block here?  (Hint: bug in Perl?)
 END {close STDOUT}
 
+# Don't know if the -gov- default for $s3host is correct... are there other GovCloud regions, and what endpoint do they use?
+$s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
+$sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-$s3host ||= $ENV{S3_URL} || "s3.amazonaws.com";
-
-
-print STDERR "aws version: v$program_version  (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -891,17 +1060,31 @@ $retry = 3 unless length($retry);
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
 $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
 $secrets_file ||= "$home/.passwd-s3fs" if -e "$home/.passwd-s3fs";
+
+foreach (qw/authinfo netrc/)
+{
+    $secrets_file ||= "$home/.$_" if -e "$home/.$_";
+    $secrets_file ||= "$home/.$_.gpg" if -e "$home/.$_.gpg";
+}
+
 $secrets_file ||= "$home/.awssecret";
+
+# by default look for "machine AWS" in netrc files
+$netrc_machine ||= 'AWS';
 
 if ($role)
 {
     if ($role == 1)
     {
-	($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+	my $cmd = qq[$curl -s --max-time 2 --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+	print "$cmd\n" if $v;
+	($role) = qx[$cmd];
     }
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $cmd = qq[$curl -s --max-time 2 --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	print "$cmd\n" if $v;
+	my $json = qx[$cmd];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -918,10 +1101,45 @@ unless ($awskey && $secret)
     ($awskey, $secret, $session) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY AWS_SESSION_TOKEN)};
 }
 
+if ($credential_helper)
+{
+    unless ($awskey && $secret)
+    {
+	require IPC::Open2;
+	my($out, $in);
+	my $pid = IPC::Open2::open2($out, $in, $credential_helper);
+	print $in "host=$netrc_machine\n";
+	close $in;
+	print STDERR "Waiting for [$credential_helper] to respond...\n" if $v;
+	while (<$out>)
+	{
+	    print STDERR "Credential helper gave us $_" if $v;
+	    chomp;
+	    next unless m/(\w+)=(.+)/;
+	    $awskey = $2 if $1 eq 'username';
+	    $secret = $2 if $1 eq 'password';
+	}
+	waitpid($pid, 0);
+    }
+}
+
 unless ($awskey && $secret)
 {
+    # try to resolve any globs
+    unless (-s $secrets_file)
+    {
+         $secrets_file = glob($secrets_file);
+    }
+
     if (-s $secrets_file)
     {
+	if ($secrets_file =~ /\.gpg$/)
+	{
+	    # if the secrets_file ends with .gpg, try to decrypt it
+            $secrets_file = "gpg --decrypt $secrets_file|";
+            print STDERR "Overriding --secrets-file to [$secrets_file]\n" if $v;
+	}
+
 	if ($secrets_file =~ /s3cfg$/)
 	{
 	    # if the secrets_file ends with s3cfg, treat it as a s3cmd init file
@@ -932,17 +1150,68 @@ unless ($awskey && $secret)
 	}
 	else
 	{
-	    ($awskey, $secret, $session) = split(/[\r\s:]+/s, load_file($secrets_file));
+           my $secret_data = load_file($secrets_file);
+
+           # handle authinfo/netrc format
+           if ($secret_data =~ /^\s*
+	       machine\s+AWS\s+.*?
+	       login\s+(\S+)\s+.*?
+	       password\s+(\S+)\s+.*?
+	       (\s+session\s+(\S+?))?/xm)
+           {
+               # these are the netrc tokens we recognize
+               my %recognized = ( machine => undef,
+                                  login => undef,
+                                  session => undef,
+                                  password => undef);
+           LINE:
+               foreach my $line (split "\n", $secret_data)
+               {
+                   my @tok;
+                   # modeled after Net::Netrc (Perl Artistic License: This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.)
+                   while (length $line &&
+                          $line =~ s/^("((?:[^"]+|\\.)*)"|((?:[^\\\s]+|\\.)*))\s*//)
+                   {
+                       (my $tok = $+) =~ s/\\(.)/$1/g;
+                       push(@tok, $tok);
+                   }
+
+                   # skip blank lines, comments, etc.
+                   next LINE unless scalar @tok;
+
+                   my %tokens;
+                   while (@tok)
+                   {
+                       my ($k, $v) = (shift @tok, shift @tok);
+                       next unless defined $v;
+                       next unless exists $recognized{$k};
+                       $recognized{$k} = $v;
+                   }
+
+                   # skip this line unless it had "machine AWS"
+                   next LINE unless (defined $recognized{machine} &&
+                                     $recognized{machine} eq $netrc_machine);
+
+                   # grab the AWS key from "login KEY",
+                   # secret key from "password SECRET",
+                   # session from "session SESS" (all optional)
+                   ($awskey, $secret, $session) = @recognized{login,password,session};
+               }
+           }
+           else # normal space-separated tokens
+           {
+	       ($awskey, $secret, $session) = split(/[\r\s:]+/s, $secret_data);
+           }
 	}
     }
 }
 
 unless ($awskey && $secret)
 {
-    ($role) = qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
+    ($role) = qx[$curl -s --fail --max-time 1 http://169.254.169.254/latest/meta-data/iam/security-credentials/];
     if ($role)
     {
-	my $json = qx[curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
+	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
 	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
 	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
 	($session) = $json =~ /"Token" : "(.*?)"/;
@@ -972,9 +1241,9 @@ if ($assume)
 	$url .= "$_=@{[encode_url($data{$_})]}";
     }
 
-    my $sig = sign("GET\nsts.amazonaws.com\n/\n$url", $data{SignatureMethod});
-    $url = "https://sts.amazonaws.com/?Signature=@{[encode_url($sig)]}&$url";
-    my $xml = qx[curl -s '$url'];
+    my $sig = sign("GET\n$sts_host\n/\n$url", $data{SignatureMethod});
+    $url = "https://$sts_host/?Signature=@{[encode_url($sig)]}&$url";
+    my $xml = qx[$curl -s '$url'];
 
     if ($xml !~ /<AccessKeyId>/)
     {
@@ -1017,7 +1286,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	{
 	    if ($role == 1)
 	    {
-		if (qx[curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
+		if (qx[$curl -s --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/] !~ /\w/)
 		{
 		    warn "sanity-check: no role found\n";
 		}
@@ -1026,7 +1295,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	elsif (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
 	{
 	}
-	elsif (!-e $secrets_file)
+	elsif (!-e $secrets_file && $secrets_file !~ m/\|$/)
 	{
 	    warn "sanity-check: \"$secrets_file\": file is missing.  (Format: AccessKeyID\\nSecretAccessKey\\n)\n";
 	}
@@ -1047,7 +1316,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
     }
 
-    my($curl_version) = qx[curl -V] =~ /^curl\s+([\d\.]+)/s;
+    my($curl_version) = qx[$curl -V] =~ /^curl\s+([\d\.]+)/s;
     print "curl version: $curl_version\n" if $v >= 2;
     if (xcmp($curl_version, "7.12.3") < 0)
     {
@@ -1055,13 +1324,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[curl -q -s $insecureaws --dump-header - $scheme://connection.$s3host/test];
+    my $aws = qx[$curl -q -s $insecureaws --include $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[curl -q -s --insecure --dump-header - $scheme://connection.$s3host/test];
+	$aws = qx[$curl -q -s --insecure --include $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -1069,7 +1338,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[curl -q -s --insecure --dump-header - http://connection.$s3host/test];
+	    $aws = qx[$curl -q -s --insecure --include http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1212,7 +1481,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws version: v$program_version  (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version)\n";
     die $output;
 }
 
@@ -1257,7 +1526,25 @@ if (!$cmd_data)
 
     my($result);
 
-    if ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa")
+    if ($service eq "aws")
+    {
+       if ($action eq "XMLVERSION") 
+       {
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version };
+          if ($#ARGV > 0)
+          {
+               print "$versions->{$argv[0]}\n";
+          }
+          else
+          {
+               for (keys %$versions)
+               {
+                    print "$_: $versions->{$_}\n";
+               }
+          }
+       }
+    }
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -1415,6 +1702,18 @@ if (!$cmd_data)
 	    $bucket =~ s/^([^\?\/]+)(\?|$ )/$1\/$2/xs; # turn abc or abc? into abc/ or abc/?
 	    $bucket .= $file if $bucket =~ /\/$/;
 
+	    # delete previous partial multi-part uploads
+	    for (1..10)
+	    {
+		print "deleting multipart uploads $bucket...\n" if $v;
+		my $xml = s3(DELETE, undef, "$bucket?upload");
+		if ($xml)
+		{
+		    print $xml if $v;
+		    last;
+		}
+	    }
+
 	    $parts = int(($SZ + $GB5 - 1) / $GB5) unless $parts > 1;
 	    my $slice = int(($SZ + $parts - 1) / $parts);
 	    if ($slice < $MB5 && $parts > 1)
@@ -1423,24 +1722,39 @@ if (!$cmd_data)
 		$slice = $MB5;
 		print STDERR "multipart upload: Too many parts makes slice too small; adjusting to $parts parts\n";
 	    }
-	    my($uploadId) = s3(POST, undef, "$bucket?uploads") =~ /<UploadId>(.*?)<\/UploadId>/;
+	    my($uploadId) = s3(POST, undef, "$bucket?uploads", undef, @head) =~ /<UploadId>(.*?)<\/UploadId>/;
 	    print "uploadId = $uploadId\n" if $v;
+	    die "missing uploadId\n" if !$uploadId;
 	    for (my $i = 0; $i < $parts; $i++)
 	    {
 		my $beg = $i * $slice + 1;
 		my $end = $beg + $slice - 1;
 		$end = $SZ if $end > $SZ;
 		local $content_length = $end - $beg + 1;
-		my $cmd = "tail -c +$beg $file |head -c $content_length";
-		print "$cmd ($content_length) bytes\n" if $v;
-		open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
-		s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
+		local($exit_code);
+		for my $iter (0..$retry)
+		{
+		    print "failed to upload partNumber=@{[$i + 1]}... retrying #$iter of $retry...\n" if $iter && !$fail;
+		    undef $exit_code;
+		    my $cmd = "tail -c +$beg $file |head -c $content_length";
+		    print "$cmd (bytes)\n" if $v;
+		    open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
+		    s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
+		    last unless $exit_code == 23;
+		}
+		if ($exit_code)
+		{
+		    print "failed to upload partNumber=@{[$i + 1]}\n" if !$fail;
+		    s3(DELETE, undef, "$bucket?uploadId=$uploadId");
+		    exit $exit_code;
+		}
 	    }
 	    s3(POST, undef, "$bucket?uploadId=$uploadId");
 	}
 	else
 	{
-	    my($last_marker, $marker);
+	    my $marker = $batch;
+	    my($last_marker);
 
 	    for (;;)
 	    {
@@ -1453,7 +1767,7 @@ if (!$cmd_data)
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
 		($marker) = $r =~ /.*<Key>(.*?)<\/Key>/;
-		last if $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
+		last if defined $batch || $r !~ /<IsTruncated>true<\/IsTruncated>/ || $marker le $last_marker;
 		$last_marker = $marker;
 	    }
 	}
@@ -1529,7 +1843,7 @@ if (!$cmd_data)
 	    push (@curl, '-H' => "'Content-type: text/xml'");
 	}
 
-	$cmd = qq[curl $curl_options @curl $url];
+	$cmd = qq[$curl $curl_options @curl $url];
 
 	print "$cmd\n" if $v;
 	$result = qx[$cmd];
@@ -1548,6 +1862,10 @@ if (!$cmd_data)
     elsif ($yaml)
     {
         print xml2yaml($result);
+    }
+    elsif ($json)
+    {
+        print xml2json($result);
     }
     elsif ($result =~ /<ListBucketResult|<ListAllMyBucketsResult/ && ($l || $d1 || $exec || $simple))
     {
@@ -1657,6 +1975,10 @@ if (!$cmd_data)
     elsif ($result =~ /<GetConsoleOutputResponse/)
     {
 	print decode_base64($result =~ /<output>(.*?)<\/output>/s);
+    }
+    elsif ($result =~ /<DescribeInstanceAttributeResponse/)
+    {
+	print+ $result =~ /<value>(.*?)<\/value>/, "\n";
     }
     elsif ($result =~ /<RunInstancesResponse|<DescribeInstancesResponse|<RequestSpotInstancesResponse|<DescribeSpotInstanceRequestsResponse/ && ($simple || $wait))
     {
@@ -2109,7 +2431,7 @@ sub xml2tab
 			   |ListGroupPoliciesResult|GetGroupPolicyResult
 			   |SendMessageResult|CreateTagsResponse|DeleteTagsResponse
 	    )$/x
-	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item
+	    || $tag2 =~ /^(?:addressesSet-item|availabilityZoneInfo-item|imagesSet-item|instancesSet-item|instanceStatusSet-item
 			   |ipPermissions-item|keySet-item|reservedInstancesOfferingsSet-item|securityGroupInfo-item|volumeSet-item|snapshotSet-item|regionInfo-item
 			   |ReceiveMessageResult-Message
 			   |LoadBalancerDescriptions-member
@@ -2239,6 +2561,26 @@ sub xml2yaml {
 	$result;
 }
 
+# Convert xml string to JSON format
+sub xml2json
+{
+ my $xml = shift @_;
+
+ unless (eval {require XML::Simple} &&
+         eval {require JSON})
+ {
+  warn "Could not load the required modules XML::Simple and JSON";
+  return;
+ }
+
+ return unless $xml;
+
+ my $coder = JSON->new()->relaxed()->utf8()->allow_blessed->convert_blessed->allow_nonref();
+
+ my $ref = XML::Simple::XMLin($xml, ForceArray => [qw/Attribute Item/]);
+ return $coder->encode($ref);
+}
+
 sub s3
 {
     my($verb, $marker, $name, $file, @header) = @_;
@@ -2337,7 +2679,8 @@ sub s3
 
     $set_acl = "public-read"	if $public;
     $set_acl = "private"	if $private;
-    push @header, "x-amz-acl: $set_acl" if $verb eq PUT && $set_acl;
+    # the multipart upload stuff is getting icky
+    push @header, "x-amz-acl: $set_acl" if $set_acl && $verb =~ /^(?:POST|PUT)$/ && $name !~ /\?partNumber=|\?uploadId=/;
 
     $requester = "requester" if $requester == 1;
     push @header, "x-amz-request-payer: $requester" if $requester;
@@ -2347,7 +2690,10 @@ sub s3
     {
 	if ($name =~ /\/$/)
 	{
-	    my($what) = $file =~ /([^\/]+)$/;
+		@stuff = split('/', $file);
+		shift(@stuff);
+		shift(@stuff);
+		my($what) = join('/', @stuff);
 	    $name .= $what;
 	}
 	if ($file !~ /^\//)
@@ -2375,13 +2721,13 @@ sub s3
     }
 
     my($ub, $uo, $uq) = $name =~ /^(.+?)(?:\/(.*?))?(\?(?:acl|delete|location|logging|bittorrent|lifecycle|policy|requestPayment
-							|uploadId=[\.\w]+
+							|uploadId=[\.\-\w]+
 							|uploads
 							|upload
-							|partNumber=\d+&uploadId=[\.\w]+
+							|partNumber=\d+&uploadId=[\.\-\w]+
 							|partNumber=\d+
 							|part
-							|versioning|versions))?$/sx;
+							|versioning|versions|website))?$/sx;
 
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
 
@@ -2438,7 +2784,7 @@ sub s3
 	    system "cat $file" if $v >= 2;
 	}
 
-	die "$uname: no matching multipart upload found\n" if $uq eq "?upload" && length($uploadId) == 0;
+	return "$uname: no matching multipart upload found\n" if $uq eq "?upload" && length($uploadId) == 0;
 
 	$uname .= "Id=$uploadId" if $uq eq "?upload";				# List Parts / Complete Multipart Upload / Abort Multipart Upload
 	$uname .= "&uploadId=$uploadId" if $uq =~ /^?partNumber=\d+$/;		# Upload Part NNN
@@ -2490,7 +2836,7 @@ sub s3
 	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
 	my $sig = sign($data);
 	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
-	my $cmd = qq[curl $curl_options $insecureaws $header --head @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
 
@@ -2537,7 +2883,15 @@ sub s3
     {
 	if ($region)
 	{
-	    $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
+	    $region = {
+	        eu      => "eu-west-1",
+	        us      => "us-east-1",
+	        uswest  => "us-west-1",
+	        uswest2 => "us-west-1",
+	        ap      => "ap-southeast-1",
+	        ap2     => "ap-southeast-2",
+	        sa      => "sa-east-1",
+	    }->{lc $region} || $region;
 	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
 	    print $temp_fh qq[<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 			      <LocationConstraint>$region</LocationConstraint>
@@ -2556,6 +2910,7 @@ sub s3
     $url .= "&marker=@{[encode_url($marker)]}" if $marker;
     $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
     $url .= "&delimiter=$delimiter" if $delimiter;
+    $url .= "&max-keys=$max_keys" if $max_keys;
 
     return $url if $request;
 
@@ -2566,7 +2921,7 @@ sub s3
 
     if ($isGETobj && !$md5 && $isUnix)
     {
-	my $cmd = qq[curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
+	my $cmd = qq[$curl $curl_options $insecureaws $header --request $verb $content --location @{[cq($url)]}];
 	print STDERR "exec $cmd\n" if $v;
 	exec $cmd;
 	die;
@@ -2576,7 +2931,7 @@ sub s3
     my($accept);
     $accept = "--header \"Expect: \"" if ($verb eq PUT || $verb eq POST) && (-s $file) < 10_000;
 
-    my $cmd = qq[curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws $accept $header --request $verb --dump-header - $content --location @{[cq($url)]}];
     print STDERR "$cmd\n" if $v;
     my $item = qx[$cmd];
     exit $? >> 8 if $? && $fail;
@@ -2592,6 +2947,8 @@ sub s3
     {
 	print STDERR "$code\n" unless $v;
 	$exit_code = 22;
+	# exit code 23 means that there was no reply - happens with multipart upload sometimes
+	$exit_code = 23 if !length($code);
 	return if $fail;
     }
 
@@ -2652,7 +3009,7 @@ sub pa
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
@@ -2673,6 +3030,7 @@ sub ec2
     $version .= $elb_version if $service eq "elb";
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
+    $version .= $ebn_version if $service eq "ebn";
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -2709,6 +3067,11 @@ sub ec2
 	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
+    if ( $service eq "ebn" )
+    {
+    $endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
+    $endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
+    }
     my @session = (SecurityToken => $session) if $session;
     my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -2732,7 +3095,7 @@ sub ec2
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
-    my $cmd = qq[curl $curl_options $insecureaws @{[cq($url)]}];
+    my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
     qx[$cmd];
 }
@@ -2827,7 +3190,7 @@ sub guess_is_unix
 
 sub get_home_directory
 {
-    return "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
+    return $ENV{HOME} || "$ENV{HOMEDRIVE}$ENV{HOMEPATH}" || "C:" if !$isUnix;
     return (getpwuid($<))[7];
 }
 
