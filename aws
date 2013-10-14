@@ -243,6 +243,8 @@ $ebn_version = "2010-12-01";
 	 ["virtual-name" => "LaunchSpecification.BlockDeviceMapping.N.VirtualName"],
 	 [snapshot => "LaunchSpecification.BlockDeviceMapping.N.Ebs.SnapshotId"],
 	 ["volume-size" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeSize"],
+	 ["volume-type" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.VolumeType"], # standard or io1
+	 ["volume-iops" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.Iops"], # number
 	 ["profile-arn" => "LaunchSpecification.IamInstanceProfile.Arn"],
 	 ["profile-name" => "LaunchSpecification.IamInstanceProfile.Name"],
 	 ["delete-on-termination" => "LaunchSpecification.BlockDeviceMapping.N.Ebs.DeleteOnTermination"],
@@ -3220,7 +3222,7 @@ sub parse_filter
 
 sub parse_block_device_mapping
 {
-    my($dev, $vol, $size, $delete) = $_[0] =~ /^(.*?)(?:=(.*?)(?::(.*?)(?::(.*?))?)?)?$/;
+    my($dev, $vol, $size, $delete, $type, $iops) = $_[0] =~ /^(.*?)(?:=(.*?)(?::(.*?)(?::(.*?)(?::(.*?)(?::(.*?))?)?)?)?)?$/;
     #print "dev=$dev\nvol=$vol\nsize=$size\ndelete=$delete\n";
     my(@result);
 
@@ -3238,6 +3240,8 @@ sub parse_block_device_mapping
 	push @result, "BlockDeviceMapping.N.Ebs.SnapshotId" => $vol if $vol;
 	push @result, "BlockDeviceMapping.N.Ebs.VolumeSize" => $size if $size;
 	push @result, "BlockDeviceMapping.N.Ebs.DeleteOnTermination" => $delete if $delete;
+	push @result, "BlockDeviceMapping.N.Ebs.VolumeType" => $type if $type;
+	push @result, "BlockDeviceMapping.N.Ebs.Iops" => $iops if defined($iops);
     }
     [@result];
 }
