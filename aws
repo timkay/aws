@@ -1800,7 +1800,7 @@ if (!$cmd_data)
 	    for (@$param)
 	    {
 		my ($paramkey, $urlkey) = @$_;
-		next unless  $paramkey =~ /(\s+|^)$key1(\s+|$)/;
+		next unless  $paramkey =~ /( \s+ | ^) $key1 ( \s+ | $ )/x;
 		$args{$urlkey} = $val1;
 		last;
 	    }
@@ -1850,7 +1850,7 @@ if (!$cmd_data)
 	print "$cmd\n" if $v;
 	$result = qx[$cmd];
 	print "$resp\n" if $v;
-	
+
     }
     else
     {
@@ -2566,21 +2566,21 @@ sub xml2yaml {
 # Convert xml string to JSON format
 sub xml2json
 {
- my $xml = shift @_;
+    my $xml = shift @_;
 
- unless (eval {require XML::Simple} &&
-         eval {require JSON})
- {
-  warn "Could not load the required modules XML::Simple and JSON";
-  return;
- }
+    unless (eval {require XML::Simple} &&
+	    eval {require JSON})
+    {
+	warn "Could not load the required modules XML::Simple and JSON";
+	return;
+    }
 
- return unless $xml;
+    return unless $xml;
 
- my $coder = JSON->new()->relaxed()->utf8()->allow_blessed->convert_blessed->allow_nonref();
+    my $coder = JSON->new()->relaxed()->utf8()->allow_blessed->convert_blessed->allow_nonref();
 
- my $ref = XML::Simple::XMLin($xml, ForceArray => [qw/Attribute Item/]);
- return $coder->encode($ref);
+    my $ref = XML::Simple::XMLin($xml, ForceArray => [qw/Attribute Item/]);
+    return $coder->encode($ref);
 }
 
 sub s3
@@ -3071,8 +3071,8 @@ sub ec2
 
     if ( $service eq "ebn" )
     {
-    $endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
-    $endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
+	$endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
+	$endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
     }
     my @session = (SecurityToken => $session) if $session;
     my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
@@ -3099,7 +3099,9 @@ sub ec2
     print "$url\n" if $v >= 2;
     my $cmd = qq[$curl $curl_options $insecureaws @{[cq($url)]}];
     print STDERR "cmd=[$cmd]\n" if $v;
-    qx[$cmd];
+    my $ans = qx[$cmd];
+    $exit_code = $? >> 8;
+    $ans;
 }
 
 
