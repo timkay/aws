@@ -27,6 +27,7 @@ $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
 $r53_version = "2012-02-29";
 $ebn_version = "2010-12-01";
+$cfn_version = "2010-05-15";
 
 #
 # Need to implement:
@@ -750,6 +751,19 @@ $ebn_version = "2010-12-01";
 	 ["maxitems i" => "MaxItems"],
      ]],
 
+    ["cfn", "describestacks", DescribeStacks,[
+         ["" => StackName],
+     ]],
+    ["cfn", "describestackresources", DescribeStackResources,[
+         ["" => StackName],
+         ["l" => LogicalResourceId],
+         ["p" => PhysicalResourceId],
+     ]],
+    ["cfn", "describestackresource", DescribeStackResource,[
+         ["" => StackName],
+         ["l" => LogicalResourceId],
+     ]],
+
     ["s3", "ls", LS],
     ["s3", "get cat", GET],
     ["s3", "head", HEAD],
@@ -1049,7 +1063,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cfn: $cfn_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1484,7 +1498,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cfn $cfn_version)\n";
     die $output;
 }
 
@@ -1533,7 +1547,7 @@ if (!$cmd_data)
     {
        if ($action eq "XMLVERSION") 
        {
-          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version };
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cfn" => $cfn_version };
           if ($#ARGV > 0)
           {
                print "$versions->{$argv[0]}\n";
@@ -1547,7 +1561,7 @@ if (!$cmd_data)
           }
        }
     }
-    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn")
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cfn")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -3034,6 +3048,7 @@ sub ec2
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
     $version .= $ebn_version if $service eq "ebn";
+    $version .= $cfn_version if $service eq "cfn";
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -3075,6 +3090,13 @@ sub ec2
 	$endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
 	$endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
     }
+
+    if ( $service eq "cfn")
+    {
+        $endpoint = "cloudformation.us-east-1.amazonaws.com";
+        $endpoint = "cloudformation.$region.amazonaws.com" if $region;
+    }
+
     my @session = (SecurityToken => $session) if $session;
     my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
