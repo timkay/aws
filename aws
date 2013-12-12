@@ -1033,6 +1033,9 @@ $v = 3 if $vvv;
 
 $curl ||= "curl";
 
+$curl_q  = "-q";
+$curl_q .= " -K \"$home/.awscurlrc\"" if -e "$home/.awscurlrc";
+
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
 
 if ($cut)
@@ -1327,13 +1330,13 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	warn "sanity-check: This curl (v$curl_version) does not support --retry (>= v7.12.3), so --retry is disabled\n" unless $silent;
     }
 
-    my $aws = qx[$curl -q -s $insecureaws --include $scheme://connection.$s3host/test];
+    my $aws = qx[$curl $curl_q -s $insecureaws --include $scheme://connection.$s3host/test];
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
     if (!$d)
     {
-	$aws = qx[$curl -q -s --insecure --include $scheme://connection.$s3host/test];
+	$aws = qx[$curl $curl_q -s --insecure --include $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	if ($d)
 	{
@@ -1341,7 +1344,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
 	}
 	else
 	{
-	    $aws = qx[$curl -q -s --insecure --include http://connection.$s3host/test];
+	    $aws = qx[$curl $curl_q -s --insecure --include http://connection.$s3host/test];
 	    ($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 	    if ($d)
 	    {
@@ -1363,7 +1366,7 @@ if (!-e "$home/.awsrc" || $sanity_check)
     }
 }
 
-$curl_options .= " -q -g -S";
+$curl_options .= " $curl_q -g -S";
 $curl_options .= " --remote-time";
 $curl_options .= " --retry $retry" if length($retry);
 $curl_options .= " --fail" if $fail;
