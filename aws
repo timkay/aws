@@ -69,6 +69,7 @@ $cfn_version = "2010-05-15";
      ]],
     ["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
 	 ["" => GroupName],
+	 ["groupId i" => "GroupId"],
 	 ["protocol P" => "IpPermissions.1.IpProtocol"],
 	 [p => undef, undef, sub {
 	     my($min, $max) = split(/-/, $_[0]."-".$_[0]);
@@ -254,6 +255,7 @@ $cfn_version = "2010-05-15";
      ]],
     ["ec2", "revoke", RevokeSecurityGroupIngress, [
 	 ["" => GroupName],
+	 ["groupId i" => "GroupId"],
 	 ["protocol P" => "IpPermissions.1.IpProtocol"],
 	 ["p" => undef, undef, sub
 	  {
