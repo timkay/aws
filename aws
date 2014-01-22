@@ -361,6 +361,16 @@ $cfn_version = "2010-05-15";
      ["sourceconfiguration", SourceConfiguration],
      ["templatename", TemplateName]
     ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateEnvironment.html
+    ["ebn", "create-environment", CreateEnvironment, [
+     ["", ApplicationName],
+     ["cnameprefix", CNAMEPrefix],
+     ["description", Description],
+     ["environmentname", EnvironmentName],
+     ["solutionstackname", SolutionStackName],
+     ["versionlabel", VersionLabel],
+     ["templatename", TemplateName]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateStorageLocation.html
     ["ebn", "create-storage-location", CreateStorageLocation, [
      ["", S3Bucket]
@@ -410,6 +420,11 @@ $cfn_version = "2010-05-15";
      ["environmentid", EnvironmentId],
      ["environmentname", EnvironmentName]
     ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironmentResources.html
+    ["ebn", "describe-environment-resources", DescribeEnvironmentResources, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironments.html
     ["ebn", "describe-environments", DescribeEnvironments, [
      ["", ApplicationName],
@@ -428,14 +443,22 @@ $cfn_version = "2010-05-15";
      ["environmentname", EnvironmentName]
     ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RequestEnvironmentInfo.html
-    ["ebn", "request-environment-info", RequestEnvironmentInfo, []],
+    ["ebn", "request-environment-info", RequestEnvironmentInfo, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["infotype", InfoType]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RestartAppServer.html
     ["ebn", "restart-app-server", RestartAppServer, [
      ["environmentid", EnvironmentId],
      ["environmentname", EnvironmentName]
     ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RetrieveEnvironmentInfo.html
-    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, []],
+    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["infotype", InfoType],
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_SwapEnvironmentCNAMEs.html
     ["ebn", "swap-environment-cnames", SwapEnvironmentCNAMEs, [
      ["destinationenvironmentid", DestinationEnvironmentId],
