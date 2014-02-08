@@ -18,7 +18,7 @@
 #
 
 
-$ec2_version = "2013-02-01";
+$ec2_version = "2013-10-15";
 $sqs_version = "2009-02-01";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
@@ -69,6 +69,7 @@ $cfn_version = "2010-05-15";
      ]],
     ["ec2", "authorize auth", AuthorizeSecurityGroupIngress, [
 	 ["" => GroupName],
+	 ["egress e" => "__action__", undef, AuthorizeSecurityGroupEgress],
 	 ["groupId i" => "GroupId"],
 	 ["protocol P" => "IpPermissions.1.IpProtocol"],
 	 [p => undef, undef, sub {
@@ -255,6 +256,7 @@ $cfn_version = "2010-05-15";
      ]],
     ["ec2", "revoke", RevokeSecurityGroupIngress, [
 	 ["" => GroupName],
+	 ["egress e" => "__action__", undef, RevokeSecurityGroupEgress],
 	 ["groupId i" => "GroupId"],
 	 ["protocol P" => "IpPermissions.1.IpProtocol"],
 	 ["p" => undef, undef, sub
@@ -1598,7 +1600,14 @@ if (!$cmd_data)
 		next unless length($a) == 0 && length($b) == 0 || grep /^$b$/, split(/\s+/, $a);
 		my $data = $argv[$i];
 		my $count = ++$count{$a};
-		if ($key)
+		if ($key eq "__action__")
+		{
+		    # Swap out the Action for a different one, such as AuthorizeSecurityGroupIngress and *Egress.
+		    $list[1] = $cref;
+		    # It's a side effect, and doesn't consume a parameter.
+		    --$i;
+		}
+		elsif ($key)
 		{
 		    $key =~ s/N$/\.$count/;
 		    $key =~ s/\.N\./\.$count\./;
@@ -2442,11 +2451,11 @@ sub xml2tab
 	my $tag2 = "$parent[$depth[$i] - 1]-$tag[$i]";
 
 	if ($tag[$i] =~ /^(?:LocationConstraint|Grant
-			   |AttachVolumeResponse|Bucket|Contents|CommonPrefixes|AuthorizeSecurityGroupIngressResponse|CopyObjectResult
+			   |AttachVolumeResponse|Bucket|Contents|CommonPrefixes|AuthorizeSecurityGroup(?:E|In)gressResponse|CopyObjectResult
 			   |CreateKeyPairResponse|CreateSecurityGroupResponse|CreateImageResponse|CreateSnapshotResponse|CreateVolumeResponse
 			   |DeleteSecurityGroupResponse|DeleteKeyPairResponse|DeleteSnapshotResponse|DeleteVolumeResponse
 			   |DetachVolumeResponse|Error|GetConsoleOutputResponse|ListBucketResult|RebootInstancesResponse
-			   |RevokeSecurityGroupIngressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
+			   |RevokeSecurityGroup(?:E|In)gressResponse|AllocateAddressResponse|ReleaseAddressResponse|AssociateAddressResponse|DescribeRegionsResponse
 			   |CreateQueueResponse|ResponseMetadata|DescribeSnapshotAttributeResponse|ModifySnapshotAttributeResponse|ResetSnapshotAttributeResponse
 			   |CreateLoadBalancerResponse|DeleteLoadBalancerResponse
 			   |DescribeSpotInstanceRequestsResponse|CancelSpotInstanceRequestsResponse|RequestSpotInstancesResponse|DescribeSpotPriceHistoryResponse
