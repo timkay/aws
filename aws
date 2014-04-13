@@ -3268,7 +3268,7 @@ sub parse_block_device_mapping
     push @result, "BlockDeviceMapping.N.DeviceName" => $dev;
     if ($vol eq "none")
     {
-	push @result, "BlockDeviceMapping.N.NoDevice" => "true";
+	push @result, "BlockDeviceMapping.N.NoDevice" => undef;   # no "true" - it's a non-value item.
     }
     elsif ($vol =~ /^ephemeral/)
     {
