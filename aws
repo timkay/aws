@@ -428,6 +428,8 @@ $cfn_version = "2010-05-15";
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironments.html
     ["ebn", "describe-environments", DescribeEnvironments, [
      ["", ApplicationName],
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
      ["includedeleted", IncludeDeleted],
      ["includedeletedbackto", IncludeDeletedBackTo],
      ["versionlabel", VersionLabel]
