@@ -2080,7 +2080,7 @@ if (!$cmd_data)
 
 	    for (my $i = 0; $i < @instanceId; $i++)
 	    {
-		$pending += $instanceState[$i] eq "pending";
+		$pending += $instanceState[$i] eq "pending" || $instanceState[$i] eq "stopping";
 		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
 	    }
 
@@ -2089,6 +2089,77 @@ if (!$cmd_data)
 	    sleep $wait;
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
 	}
+    }
+    elsif ($result =~ /<StartInstancesResponse|<StopInstancesResponse/ && ($simple || $wait))
+    {
+	my(@instanceId, @instanceState, @dnsName, @groupId);
+	my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
+
+	# First result is from start/stop so different location for instanceState => currentState
+	while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
+	{
+	    my($result) = ($1);
+	    while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
+	    {
+		my($result) = ($1);
+		my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
+		my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<currentState>(.*?)<\/currentState>/s;
+		my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+		push @instanceId, $instanceId;
+		push @instanceState, $instanceState;
+		push @dnsName, $dnsName;
+		push @groupId, $groupId;
+	    }
+	}
+
+	my($pending);
+
+	for (my $i = 0; $i < @instanceId; $i++)
+	{
+	    $pending += $instanceState[$i] eq "pending" || $instanceState[$i] eq "stopping";
+	    print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
+	}
+
+	last unless $wait && $pending;
+
+	sleep $wait;
+	$result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
+
+	# Now the result needs to be handled for describe-instances. instanceState => instanceState
+	for (;;)
+	{
+	    my(@instanceId, @instanceState, @dnsName, @groupId);
+	    my($groupId) = $result =~ /<groupId>(.*?)<\/groupId>/;
+
+	    while ($result =~ /(<instancesSet.*?<\/instancesSet>)/sg)
+	    {
+		my($result) = ($1);
+		while ($result =~ /(<item(?:<item.*?<\/item>|.)*?<\/item>)/sg)
+		{
+		    my($result) = ($1);
+		    my($instanceId) = $result =~ /<instanceId>(.*?)<\/instanceId>/s;
+		    my($instanceState) = map {/<name>(.*?)<\/name>/s} $result =~ /<instanceState>(.*?)<\/instanceState>/s;
+		    my($dnsName) = $result =~ /<dnsName>(.*?)<\/dnsName>/s;
+		    push @instanceId, $instanceId;
+		    push @instanceState, $instanceState;
+		    push @dnsName, $dnsName;
+		    push @groupId, $groupId;
+		}
+	    }
+
+	    my($pending);
+
+	    for (my $i = 0; $i < @instanceId; $i++)
+	    {
+		$pending += $instanceState[$i] eq "pending" || $instanceState[$i] eq "stopping";
+		print "$instanceId[$i]\t$instanceState[$i]\t$dnsName[$i]\t$groupId[$i]\n";
+	    }
+
+	    last unless $wait && $pending;
+
+	    sleep $wait;
+	    $result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
+	}	
     }
     elsif ($result =~ /<ListQueuesResult/)
     {
