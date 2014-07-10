@@ -901,10 +901,6 @@ $cfn_version = "2010-05-15";
     ["r53", "delete-hosted-zone dhz", 'DELETE|', [
 	 ['' => zone_id],
      ]],
-    ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
-	 ['' => zone_id],
-     	 [maxitems => maxitems],
-     ]],
     ["r53", "change-resource-record-set crrs", 'POST|rrset', [
 	 ['' => zone_id],
 	 ['name n', Name],
