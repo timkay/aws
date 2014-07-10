@@ -134,7 +134,7 @@ $cfn_version = "2010-05-15";
 	 ["GroupId i" => "GroupIdN"],
 	 ["filter F", undef, undef, \&parse_tags_describe],
      ]],
- 
+
     ["ec2", "describe-image-attribute", DescribeImageAttribute, [
 	 ["", ImageId],
 	 ["l", launchPermission],
@@ -473,7 +473,7 @@ $cfn_version = "2010-05-15";
     ###
     ### NOT Implemented: http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_ValidateConfigurationSettings.html
     ###
-    
+
     #############
     ###  ELB  ###
     #############
@@ -888,7 +888,7 @@ $cfn_version = "2010-05-15";
 	 [maxitems => maxitems],
      ]],
     ["r53", "get-change gch", 'GET|', [
-	 ['' => change_id], 
+	 ['' => change_id],
      ]],
     ["r53", "get-hosted-zone ghz", 'GET|', [
      	 ['', zone_id],
@@ -1258,7 +1258,7 @@ if ($assume)
     $data{SecurityToken} = $session if $session;
 
     my($url);
-    
+
     for (sort keys %data)
     {
 	$url .= "&" if $url;
@@ -1552,7 +1552,7 @@ if (!$cmd_data)
 
     if ($service eq "aws")
     {
-       if ($action eq "XMLVERSION") 
+       if ($action eq "XMLVERSION")
        {
           my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cfn" => $cfn_version };
           if ($#ARGV > 0)
@@ -1810,12 +1810,12 @@ if (!$cmd_data)
 	my ($pname, $aname) = @{ $param->[0] };
 	shift @$param unless $pname;
 	my $r53_endpoint = 'route53.amazonaws.com';
-	my $url="https://$r53_endpoint/$r53_version/"; 
+	my $url="https://$r53_endpoint/$r53_version/";
 	my ($method,$reqaction) = split(/\|/, $action);
 	die "No method (action = '$action') for $cmd." unless $method;
 	my (%prefix) = (zone_id => 'hostedzone',
 			change_id => 'change');
-	$url .= "$prefix{$aname}/$id" if $prefix{$aname};  # /hostedzone/xxx or /change/xxx 
+	$url .= "$prefix{$aname}/$id" if $prefix{$aname};  # /hostedzone/xxx or /change/xxx
 	$url .= "/$reqaction" if $reqaction;
 	$url .= "?" if $method eq 'GET';
 	my %args;
@@ -1845,7 +1845,7 @@ if (!$cmd_data)
 	my @curl = ('-H' => "'X-Amzn-Authorization: $auth'",
 		    '-H' => "'x-amz-date: $zulu'" );
 	push (@curl, '-H' => "x-amz-security-token:$session") if $session;
-	
+
 	my $cmd;
 	if ($method eq 'GET')
 	{
@@ -1861,7 +1861,7 @@ if (!$cmd_data)
 	    # nothing special to do in this case.  URL is set up.
 	    push (@curl, '-X' => $method); # must make it use this method.
 	}
-	else  # method must be POST 
+	else  # method must be POST
 	{
 	    my $hdr = R53_xml_data() -> {'header'};
 	    my $xmlsrc = R53_xml_data() -> {$action};
@@ -2159,7 +2159,7 @@ if (!$cmd_data)
 
 	    sleep $wait;
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
-	}	
+	}
     }
     elsif ($result =~ /<ListQueuesResult/)
     {
@@ -2653,7 +2653,8 @@ sub xml2yaml {
 	$result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
 	$result =~ s#($rubySymbol[^:]+): (.+)#\1: "\2"#g; # opening tags -> symbols
 	$result =~ s#:?(.*)/:#\1:#g;                      # empty values
-	$result =~ s#:?(item|bucket|member): #- #gi;      # array items
+	$result =~ s#:?(item|bucket|member|ResourceRecordSet|HostedZone): #- #gi;
+	                                                  # array items
 	$result =~ s#\t#  #g;                             # tabs -> spaces
 	$result =~ s#^[ :]*\n##mg;                        # remove all empty lines
 	$result =~ s#[ ]+$##gm;                           # remove all trailing spaces
@@ -3094,7 +3095,7 @@ sub pa
     my $endpoint = "webservices.amazon.com";
     my $uri = "/onca/xml";
     my %data = (Service => AWSECommerceService, AWSAccessKeyId => $awskey, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, Timestamp => $zulu, @p);
-    
+
     for (sort keys %data)
     {
 	if ($service eq "sqs" && $_ eq "QueueUri")
@@ -3188,7 +3189,7 @@ sub ec2
     $queue ||= "/";
 
     my($url);
-    
+
     for (sort keys %data)
     {
 	if ($service eq "sqs" && $_ eq "QueueUri")
@@ -3316,7 +3317,7 @@ sub sign
 	(my $pretty = $data) =~ s/\n/\\n/sg;
 	print STDERR "data = [$pretty]\n";
     }
-    
+
     encode_base64(hmac($data, $secret, $shaX eq HmacSHA256? \&sha256_sha256: \&sha1_sha1), "");
 }
 
@@ -3716,7 +3717,7 @@ sub R53_xml_data {
 }
 
 
-# 
+#
 # sha256 interface
 #
 
@@ -3802,7 +3803,7 @@ sub _sha256_transform
 
     my($T1, $T2);
     my($a, $b, $c, $d, $e, $f, $g, $h) = @{$self->{_state}};
-    
+
     for (my $t = 0; $t < 64; $t++)
     {
 	if ($t >= 16)
@@ -3887,16 +3888,16 @@ sub calc_hash
 
 	$self->_sha256_transform(unpack("N*", pack("C*", @{$self->{_buffer}})));
     }
-    
+
     $self;
 }
 
 sub get_hash_hex
 {
     my $self = shift;
-    
+
     return unless defined $self->{_state};
-    
+
     my $hex = "";
     $hex .= sprintf("%08x", $_) for @{$self->{_state}};
 
