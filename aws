@@ -300,6 +300,11 @@ $cfn_version = "2010-05-15";
 	 ["instance-initiated-shutdown-behavior" => InstanceInitiatedShutdownBehavior],
 	 ["placement-group" => "Placement.GroupName"],
 	 ["subnet s" => SubnetId],
+	 ["net-device-index" => "NetworkInterface.N.DeviceIndex"],
+	 ["net-security-group" => "NetworkInterface.N.SecurityGroupId.1"],
+	 ["net-subnet" => "NetworkInterface.N.SubnetId"],
+	 ["net-private-ip-address" => "NetworkInterface.N.PrivateIpAddress"],
+	 ["net-associate-public-ip-address" => "NetworkInterface.N.AssociatePublicIpAddress"],
 	 ["private-ip-address" => PrivateIpAddress],
 	 ["client-token" => ClientToken],
      ]],
@@ -361,6 +366,16 @@ $cfn_version = "2010-05-15";
      ["sourceconfiguration", SourceConfiguration],
      ["templatename", TemplateName]
     ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateEnvironment.html
+    ["ebn", "create-environment", CreateEnvironment, [
+     ["", ApplicationName],
+     ["cnameprefix", CNAMEPrefix],
+     ["description", Description],
+     ["environmentname", EnvironmentName],
+     ["solutionstackname", SolutionStackName],
+     ["versionlabel", VersionLabel],
+     ["templatename", TemplateName]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_CreateStorageLocation.html
     ["ebn", "create-storage-location", CreateStorageLocation, [
      ["", S3Bucket]
@@ -410,9 +425,16 @@ $cfn_version = "2010-05-15";
      ["environmentid", EnvironmentId],
      ["environmentname", EnvironmentName]
     ]],
+    # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironmentResources.html
+    ["ebn", "describe-environment-resources", DescribeEnvironmentResources, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_DescribeEnvironments.html
     ["ebn", "describe-environments", DescribeEnvironments, [
      ["", ApplicationName],
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
      ["includedeleted", IncludeDeleted],
      ["includedeletedbackto", IncludeDeletedBackTo],
      ["versionlabel", VersionLabel]
@@ -428,14 +450,22 @@ $cfn_version = "2010-05-15";
      ["environmentname", EnvironmentName]
     ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RequestEnvironmentInfo.html
-    ["ebn", "request-environment-info", RequestEnvironmentInfo, []],
+    ["ebn", "request-environment-info", RequestEnvironmentInfo, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["infotype", InfoType]
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RestartAppServer.html
     ["ebn", "restart-app-server", RestartAppServer, [
      ["environmentid", EnvironmentId],
      ["environmentname", EnvironmentName]
     ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_RetrieveEnvironmentInfo.html
-    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, []],
+    ["ebn", "retrieve-environment-info", RetrieveEnvironmentInfo, [
+     ["environmentid", EnvironmentId],
+     ["environmentname", EnvironmentName],
+     ["infotype", InfoType],
+    ]],
     # http://docs.aws.amazon.com/elasticbeanstalk/latest/APIReference/API_SwapEnvironmentCNAMEs.html
     ["ebn", "swap-environment-cnames", SwapEnvironmentCNAMEs, [
      ["destinationenvironmentid", DestinationEnvironmentId],
@@ -1174,7 +1204,7 @@ unless ($awskey && $secret)
 
            # handle authinfo/netrc format
            if ($secret_data =~ /^\s*
-	       machine\s+AWS\s+.*?
+	       machine\s+(\S+)\s+.*?
 	       login\s+(\S+)\s+.*?
 	       password\s+(\S+)\s+.*?
 	       (\s+session\s+(\S+?))?/xm)
@@ -2907,7 +2937,7 @@ sub s3
     my($vhost, $vname) = ($s3host, $uname);
     if (!$no_vhost)
     {
-	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\.\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
+	($vhost, $vname) = ($dns_alias? $1: "$1.$vhost", $2) if $uname =~ /^([0-9a-z][\-0-9a-z]{1,61}[0-9a-z])(?:\/(.*))?$/;
     }
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
