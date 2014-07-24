@@ -340,7 +340,8 @@ $rds_version = "2013-09-09";
     ####################################
     ###  Relational Database Service ###
     ####################################
-    # Short names are based on ec2 names with 'db' inserted
+    # Short command names are based on ec2 names with 'db' inserted
+    # Parameter names are the same as RDS CLI documentation, with some additions.
 
     ### Database Instances ###
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBInstance.html
