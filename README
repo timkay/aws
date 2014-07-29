@@ -1,4 +1,4 @@
-"aws" is a command line program that accesses Amazon Web Services: EC2, S3, SQS, SDB, ELB, IAM, EBN
+"aws" is a command line program that accesses Amazon Web Services: EC2, S3, SQS, SDB, ELB, IAM, EBN, RDS
 
 To run "aws", all you need is a single file!
 

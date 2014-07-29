@@ -28,6 +28,7 @@ $pa_version  = "2009-01-06";
 $r53_version = "2012-02-29";
 $ebn_version = "2010-12-01";
 $cfn_version = "2010-05-15";
+$rds_version = "2013-09-09";
 
 #
 # Need to implement:
@@ -336,6 +337,113 @@ $cfn_version = "2010-05-15";
 	 ["tag", undef, undef, \&parse_tags_delete],
      ]],
 
+    ####################################
+    ###  Relational Database Service ###
+    ####################################
+    # Short command names are based on ec2 names with 'db' inserted
+    # Parameter names are the same as RDS CLI documentation, with some additions.
+
+    ### Database Instances ###
+
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-ModifyDBInstance.html
+    ["rds", "modify-db-instance mdb", ModifyDBInstance, [
+     ["", DBInstanceIdentifier],
+     ["allocated-storage s", AllocatedStorage],
+     ["allow-major-version-upgrade", AllowMajorVersionUpgrade],
+     ["apply-immediately", ApplyImmediately],
+     ["auto-minor-version-upgrade au", AutoMinorVersionUpgrade],
+     ["backup-retention-period r", BackupRetentionPeriod],
+     ["db-instance-class c", DBInstanceClass],
+     ["db-parameter-group-name g", DBParameterGroupName],
+     ["db-security-groups a", "DBSecurityGroups.memberN"],
+     ["engine-version v", EngineVersion],
+     ["iops", Iops],
+     ["master-user-password p", MasterUserPassword],
+     ["multi-az m", MultiAZ],
+     ["new-db-instance-identifier n", NewDBInstanceIdentifier],
+     ["option-group og", OptionGroupName],
+     ["preferred-backup-window b", PreferredBackupWindow],
+     ["preferred-maintenance-window w", PreferredMaintenanceWindow],
+     ["vpc-security-group-ids sg", "VpcSecurityGroupIds.memberN"]
+    ]],
+      
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBInstance.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DeleteDBInstance.html
+    ["rds", "delete-db-instance deldb", DeleteDBInstance, [
+     ["", DBInstanceIdentifier],
+     ["final-db-snapshot-identifier final", FinalDBSnapshotIdentifier],
+     ["skip-final-snapshot s", SkipFinalSnapshot]
+    ]],
+      
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_AddTagsToResource.html
+    ["rds", "add-tags-to-resource cdbtags", AddTagsToResource, [
+     ["", ResourceName],
+     ["tag", undef, undef, \&parse_tags_member]
+    ]],
+
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBInstances.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DescribeDBInstances.html
+    ["rds", "describe-db-instances ddb", DescribeDBInstances, [
+     ["", DBInstanceIdentifier],
+     ["marker", Marker],
+     ["max-records m", MaxRecords]
+    ]],
+    
+    ### Database Snapshots and Point-In-Time Recovery ###
+    
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBSnapshot.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-CreateDBSnapshot.html
+    ["rds", "create-db-snapshot cdbsnap", CreateDBSnapshot, [
+     ["", DBInstanceIdentifier],
+     ["db-snapshot-identifier s snapshot", DBSnapshotIdentifier],
+     ["tag", undef, undef, \&parse_tags_member]
+    ]],
+ 
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBSnapshots.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DescribeDBSnapshots.html
+    ["rds", "describe-db-snapshots ddbsnap", DescribeDBSnapshots, [
+     ["db-instance-identifier i", DBInstanceIdentifier],
+     ["db-snapshot-identifier s snapshot", DBSnapshotIdentifier],
+     ["marker", Marker],
+     ["max-records m", MaxRecords],
+     ["snapshot-type t", SnapshotType]
+    ]],
+ 
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CopyDBSnapshot.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-CopyDBSnapshot.html
+    ["rds", "copy-db-snapshot cpdbsnap", CopyDBSnapshot, [
+     ["", SourceDBSnapshotIdentifier],
+     ["target-db-snapshot-identifier t", TargetDBSnapshotIdentifier],
+     ["tag", undef, undef, \&parse_tags_member]
+    ]],
+    
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_RestoreDBInstanceFromDBSnapshot.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-RestoreDBInstanceFromDBSnapshot.html
+    ["rds", "restore-db-instance-from-db-snapshot rdb", RestoreDBInstanceFromDBSnapshot, [
+     ["", DBInstanceIdentifier],
+     ["db-snapshot-identifier s snapshot", DBSnapshotIdentifier],
+     ["auto-minor-version-upgrade au", AutoMinorVersionUpgrade],
+     ["availability-zone z", AvailabilityZone],
+     ["db-instance-class c", DBInstanceClass],
+     ["db-name n", DBName],
+     ["db-subnet-group sn", DBSubnetGroupName],
+     ["engine e", Engine],
+     ["iops", Iops],
+     ["license-model lm", LicenseModel],
+     ["multi-az m", MultiAZ],
+     ["option-group og", OptionGroupName],
+     ["port", Port],
+     ["publicly-accessible pub", PubliclyAccessible],
+     ["tag", undef, undef, \&parse_tags_member]
+    ]],
+    
+    # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBSnapshot.html
+    # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DeleteDBSnapshot.html
+    ["rds", "delete-db-snapshot deldbsnap", DeleteDBSnapshot, [
+     ["", DBSnapshotIdentifier]
+    ]],
+     
     ###########################
     ###  Elastic BeaNstalk  ###
     ###########################
@@ -957,7 +1065,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
 
 
 # parse meta-parameters, leaving parameters in @argv
@@ -1096,7 +1204,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cfn: $cfn_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cfn: $cfn_version, rds: $rds_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1531,7 +1639,9 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cfn $cfn_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cfn $cfn_version, rds: $rds_version)\n";
+    $output .= "Documentation: Search in Google for 'aws <service>-<cmd> cli' e.g. 'aws rds-restore-db-instance-from-db-snapshot cli'\n";
+    $output .= "\tThe link with 'rds-' on the front will list all the parameter shortcuts\n";
     die $output;
 }
 
@@ -1580,7 +1690,7 @@ if (!$cmd_data)
     {
        if ($action eq "XMLVERSION")
        {
-          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cfn" => $cfn_version };
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cfn" => $cfn_version, "rds" => $rds_version };
           if ($#ARGV > 0)
           {
                print "$versions->{$argv[0]}\n";
@@ -1594,7 +1704,7 @@ if (!$cmd_data)
           }
        }
     }
-    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cfn")
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cfn"  || $service eq "rds")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -2187,6 +2297,72 @@ if (!$cmd_data)
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-instances @instanceId];
 	}
     }
+    elsif ($result =~ /<CreateDBSnapshotResponse|<DeleteDBSnapshotResponse|<CopyDBSnapshotResponse/ && ($simple || $wait))
+    {
+	#<CreateDBSnapshotResponse xmlns="http://rds.amazonaws.com/doc/2013-09-09/">
+	#	<CreateDBSnapshotResult>
+	#		<DBSnapshot>
+	#			<Port>3306</Port>
+	#			<OptionGroupName>default:mysql-5-1</OptionGroupName>
+	#			<Engine>mysql</Engine>
+	#			<Status>creating</Status>
+	#			<SnapshotType>manual</SnapshotType>
+	#			<LicenseModel>general-public-license</LicenseModel>
+	#			<DBInstanceIdentifier>dbinstance</DBInstanceIdentifier>
+	#			<EngineVersion>5.1.69</EngineVersion>
+	#			<DBSnapshotIdentifier>asnapshot</DBSnapshotIdentifier>
+	#			<VpcId>vpc-30zzzzz</VpcId>
+	#			<AvailabilityZone>ap-southeast-2b</AvailabilityZone>
+	#			<InstanceCreateTime>2014-07-16T05:27:55.909Z</InstanceCreateTime>
+	#			<PercentProgress>0</PercentProgress>
+	#			<AllocatedStorage>5</AllocatedStorage>
+	#			<MasterUsername>user</MasterUsername>
+	#		</DBSnapshot>
+	#	</CreateDBSnapshotResult>
+	#	<ResponseMetadata>
+	#		<RequestId>2f1b87fa-12ed-11e4-be67-5b99b2d10c58</RequestId>
+	#	</ResponseMetadata>
+	#</CreateDBSnapshotResponse>
+	
+	for (;;)
+	{
+	    my($instanceId) = $result =~ /<DBInstanceIdentifier>(.*?)<\/DBInstanceIdentifier>/s;
+	    my($snapshotId) = $result =~ /<DBSnapshotIdentifier>(.*?)<\/DBSnapshotIdentifier>/s;
+	    my($progress) = $result =~ /<PercentProgress>(.*?)<\/PercentProgress>/s;
+	    my($status) = $result =~ /<Status>(.*?)<\/Status>/s;
+	    
+	    my($pending) += $status eq "creating" || $status eq "deleting";
+	    
+	    print "$instanceId\t$snapshotId\t$status\t$progress\n";
+    
+	    last unless $wait && $pending;
+    
+	    sleep $wait;
+	    $result = qx[$0 --cmd0 --xml --region=$region describe-db-snapshots -s $snapshotId];
+	}
+    }
+   elsif ($result =~ /<RestoreDBInstanceFromDBSnapshotResponse|<DeleteDBInstanceResponse|<ModifyDBInstanceResponse/ && ($simple || $wait))
+    {
+	# The current status of the instance.
+	# Valid values: available | backing-up | creating | deleted | deleting | failed | incompatible-restore |
+	# 		incompatible-parameters | modifying | rebooting | resetting-master-credentials | storage-full
+	for (;;)
+	{
+	    my($instanceId) = $result =~ /<DBInstanceIdentifier>(.*?)<\/DBInstanceIdentifier>/s;
+	    my($zone) = $result =~ /<AvailabilityZone>(.*?)<\/AvailabilityZone>/s;	# Zone is not available for RestoreDBInstanceFromDBSnapshotResponse
+	    my($engine) = $result =~ /<Engine>(.*?)<\/Engine>/s;
+	    my($status) = $result =~ /<DBInstanceStatus>(.*?)<\/DBInstanceStatus>/s;
+	    
+	    my($pending) += $status ne "available";
+	    
+	    print "$instanceId\t$engine\t$status\t$zone\n";
+    
+	    last unless $wait && $pending;
+    
+	    sleep $wait;
+	    $result = qx[$0 --cmd0 --xml --region=$region describe-db-instances $instanceId];
+	}
+    }     
     elsif ($result =~ /<ListQueuesResult/)
     {
 	if ($simple)
@@ -2337,6 +2513,12 @@ if (!$cmd_data)
     }
     else
     {
+	# If there is an error response and we haven't yet set an error return, do it now
+	if ( $result =~ /<ErrorResponse/ && !$ExitCode)
+	{
+	    $ExitCode = 1;
+	}
+	
 	print xml2tab($result) || xmlpp($result);
     }
 
@@ -3161,6 +3343,7 @@ sub ec2
     $version .= $iam_version if $service eq "iam";
     $version .= $ebn_version if $service eq "ebn";
     $version .= $cfn_version if $service eq "cfn";
+    $version .= $rds_version if $service eq "rds";
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
     $region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc $region} || $region;
@@ -3209,6 +3392,12 @@ sub ec2
         $endpoint = "cloudformation.$region.amazonaws.com" if $region;
     }
 
+    if ( $service eq "rds")
+    {
+        $endpoint = "rds.us-east-1.amazonaws.com";
+        $endpoint = "rds.$region.amazonaws.com" if $region;
+    }
+    
     my @session = (SecurityToken => $session) if $session;
     my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
@@ -3468,6 +3657,11 @@ sub parse_tags_delete
     ["Tag.N.Key" => $_[0]];
 }
 
+sub parse_tags_member
+{
+    my($key, $value) = split(/=/, $_[0], 2);
+    ["Tags.member.N.Key" => $key, "Tags.member.N.Value" => $value];
+}
 
 sub cq
 {
