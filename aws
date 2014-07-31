@@ -1080,7 +1080,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume batch cmd0 content_length credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume batch cmd0 content_length content_type credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
 	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 sign silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
@@ -2933,6 +2933,7 @@ sub s3
     if ($verb eq PUT)
     {
 	my($found_content_type, $found_content_md5);
+        (push @header, "Content-Type: $content_type"), $found_content_type++ if $content_type;
 	for (@header)
 	{
 	    $found_content_type++ if /^content-type:/i;
