@@ -19,7 +19,7 @@
 
 
 $ec2_version = "2013-10-15";
-$sqs_version = "2009-02-01";
+$sqs_version = "2012-11-05";
 $elb_version = "2010-07-01";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
@@ -960,6 +960,7 @@ $rds_version = "2013-09-09";
 	 [attribute => AttributeNameN],
 	 [n => MaxNumberOfMessages],
 	 [timeout => VisibilityTimeout],
+         [wait => WaitTimeSeconds],
      ]],
 
     ["sqs", "remove-permission remperm", RemovePermission, [
