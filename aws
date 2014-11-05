@@ -2447,7 +2447,7 @@ if (!$cmd_data)
 		}
 		else
 		{
-		    my $cmd = qq[$0 dm $argv[0] --handle $handle];
+		    my $cmd = qq[$0 --cmd0 --region=$region dm $argv[0] --handle $handle];
 		    print "$cmd\n" if $v;
 		    my $dm = qx[$cmd];
 		    print "$dm\n" if $v;
