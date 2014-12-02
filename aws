@@ -1019,6 +1019,9 @@ $rds_version = "2013-09-09";
 	 [c => ConsistentRead],
 	 [next => NextToken],
      ]],
+    ["sdb", "domain-metadata", DomainMetadata, [
+         ["" => DomainName],
+     ]],
     #####  R53 (Route 53, DNS)
     ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
 	 ['' => zone_id],
@@ -2410,6 +2413,11 @@ if (!$cmd_data)
 	{
 	    print ary2tab([@$ary]);
 	}
+    }
+    elsif ($result =~ /<DomainMetadataResponse/)
+    {
+        my $ary = xml2ary(DomainMetadataResult, $result);
+        print ary2tab([@$ary]);
     }
     elsif ($result =~ /<GetAttributesResponse/ && $d1)
     {
