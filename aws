@@ -17,7 +17,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-require v5.10;
 
 $ec2_version = "2013-10-15";
 $sqs_version = "2012-11-05";
@@ -30,8 +29,6 @@ $r53_version = "2012-02-29";
 $ebn_version = "2010-12-01";
 $cfn_version = "2010-05-15";
 $rds_version = "2013-09-09";
-
-use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex);
 
 #
 # Need to implement:
@@ -1022,9 +1019,6 @@ use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex);
 	 [c => ConsistentRead],
 	 [next => NextToken],
      ]],
-    ["sdb", "domain-metadata", DomainMetadata, [
-         ["" => DomainName],
-     ]],
     #####  R53 (Route 53, DNS)
     ["r53", "list-resource-record-sets lrrs", 'GET|rrset', [
 	 ['' => zone_id],
@@ -1090,10 +1084,10 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume AWS4 batch cmd0 content_length content_type credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
+    @meta{qw(1 assume batch cmd0 content_length content_type credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
 	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
 	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
-	     s3host sanity_check secrets_file set_acl sha1 silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
+	     s3host sanity_check secrets_file set_acl sha1 sign silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -1539,6 +1533,10 @@ $curl_options .= $progress? " --progress": " -s";
 $curl_options .= " --max-time $max_time" if $max_time;
 $curl_options .= " --limit-rate $limit_rate" if $limit_rate;
 
+
+#use Digest::SHA1 qw(sha1);
+#use Digest::SHA::PurePerl qw(sha1);
+#use MIME::Base64; -- added encode_base64() below
 
 use IO::File;
 use File::Temp qw(tempfile);
@@ -2413,11 +2411,6 @@ if (!$cmd_data)
 	    print ary2tab([@$ary]);
 	}
     }
-    elsif ($result =~ /<DomainMetadataResponse/)
-    {
-        my $ary = xml2ary(DomainMetadataResult, $result);
-        print ary2tab([@$ary]);
-    }
     elsif ($result =~ /<GetAttributesResponse/ && $d1)
     {
 	while ($result =~ /<Attribute>(.*?)<\/Attribute>/sg)
@@ -3138,8 +3131,7 @@ sub s3
     print STDERR "vhost=$vhost  vname=$vname\n" if $v;
 
     my $isGETobj = ($verb eq HEAD || $verb eq GET) && $uname =~ /\/./ && $uname !~ /\?/;
-    my $expire_time = ($expire_time || 30) + $time_offset; # note we rewrite $expire_time, only for S3
-    my $expires = time + $expire_time;
+    my $expires = time + ($expire_time || 30) + $time_offset;
 
     my($content_type, $content_md5);
 
@@ -3159,13 +3151,9 @@ sub s3
 
     if ($isGETobj && ($verb eq HEAD || !$fail) && !$request)
     {
-	my $url = "$scheme://$vhost/$vname";
-        if ($AWS4) {
-            $url = signAWS4("s3", HEAD, $url, $expire_time, [@header]);
-        } else {
-            my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-            $url .= "@{[$vname =~ /\?/? '&': '?']}Expires=$expires&AWSAccessKeyId=@{[encode_url($awskey)]}&Signature=@{[encode_url(sign($data))]}";
-        }
+	my $data = "HEAD\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
+	my $sig = sign($data);
+	my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
 	my $cmd = qq[$curl $curl_options $insecureaws $header --head @{[cq($url)]}];
 	print STDERR "$cmd\n" if $v;
 	my $head = qx[$cmd];
@@ -3233,26 +3221,14 @@ sub s3
 	$verb = PUT;
     }
 
-    my $url = "$scheme://$vhost/$vname";
+    my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
+    my $sig = sign($data);
 
-    if ($AWS4) {
-        my(@qs);
-        push @qs, "marker=$marker" if $marker;
-        push @qs, "prefix=$prefix" if $prefix;
-        push @qs, "delimiter=$delimiter" if $delimiter;
-        push @qs, "max-keys=$max_keys" if $max_keys;
-        $url .= ($url =~ /\?/? '&': '?') . join("&", @qs) if @qs;
-        $url = signAWS4("s3", $verb, $url, $expire_time, [@header]); # sends a copy of @header, not the original
-    } else {
-        my(@qs);
-        push @qs, "marker=@{[encode_url($marker)]}" if $marker;
-        push @qs, "prefix=@{[encode_url($prefix)]}" if $prefix;
-        push @qs, "delimiter=$delimiter" if $delimiter;
-        push @qs, "max-keys=$max_keys" if $max_keys;
-        $url .= ($url =~ /\?/? '&': '?') . join("&", @qs) if @qs;
-        my $data = "$verb\n$content_md5\n$content_type\n$expires\n$header_sign/$uname";
-        $url .= "@{[$url =~ /\?/? '&': '?']}Expires=$expires&AWSAccessKeyId=@{[encode_url($awskey)]}&Signature=@{[encode_url(sign($data))]}";
-    }
+    my $url = "$scheme://$vhost/$vname@{[$vname =~ /\?/? '&': '?']}AWSAccessKeyId=@{[encode_url($awskey)]}&Expires=$expires&Signature=@{[encode_url($sig)]}";
+    $url .= "&marker=@{[encode_url($marker)]}" if $marker;
+    $url .= "&prefix=@{[encode_url($prefix)]}" if $prefix;
+    $url .= "&delimiter=$delimiter" if $delimiter;
+    $url .= "&max-keys=$max_keys" if $max_keys;
 
     return $url if $request;
 
@@ -3460,17 +3436,10 @@ sub ec2
 }
 
 
-sub encode_url_slash
-{
-    my($s) = @_;
-    $s =~ s/([^\-\.0-9a-z\_\~])/%@{[uc unpack(H2,$1)]}/ig;
-    $s;
-}
-
 sub encode_url
 {
     my($s) = @_;
-    $s =~ s/([^\/\-\.0-9a-z\_\~])/%@{[uc unpack(H2,$1)]}/ig;
+    $s =~ s/([^\-\.0-9a-z\_\~])/%@{[uc unpack(H2,$1)]}/ig;
     $s;
 }
 
@@ -3561,82 +3530,6 @@ sub get_home_directory
 }
 
 
-sub signAWS4
-{
-    my($service, $verb, $url, $expire_time, $headers) = @_;
-
-    my $region = $region || "us-east-1";
-
-    my $date = sub {sprintf "%4d%02d%02d", 1900 + $_[5], 1 + $_[4], $_[3]}->(gmtime);
-    my $time = sub {sprintf "%02d%02d%02d", $_[2], $_[1], $_[0]}->(gmtime);
-
-    my $timestamp = join("", $date, "T", $time, "Z");
-    my $scope = lc "$date/$region/$service/aws4_request";
-
-    my($CanonicalURL, $qs) = split(/\?/, $url, 2);
-    my $CanonicalURI = $CanonicalURL;
-    $CanonicalURI =~ s[^.+?://.+?/][/];
-
-    my @qs = split(/&/, $qs);
-    s/^(.+?)(?:=(.*))?$/$1=$2/ for @qs; # add = to parameters that have no value (e.g. &acl --> &acl=)
-    if (1)
-    {
-        push @qs, "X-Amz-Algorithm=AWS4-HMAC-SHA256";
-        push @qs, "X-Amz-Credential=$awskey/$scope";
-        push @qs, "X-Amz-Date=$timestamp";
-        push @qs, "X-Amz-Expires=$expire_time";
-        push @qs, "X-Amz-SignedHeaders=host";
-    }
-    @qs = sort @qs;
-    my $CanonicalQs = join("&", map {/^(.+?)=(.*)$/; encode_url_slash($1) . "=" . encode_url_slash($2)} @qs);
-
-    my($host) = $CanonicalURL =~ /^.+?:\/\/(.+?)\//;
-    push @$headers, "Host: $host";
-    if (0)
-    {
-        push @$headers, "X-Amz-Algorithm=AWS4-HMAC-SHA256";
-        push @$headers, "X-Amz-Credential=" . encode_url("$awskey/$scope");
-        push @$headers, "X-Amz-Date=$timestamp";
-        push @$headers, "X-Amz-Expires=$expire_time";
-        push @$headers, "X-Amz-SignedHeaders=host";
-    }
-    s/^(.+?):\s*(.*)$/\L$1\E:$2/ for @$headers;
-    my $CanonicalHeaders = join("\n", @$headers, undef);
-    my $SignedHeaders = join(";", sort map {/^(.+?):/; $1} @$headers);
-
-    my $HashedPayload = "UNSIGNED-PAYLOAD";
-
-    my $creq = join("\n", $verb, $CanonicalURI, $CanonicalQs, $CanonicalHeaders, $SignedHeaders, $HashedPayload);
-    my $creq_hash = sha256_hex($creq);
-
-    my $sts = join("\n", "AWS4-HMAC-SHA256", $timestamp, $scope, $creq_hash);
-
-    my $key = "AWS4$secret";
-    for (split(/\//, $scope))
-    {
-        $key = hmac_sha256($_, $key);
-    }
-    my $sig = hmac_sha256_hex($sts, $key);
-
-    my $url = $CanonicalURL;
-    $url = $url . ($url =~ /\?/? '&': '?') . $CanonicalQs;
-    $url = $url . ($url =~ /\?/? '&': '?') . "X-Amz-Signature=$sig";
-
-    if ($v)
-    {
-	(my $pretty = $s) =~ s/\n/\\n/sg;
-	print STDERR "data = [$pretty]\n";
-    }
-
-    $url;
-}
-
-sub pad4
-{
-    my($s) = @_;
-    $s . "=" x (3 - (length($s) + 3) % 4);
-}
-
 sub sign
 {
     my($data, $shaX) = @_;
@@ -3647,8 +3540,9 @@ sub sign
 	print STDERR "data = [$pretty]\n";
     }
 
-    return hmac_sha256($data, $secret) if shaX eq HmacSHA256;
-    pad4(hmac_sha1_base64($data, $secret));
+    print $data, "--\n";
+    print encode_base64(hmac($data, $secret, $shaX eq HmacSHA256? \&sha256_sha256: \&sha1_sha1), ""), "\n";
+    encode_base64(hmac($data, $secret, $shaX eq HmacSHA256? \&sha256_sha256: \&sha1_sha1), "");
 }
 
 
@@ -3824,4 +3718,465 @@ sub xcmp
     }
 
     return $cmp;
+}
+
+
+#
+# hmac() was taken from the Digest::HMAC CPAN module
+# Copyright 1998-2001 Gisle Aas.
+# Copyright 1998 Graham Barr.
+# This library is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
+#
+
+sub hmac
+{
+    my($data, $key, $hash_func, $block_size) = @_;
+    $block_size ||= 64;
+    $key = &$hash_func($key) if length($key) > $block_size;
+
+    my $k_ipad = $key ^ (chr(0x36) x $block_size);
+    my $k_opad = $key ^ (chr(0x5c) x $block_size);
+
+    $hash_func->($k_opad, $hash_func->($k_ipad, $data));
+}
+
+#
+# end of hmac()
+#
+
+
+#
+# sha1() was taken from http://www.movable-type.co.uk/scripts/SHA-1.html
+# Copyright 2002-2005 Chris Veness
+# You are welcome to re-use these scripts [without any warranty express or implied]
+# provided you retain my copyright notice and when possible a link to my website.
+#
+# Conversion from Javascript
+# Copyright 2007 Timothy Kay
+#
+
+sub sha1_sha1
+{
+    # integer arithment should be mod 32
+    use integer;
+
+    my $msg = join("", @_);
+
+    #constants [4.2.1]
+    my @K = (0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6);
+
+    # PREPROCESSING
+
+    $msg .= pack(C, 0x80); # add trailing '1' bit to string [5.1.1]
+
+    # convert string msg into 512-bit/16-integer blocks arrays of ints [5.2.1]
+    my @M = unpack("N*", $msg . pack C3);
+    # how many integers are needed (to make complete 512-bit blocks), including two words with length
+    my $N = 16 * int((@M + 2 + 15) / 16);
+    # add length (in bits) into final pair of 32-bit integers (big-endian) [5.1.1]
+    @M[$N - 2, $N - 1] = (sha1_lsr(8 * length($msg), 29), 8 * (length($msg) - 1));
+
+    # set initial hash value [5.3.1]
+    my @H = (0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0);
+
+    # HASH COMPUTATION [6.1.2]
+
+    for (my $i = 0; $i < $N; $i += 16)
+    {
+	# 1 - prepare message schedule 'W'
+	my @W = @M[$i..$i + 15];
+
+	# 2 - initialise five working variables a, b, c, d, e with previous hash value
+	my($a, $b, $c, $d, $e) = @H;
+
+	# 3 - main loop
+	for (my $t = 0; $t < 80; $t++)
+	{
+	    $W[$t] = sha1_rotl($W[$t - 3] ^ $W[$t - 8] ^ $W[$t - 14] ^ $W[$t - 16], 1) if $t >= 16;
+	    my $s = int($t / 20); # seq for blocks of 'f' functions and 'K' constants
+	    my $T = sha1_rotl($a, 5) + sha1_f($s, $b, $c, $d) + $e + $K[$s] + $W[$t];
+	    ($e, $d, $c, $b, $a) = ($d, $c, sha1_rotl($b, 30), $a, $T);
+	}
+
+	# 4 - compute the new intermediate hash value
+	$H[0] += $a;
+	$H[1] += $b;
+	$H[2] += $c;
+	$H[3] += $d;
+	$H[4] += $e;
+    }
+
+    pack("N*", @H);
+}
+
+
+#
+# function 'f' [4.1.1]
+#
+
+sub sha1_f
+{
+    my($s, $x, $y, $z) = @_;
+
+    return ($x & $y) ^ (~$x & $z) if $s == 0;
+    return $x ^ $y ^ $z if $s == 1 || $s == 3;
+    return ($x & $y) ^ ($x & $z) ^ ($y & $z) if $s == 2;
+}
+
+
+#
+# rotate left (circular left shift) value x by n positions [3.2.5]
+#
+
+sub sha1_rotl
+{
+    my($x, $n) = @_;
+    ($x << $n) | (($x & 0xffffffff) >> (32 - $n));
+}
+
+
+#
+# logical shift right value x by n positions
+# done using floating point, so that it works for more than 32 bits
+#
+
+sub sha1_lsr
+{
+    no integer;
+    my($x, $n) = @_;
+    $x / 2 ** $n;
+}
+
+#
+# end of sha1()
+#
+
+
+#
+# Jim Dannemiller says MIME::Base64 was missing from the Perl installation
+# on a small Linux handheld, so I added this code here instead of including
+# MIME::Base64.
+#
+# Copyright 1995-1999, 2001-2004 Gisle Aas.
+#
+# This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+#
+# Distantly based on LWP::Base64 written by Martijn Koster <m.koster@nexor.co.uk> and Joerg Reichelt <j.reichelt@nexor.co.uk>
+# and code posted to comp.lang.perl <3pd2lp$6gf@wsinti07.win.tue.nl> by Hans Mulder <hansm@wsinti07.win.tue.nl>
+#
+
+sub encode_base64 ($;$)
+{
+    if ($] >= 5.006) {
+	require bytes;
+	if (bytes::length($_[0]) > length($_[0]) ||
+	    ($] >= 5.008 && $_[0] =~ /[^\0-\xFF]/))
+	{
+	    require Carp;
+	    Carp::croak("The Base64 encoding is only defined for bytes");
+	}
+    }
+
+    use integer;
+
+    my $eol = $_[1];
+    $eol = "\n" unless defined $eol;
+
+    my $res = pack("u", $_[0]);
+    # Remove first character of each line, remove newlines
+    $res =~ s/^.//mg;
+    $res =~ s/\n//g;
+
+    $res =~ tr|` -_|AA-Za-z0-9+/|;               # `# help emacs
+	# fix padding at the end
+	my $padding = (3 - length($_[0]) % 3) % 3;
+    $res =~ s/.{$padding}$/'=' x $padding/e if $padding;
+    # break encoded string into lines of no more than 76 characters each
+    if (length $eol) {
+	$res =~ s/(.{1,76})/$1$eol/g;
+    }
+    return $res;
+}
+
+
+sub decode_base64 ($)
+{
+    local($^W) = 0; # unpack("u",...) gives bogus warning in 5.00[123]
+    use integer;
+
+    my $str = shift;
+    $str =~ tr|A-Za-z0-9+=/||cd;            # remove non-base64 chars
+    if (length($str) % 4) {
+	require Carp;
+	Carp::carp("Length of base64 data not a multiple of 4")
+    }
+    $str =~ s/=+$//;                        # remove padding
+    $str =~ tr|A-Za-z0-9+/| -_|;            # convert to uuencoded format
+    return "" unless length $str;
+
+    ## I guess this could be written as
+    #return unpack("u", join('', map( chr(32 + length($_)*3/4) . $_,
+    #$str =~ /(.{1,60})/gs) ) );
+    ## but I do not like that...
+    my $uustr = '';
+    my ($i, $l);
+    $l = length($str) - 60;
+    for ($i = 0; $i <= $l; $i += 60) {
+	$uustr .= "M" . substr($str, $i, 60);
+    }
+    $str = substr($str, $i);
+    # and any leftover chars
+    if ($str ne "") {
+	$uustr .= chr(32 + length($str)*3/4) . $str;
+    }
+    return unpack ("u", $uustr);
+}
+
+#
+# end of encode_base64()
+#
+
+sub R53_xml_data {
+    return { 'header' => '<?xml version="1.0" encoding="UTF-8"?>',
+	     'POST|' => '<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"><Name></Name><CallerReference></CallerReference><HostedZoneConfig><Comment></Comment></HostedZoneConfig></CreateHostedZoneRequest>',
+	     'POST|rrset' => '<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"> <ChangeBatch> <Comment></Comment> <Changes> <!--REPEAT--> <Change> <Action></Action> <ResourceRecordSet> <Name></Name> <Type></Type> <TTL></TTL> <ResourceRecords> <ResourceRecord> <Value></Value> </ResourceRecord> </ResourceRecords> </ResourceRecordSet> </Change> <!--/REPEAT--> </Changes> </ChangeBatch> </ChangeResourceRecordSetsRequest>',
+
+    };
+}
+
+
+#
+# sha256 interface
+#
+
+sub sha256_sha256
+{
+    SHA256->new(join("", @_))->get_hash;
+}
+
+
+package SHA256;
+
+sub _sum_mod32
+{
+    my $result = 0;
+    for (@_)
+    {
+	my $lsw = ($_ & 0xffff) + ($result & 0xffff);
+	my $msw = ($_ >> 16) + ($result >> 16) + ($lsw >> 16);
+	$result = (($msw & 0xffff) << 16) | ($lsw & 0xffff);
+    }
+    $result;
+}
+
+sub _ch
+{
+    my ($x, $y, $z) = @_;
+    ($x & $y) ^ (~$x & $z & 0xffffffff);
+}
+
+sub _maj
+{
+    my ($x, $y, $z) = @_;
+    ($x & $y) ^ ($x & $z) ^ ($y & $z);
+}
+
+# Gets:
+#    $b  number of bits to rotate (should be < 32)
+#    $x  value to rotate (word32)
+# Returns value rotated right by n bits
+sub _rotr_32
+{
+    my ($b, $x) = @_;
+    ($x >> $b) | (($x & ((1 << $b) - 1)) << (32 - $b));
+}
+
+sub _SIGMA0_32
+{
+    my $x = shift;
+    _rotr_32(2, $x) ^ _rotr_32(13, $x) ^ _rotr_32(22, $x);
+}
+
+sub _SIGMA1_32
+{
+    my $x = shift;
+    _rotr_32(6, $x) ^ _rotr_32(11, $x) ^ _rotr_32(25, $x);
+}
+
+sub _sigma0_32
+{
+    my $x = shift;
+    _rotr_32(7, $x) ^ _rotr_32(18, $x) ^ ($x >> 3);
+}
+
+sub _sigma1_32
+{
+    my $x = shift;
+    _rotr_32(17, $x) ^ _rotr_32(19, $x) ^ ($x >> 10);
+}
+
+# Word32 to Byte list
+# Gets a Word32 integer (truncates to 32 bit if bigger)
+# Returns a 4 Byte list
+sub _w32_to_bl
+{
+    my $j = shift;
+    ($j >> 24) & 0xff, ($j >> 16) & 0xff, ($j >> 8) & 0xff, $j & 0xff;
+}
+
+# Gets a word32 array
+sub _sha256_transform
+{
+    my($self, @W256) = @_;
+
+    my($T1, $T2);
+    my($a, $b, $c, $d, $e, $f, $g, $h) = @{$self->{_state}};
+
+    for (my $t = 0; $t < 64; $t++)
+    {
+	if ($t >= 16)
+	{
+	    $W256[$t] = _sum_mod32(
+		_sigma1_32($W256[$t - 2]),
+		$W256[$t - 7],
+		_sigma0_32($W256[$t - 15]),
+		$W256[$t - 16]
+		);
+	}
+
+	$T1 = _sum_mod32($h, _SIGMA1_32($e), _ch($e, $f, $g), $K256[$t], $W256[$t]);
+	$T2 = _sum_mod32(_SIGMA0_32($a), _maj($a, $b, $c));
+
+	$h = $g;
+	$g = $f;
+	$f = $e;
+	$e = _sum_mod32($d, $T1);
+	$d = $c;
+	$c = $b;
+	$b = $a;
+	$a = _sum_mod32($T1, $T2);
+    }
+
+    $self->{_state}[0] = _sum_mod32($self->{_state}[0], $a);
+    $self->{_state}[1] = _sum_mod32($self->{_state}[1], $b);
+    $self->{_state}[2] = _sum_mod32($self->{_state}[2], $c);
+    $self->{_state}[3] = _sum_mod32($self->{_state}[3], $d);
+    $self->{_state}[4] = _sum_mod32($self->{_state}[4], $e);
+    $self->{_state}[5] = _sum_mod32($self->{_state}[5], $f);
+    $self->{_state}[6] = _sum_mod32($self->{_state}[6], $g);
+    $self->{_state}[7] = _sum_mod32($self->{_state}[7], $h);
+}
+
+###################################################
+
+# Gets:
+#    Reference to Array of Bytes
+# Returns:
+#    Hash as an hexadecimal string
+sub calc_hash
+{
+    my $self = shift;
+    my $data_ref = shift;
+
+    return if !defined $data_ref;
+    my $len = @$data_ref;
+    return if $len == 0;
+
+    $self->{_state} = [
+	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+	];
+
+    $self->{_bitcount}[1] = $len >> 29;
+    $self->{_bitcount}[0] = ($len & 0x1fffffff) << 3;
+
+    # Process data in chunks of 64 bytes
+    for (my $j = 0; $j < $len; $j += 64)
+    {
+	if (($len - $j) < 64)
+	{
+	    @{$self->{_buffer}} = (@$data_ref[$j .. ($len - 1)], 0x80, (0) x (64 - ($len - $j) - 1));
+	    $len++;
+
+	    if (($len - $j) > 56)
+	    {
+		$self->_sha256_transform(unpack("N*", pack("C*", @{$self->{_buffer}})));
+		@{$self->{_buffer}} = (0) x 64;
+	    }
+
+	    @{$self->{_buffer}}[56 .. (64 - 1)] = (
+		_w32_to_bl($self->{_bitcount}[1]),
+		_w32_to_bl($self->{_bitcount}[0])
+		);
+	}
+	else
+	{
+	    @{$self->{_buffer}} = @$data_ref[$j .. ($j + 64 - 1)];
+	}
+
+	$self->_sha256_transform(unpack("N*", pack("C*", @{$self->{_buffer}})));
+    }
+
+    $self;
+}
+
+sub get_hash_hex
+{
+    my $self = shift;
+
+    return unless defined $self->{_state};
+
+    my $hex = "";
+    $hex .= sprintf("%08x", $_) for @{$self->{_state}};
+
+    $hex;
+}
+
+sub get_hash
+{
+    my $self = shift;
+    return unless defined $self->{_state};
+    return pack("N*", @{$self->{_state}});
+}
+
+sub new
+{
+    @K256 = (
+	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+	0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+	0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+	0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+	0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+	0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+	0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+	0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+	0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+	0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+	0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+	0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+	0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+	);
+
+    my $class = shift;
+    my $datastring = shift;
+
+    my $self =
+    {
+	_bitcount => [0, 0],
+	_buffer => [(0) x 64],
+	_state => undef,
+    };
+
+    bless $self, $class;
+
+    if (defined $datastring)
+    {
+	$self->calc_hash([unpack("C*", $datastring)]);
+    }
+
+    $self;
 }
