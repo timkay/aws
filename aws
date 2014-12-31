@@ -1090,8 +1090,8 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
     @needs_arg{qw(region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume AWS4 batch cmd0 content_length content_type credential_helper curl curl_options cut d delimiter dns_alias dump_xml exec expire_time fail h help http
-	     insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
+    @meta{qw(1 assume AWS4 batch cmd0 content_length content_type credential_helper curl curl_options cut d default_curl_cipher delimiter dns_alias dump_xml
+             exec expire_time fail h help http insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
 	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
@@ -1198,6 +1198,7 @@ $v = 3 if $vvv;
 $curl ||= "curl";
 
 $curl_q  = "-q";
+$curl_q .= " --cipher RC4-SHA" unless $default_curl_cipher;
 $curl_q .= " -K \"$home/.awscurlrc\"" if -e "$home/.awscurlrc";
 
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
