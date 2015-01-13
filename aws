@@ -3445,7 +3445,7 @@ sub ec2
 	    next;
 	}
 	$url .= "&" if $url;
-	$url .= "$_=@{[encode_url($data{$_})]}";
+	$url .= "$_=@{[encode_url_slash($data{$_})]}";
     }
 
     my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
