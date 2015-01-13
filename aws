@@ -1198,7 +1198,7 @@ $v = 3 if $vvv;
 $curl ||= "curl";
 
 $curl_q  = "-q";
-$curl_q .= " --cipher RC4-SHA" unless $default_curl_cipher;
+#$curl_q .= " --cipher RC4-SHA" unless $default_curl_cipher;
 $curl_q .= " -K \"$home/.awscurlrc\"" if -e "$home/.awscurlrc";
 
 $ENV{COLUMNS}-- if $ENV{COLUMNS} && $ENV{EMACS};
