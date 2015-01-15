@@ -21,7 +21,7 @@ require v5.10;
 
 $ec2_version = "2013-10-15";
 $sqs_version = "2012-11-05";
-$elb_version = "2010-07-01";
+$elb_version = "2011-11-15";
 $sdb_version = "2009-04-15";
 $iam_version = "2010-05-08";
 $sts_version = "2011-06-15";
