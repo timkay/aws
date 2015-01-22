@@ -463,9 +463,9 @@ use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex hmac_
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DescribeDBLogFiles.html
     ["rds", "describe-db-log-files ddlf", DescribeDBLogFiles, [
      ["", DBInstanceIdentifier],
+     ["filename-contains c", FilenameContains],
      ["file-last-written l", FileLastWritten],
      ["file-size s", FileSize],
-     ["filename-contains c", FilenameContains],
      ["marker m", Marker],
      ["max-records x", MaxRecords]
     ]],
