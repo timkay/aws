@@ -32,6 +32,7 @@ $cfn_version = "2010-05-15";
 $rds_version = "2013-09-09";
 
 use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex hmac_sha256_base64);
+use MIME::Base64 qw(encode_base64);
 
 #
 # Need to implement:
