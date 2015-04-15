@@ -3176,7 +3176,7 @@ sub s3
 
     push @header, "x-amz-security-token:$session" if $session;
 
-    my $header_sign = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
+    my $header_sign = join("\n", map({$_->[1]} sort {$a->[0] cmp $b->[0]} map {s/^(.*?):\s*/\L$1:/s; [lc $1, $_]} grep /^x-amz-/i, @header), "") if @header;
     my $header = join(" --header ", undef, map {cq($_)} @header);
 
     if ($isGETobj && ($verb eq HEAD || !$fail) && !$request)
