@@ -3457,9 +3457,9 @@ sub ec2
         $endpoint = "rds.us-east-1.amazonaws.com";
         $endpoint = "rds.$region.amazonaws.com" if $region;
     }
-    
+
     my @session = (SecurityToken => $session) if $session;
-    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => $AWS4? 4: 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     $queue ||= "/";
 
@@ -3476,8 +3476,14 @@ sub ec2
 	$url .= "$_=@{[encode_url_slash($data{$_})]}";
     }
 
-    my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
-    $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
+
+    if ($AWS4) {
+        $url = signAWS4($service, GET, "$scheme://$endpoint$queue?$url", $expire_time);
+    } else {
+        my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
+        $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
+    }
+
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
@@ -3634,6 +3640,12 @@ sub signAWS4
     my $SignedHeaders = join(";", sort map {/^(.+?):/; $1} @$headers);
 
     my $HashedPayload = "UNSIGNED-PAYLOAD";
+    if ($service ne "s3") {
+        # S3 and the other services do not agree on this parameter.
+        # For UNSIGNED-PAYLOAD, see http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html.
+        # It doesn't work for EC2.
+        $HashedPayload = sha256_hex("")
+    };
 
     my $creq = join("\n", $verb, $CanonicalURI, $CanonicalQs, $CanonicalHeaders, $SignedHeaders, $HashedPayload);
     my $creq_hash = sha256_hex($creq);
