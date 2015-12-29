@@ -32,6 +32,7 @@ $cfn_version = "2010-05-15";
 $rds_version = "2013-09-09";
 
 use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex hmac_sha256_base64);
+use MIME::Base64 qw(encode_base64);
 
 #
 # Need to implement:
@@ -1107,12 +1108,12 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
     # --foo=bar, then slurp up the next item as the value.  Thus, for example,
     #  --region=eu  and  --region eu  both work, with or without the =.
     my(%need_arg, $key_for_arg);
-    @needs_arg{qw(region)} = undef;
+    @needs_arg{qw(metadata region)} = undef;
 
     my(%meta);
     @meta{qw(1 assume AWS4 batch cmd0 content_length content_type credential_helper curl curl_options cut d default_curl_cipher delimiter dns_alias dump_xml
              exec expire_time fail h help http insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
-	     max_time marker md5 no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
+	     max_time marker md5 metadata no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
 	     s3host sanity_check secrets_file set_acl sha1 silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
@@ -1849,6 +1850,13 @@ if (!$cmd_data)
 		push @file, $_;
 	    }
 	}
+
+        if ($metadata) {
+            for (split(/,/, $metadata)) {
+                my($key, $val) = split(/=/, $_, 2);
+                push @head, "$key: $val";
+            }
+        }
 
 	my $bucket = shift @file;
 
@@ -3175,7 +3183,7 @@ sub s3
 
     push @header, "x-amz-security-token:$session" if $session;
 
-    my $header_sign = join("\n", sort(map {s/^(.*?):\s*/\L$1:/s; $_} grep /^x-amz-/, @header), "") if @header;
+    my $header_sign = join("\n", map({$_->[1]} sort {$a->[0] cmp $b->[0]} map {s/^(.*?):\s*/\L$1:/s; [lc $1, $_]} grep /^x-amz-/i, @header), "") if @header;
     my $header = join(" --header ", undef, map {cq($_)} @header);
 
     if ($isGETobj && ($verb eq HEAD || !$fail) && !$request)
@@ -3449,9 +3457,9 @@ sub ec2
         $endpoint = "rds.us-east-1.amazonaws.com";
         $endpoint = "rds.$region.amazonaws.com" if $region;
     }
-    
+
     my @session = (SecurityToken => $session) if $session;
-    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => $AWS4? 4: 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
 
     $queue ||= "/";
 
@@ -3468,8 +3476,14 @@ sub ec2
 	$url .= "$_=@{[encode_url_slash($data{$_})]}";
     }
 
-    my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
-    $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
+
+    if ($AWS4) {
+        $url = signAWS4($service, GET, "$scheme://$endpoint$queue?$url", $expire_time);
+    } else {
+        my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
+        $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
+    }
+
     return $url if $request;
     local($/);			# return a string regardless of wantarray
     print "$url\n" if $v >= 2;
@@ -3626,6 +3640,12 @@ sub signAWS4
     my $SignedHeaders = join(";", sort map {/^(.+?):/; $1} @$headers);
 
     my $HashedPayload = "UNSIGNED-PAYLOAD";
+    if ($service ne "s3") {
+        # S3 and the other services do not agree on this parameter.
+        # For UNSIGNED-PAYLOAD, see http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html.
+        # It doesn't work for EC2.
+        $HashedPayload = sha256_hex("")
+    };
 
     my $creq = join("\n", $verb, $CanonicalURI, $CanonicalQs, $CanonicalHeaders, $SignedHeaders, $HashedPayload);
     my $creq_hash = sha256_hex($creq);
@@ -3672,6 +3692,12 @@ sub sign
     pad4(hmac_sha1_base64($data, $secret));
 }
 
+sub R53_xml_data {
+    return { 'header' => '<?xml version="1.0" encoding="UTF-8"?>',
+             'POST|' => '<CreateHostedZoneRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"><Name></Name><CallerReference></CallerReference><HostedZoneConfig><Comment></Comment></HostedZoneConfig></CreateHostedZoneRequest>',
+             'POST|rrset' => '<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2012-02-29/"> <ChangeBatch> <Comment></Comment> <Changes> <!--REPEAT--> <Change> <Action></Action> <ResourceRecordSet> <Name></Name> <Type></Type> <TTL></TTL> <ResourceRecords> <ResourceRecord> <Value></Value> </ResourceRecord> </ResourceRecords> </ResourceRecordSet> </Change> <!--/REPEAT--> </Changes> </ChangeBatch> </ChangeResourceRecordSetsRequest>',
+    };
+}
 
 sub parse_filter
 {
