@@ -2897,7 +2897,8 @@ sub xml2yaml {
 
     $rubySymbol = ":" if $ruby;
 
-    $result =~ s#\n# #g;
+  $result =~ s#> +#>#g;                             # remove trailing spaces after >
+  $result =~ s#\n# #g;                              # replace all \n by a single space
 	$result =~ s#> #>\n#g;                            # remove all '\n's
 	$result =~ s#</.*>##g;                            # remove closing tags
 	$result =~ s#<([a-z0-9:]*).*>#$rubySymbol\1: #gi; # opening tags -> symbols
