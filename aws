@@ -1160,7 +1160,7 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
 	elsif (/^-(\w+)$/)
 	{
 	    if (exists $keyword{$1}
-                || $_ eq "-1" && $cmd =~ /^auth(?:orize)?$/ && $argv[-1] =~ /^-(?:protocol|P|p)$/ # force -1 to be a protocol (or P) or port (p) parameter rather than set $d1
+                || $_ eq "-1" && $cmd =~ /^(auth(?:orize)?)|(revoke)$/ && $argv[-1] =~ /^-(?:protocol|P|p)$/ # force -1 to be a protocol (or P) or port (p) parameter rather than set $d1
                 )
 	    {
 		push @argv, $_;
