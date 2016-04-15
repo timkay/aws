@@ -55,6 +55,7 @@ use MIME::Base64 qw(encode_base64);
     ["ec2", "add-group addgrp", CreateSecurityGroup, [
 	 ["", GroupName],
 	 ["d", GroupDescription],
+	 ["vpc c", VpcId],
      ]],
     ["ec2", "add-keypair addkey", CreateKeyPair, [["", KeyName]]],
     ["ec2", "add-placement-group", CreatePlacementGroup, [
@@ -374,7 +375,7 @@ use MIME::Base64 qw(encode_base64);
      ["preferred-maintenance-window w", PreferredMaintenanceWindow],
      ["vpc-security-group-ids sg", "VpcSecurityGroupIds.memberN"]
     ]],
-      
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBInstance.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DeleteDBInstance.html
     ["rds", "delete-db-instance deldb", DeleteDBInstance, [
@@ -382,7 +383,7 @@ use MIME::Base64 qw(encode_base64);
      ["final-db-snapshot-identifier final", FinalDBSnapshotIdentifier],
      ["skip-final-snapshot s", SkipFinalSnapshot]
     ]],
-      
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_AddTagsToResource.html
     ["rds", "add-tags-to-resource cdbtags", AddTagsToResource, [
      ["", ResourceName],
@@ -396,9 +397,9 @@ use MIME::Base64 qw(encode_base64);
      ["marker", Marker],
      ["max-records m", MaxRecords]
     ]],
-    
+
     ### Database Snapshots and Point-In-Time Recovery ###
-    
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBSnapshot.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-CreateDBSnapshot.html
     ["rds", "create-db-snapshot cdbsnap", CreateDBSnapshot, [
@@ -406,7 +407,7 @@ use MIME::Base64 qw(encode_base64);
      ["db-snapshot-identifier s snapshot", DBSnapshotIdentifier],
      ["tag", undef, undef, \&parse_tags_member]
     ]],
- 
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBSnapshots.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DescribeDBSnapshots.html
     ["rds", "describe-db-snapshots ddbsnap", DescribeDBSnapshots, [
@@ -416,7 +417,7 @@ use MIME::Base64 qw(encode_base64);
      ["max-records m", MaxRecords],
      ["snapshot-type t", SnapshotType]
     ]],
- 
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CopyDBSnapshot.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-CopyDBSnapshot.html
     ["rds", "copy-db-snapshot cpdbsnap", CopyDBSnapshot, [
@@ -424,7 +425,7 @@ use MIME::Base64 qw(encode_base64);
      ["target-db-snapshot-identifier t", TargetDBSnapshotIdentifier],
      ["tag", undef, undef, \&parse_tags_member]
     ]],
-    
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_RestoreDBInstanceFromDBSnapshot.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-RestoreDBInstanceFromDBSnapshot.html
     ["rds", "restore-db-instance-from-db-snapshot rdb", RestoreDBInstanceFromDBSnapshot, [
@@ -444,7 +445,7 @@ use MIME::Base64 qw(encode_base64);
      ["publicly-accessible pub", PubliclyAccessible],
      ["tag", undef, undef, \&parse_tags_member]
     ]],
-    
+
     # http://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBSnapshot.html
     # http://docs.aws.amazon.com/AmazonRDS/latest/CommandLineReference/CLIReference-cmd-DeleteDBSnapshot.html
     ["rds", "delete-db-snapshot deldbsnap", DeleteDBSnapshot, [
@@ -470,7 +471,7 @@ use MIME::Base64 qw(encode_base64);
      ["marker m", Marker],
      ["max-records x", MaxRecords]
     ]],
-     
+
     ###########################
     ###  Elastic BeaNstalk  ###
     ###########################
@@ -2360,20 +2361,20 @@ if (!$cmd_data)
 	#		<RequestId>2f1b87fa-12ed-11e4-be67-5b99b2d10c58</RequestId>
 	#	</ResponseMetadata>
 	#</CreateDBSnapshotResponse>
-	
+
 	for (;;)
 	{
 	    my($instanceId) = $result =~ /<DBInstanceIdentifier>(.*?)<\/DBInstanceIdentifier>/s;
 	    my($snapshotId) = $result =~ /<DBSnapshotIdentifier>(.*?)<\/DBSnapshotIdentifier>/s;
 	    my($progress) = $result =~ /<PercentProgress>(.*?)<\/PercentProgress>/s;
 	    my($status) = $result =~ /<Status>(.*?)<\/Status>/s;
-	    
+
 	    my($pending) += $status eq "creating" || $status eq "deleting";
-	    
+
 	    print "$instanceId\t$snapshotId\t$status\t$progress\n";
-    
+
 	    last unless $wait && $pending;
-    
+
 	    sleep $wait;
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-db-snapshots -s $snapshotId];
 	}
@@ -2389,17 +2390,17 @@ if (!$cmd_data)
 	    my($zone) = $result =~ /<AvailabilityZone>(.*?)<\/AvailabilityZone>/s;	# Zone is not available for RestoreDBInstanceFromDBSnapshotResponse
 	    my($engine) = $result =~ /<Engine>(.*?)<\/Engine>/s;
 	    my($status) = $result =~ /<DBInstanceStatus>(.*?)<\/DBInstanceStatus>/s;
-	    
+
 	    my($pending) += $status ne "available";
-	    
+
 	    print "$instanceId\t$engine\t$status\t$zone\n";
-    
+
 	    last unless $wait && $pending;
-    
+
 	    sleep $wait;
 	    $result = qx[$0 --cmd0 --xml --region=$region describe-db-instances $instanceId];
 	}
-    }     
+    }
     elsif ($result =~ /<ListQueuesResult/)
     {
 	if ($simple)
@@ -2560,7 +2561,7 @@ if (!$cmd_data)
 	{
 	    $ExitCode = 1;
 	}
-	
+
 	print xml2tab($result) || xmlpp($result);
     }
 
