@@ -88,6 +88,7 @@ use MIME::Base64 qw(encode_base64);
 	 #["t", icmp type code],
 	 ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
 	 ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+	 ["source-group-id oi" => "IpPermissions.1.Groups.N.GroupId"],
 	 ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
      ]],
     ["ec2", "cancel-spot-instance-requests cancel csir", CancelSpotInstanceRequests, [
@@ -277,6 +278,7 @@ use MIME::Base64 qw(encode_base64);
 	 #["t", icmp type code],
 	 ["source-group-user u" => "IpPermissions.1.Groups.N.UserId"],
 	 ["source-group o" => "IpPermissions.1.Groups.N.GroupName"],
+	 ["source-group-id oi" => "IpPermissions.1.Groups.N.GroupId"],
 	 ["s" => "IpPermissions.1.IpRanges.N.CidrIp"],
      ]],
     ["ec2", "run-instances run-instance run", RunInstances, [
