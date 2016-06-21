@@ -28,7 +28,7 @@ $sts_version = "2011-06-15";
 $pa_version  = "2009-01-06";
 $r53_version = "2012-02-29";
 $ebn_version = "2010-12-01";
-$cfn_version = "2010-05-15";
+$cloudformation_version = "2010-05-15";
 $rds_version = "2013-09-09";
 
 use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex hmac_sha256_base64);
@@ -924,15 +924,15 @@ use MIME::Base64 qw(encode_base64);
 	 ["maxitems i" => "MaxItems"],
      ]],
 
-    ["cfn", "describestacks", DescribeStacks,[
+    ["cloudformation", "describestacks", DescribeStacks,[
          ["" => StackName],
      ]],
-    ["cfn", "describestackresources", DescribeStackResources,[
+    ["cloudformation", "describestackresources", DescribeStackResources,[
          ["" => StackName],
          ["l" => LogicalResourceId],
          ["p" => PhysicalResourceId],
      ]],
-    ["cfn", "describestackresource", DescribeStackResource,[
+    ["cloudformation", "describestackresource", DescribeStackResource,[
          ["" => StackName],
          ["l" => LogicalResourceId],
      ]],
@@ -1242,7 +1242,7 @@ END {close STDOUT}
 $s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cfn: $cfn_version, rds: $rds_version)\n" if $v;
+print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cloudformation: $cloudformation_version, rds: $rds_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1673,7 +1673,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cfn $cfn_version, rds: $rds_version)\n";
+    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cloudformation $cloudformation_version, rds: $rds_version)\n";
     $output .= "Documentation: Search in Google for 'aws <service>-<cmd> cli' e.g. 'aws rds-restore-db-instance-from-db-snapshot cli'\n";
     $output .= "\tThe link with 'rds-' on the front will list all the parameter shortcuts\n";
     die $output;
@@ -1724,7 +1724,7 @@ if (!$cmd_data)
     {
        if ($action eq "XMLVERSION")
        {
-          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cfn" => $cfn_version, "rds" => $rds_version };
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cloudformation" => $cloudformation_version, "rds" => $rds_version };
           if ($#ARGV > 0)
           {
                print "$versions->{$argv[0]}\n";
@@ -1738,7 +1738,7 @@ if (!$cmd_data)
           }
        }
     }
-    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cfn"  || $service eq "rds")
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cloudformation"  || $service eq "rds")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -3407,7 +3407,7 @@ sub ec2
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
     $version .= $ebn_version if $service eq "ebn";
-    $version .= $cfn_version if $service eq "cfn";
+    $version .= $cloudformation_version if $service eq "cloudformation";
     $version .= $rds_version if $service eq "rds";
 
     # see http://developer.amazonwebservices.com/connect/entry!default.jspa?externalID=3912
@@ -3451,7 +3451,7 @@ sub ec2
 	$endpoint = "elasticbeanstalk.$region.amazonaws.com" if $region;
     }
 
-    if ( $service eq "cfn")
+    if ( $service eq "cloudformation")
     {
         $endpoint = "cloudformation.us-east-1.amazonaws.com";
         $endpoint = "cloudformation.$region.amazonaws.com" if $region;
