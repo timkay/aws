@@ -1100,7 +1100,7 @@ $home = get_home_directory();
 # Figure out $cmd.  If the program is run as other than "aws", then $0 contains
 # the command.  This way, you can link aws to the command names (with or without
 # ec2 or s3 prefix) and not have to type "aws".
-unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^l?aws/;
+unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^\w*aws/;
 
 
 # parse meta-parameters, leaving parameters in @argv
