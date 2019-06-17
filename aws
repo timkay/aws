@@ -1970,7 +1970,7 @@ if (!$cmd_data)
 		if ($r !~ /^<\?xml/)
 		{
 		    print $r;
-		    exit;
+		    exit 255;
 		}
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
