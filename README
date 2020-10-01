@@ -1,4 +1,5 @@
 "aws" is a command line program that accesses Amazon Web Services: EC2, S3, SQS, SDB, ELB, IAM, EBN, RDS
+You need to have your account on Amazon Web Services for the same in order to obtain your Secret Key and Access Key
 
 To run "aws", all you need is a single file!
 
