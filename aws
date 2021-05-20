@@ -1970,7 +1970,7 @@ if (!$cmd_data)
 		if ($r !~ /^<\?xml/)
 		{
 		    print $r;
-		    exit 255;
+		    exit;
 		}
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
@@ -3031,7 +3031,6 @@ sub s3
 		$md5 = encode_base64(pack("H*", (split(" ", qx[md5sum @{[cq($file)]}]))[0]), "");
 	    }
 
-	    push @header, "Content-MD5: $md5";
 	    print STDERR "setting $header[$#header]\n" if $v;
 	}
     }
