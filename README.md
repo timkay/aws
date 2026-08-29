@@ -33,7 +33,6 @@ It became unusually popular in the early AWS community:
   it had 22 reviews: 21 five-star reviews and one four-star review. The
   displayed average was still five stars.
 
-The old version of this README misremembered the review count and wording.
 The lone four-star review was posted on August 11, 2009, after 19 five-star
 reviews. Its reviewer wrote, "I'm reserving a star for the very best of all
 tools," while describing the review as favorable. Amazon's rating algorithm
