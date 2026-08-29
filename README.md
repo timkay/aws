@@ -19,7 +19,7 @@ This was one of the earliest unified command-line tools for AWS, initially
 covering EC2 and S3 and later growing to cover SQS, SDB, ELB, IAM, Elastic
 Beanstalk, RDS, STS, Route 53, CloudFormation, and Product Advertising.
 
-It became unusually popular in the early AWS community:
+It became super popular in the early AWS community:
 
 - An [archived AWS Developer Community listing from February
   2009](https://web.archive.org/web/20090202030321/http://developer.amazonwebservices.com/connect/entry.jspa?externalID=739&categoryID=85)
