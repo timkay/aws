@@ -77,7 +77,7 @@ The check happened every time `./aws` was invoked unless the user turned it
 off. Requests to the bucket eventually cost $400 per month on my personal AWS
 bill. It then took four months to persuade Amazon to transfer the bucket into
 its internal ownership after Amazon claimed that such a transfer was not
-possible.
+technically possible.
 
 The code remains useful and is also a small piece of early cloud-computing
 history.
