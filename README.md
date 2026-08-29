@@ -7,8 +7,7 @@ Updates: native `./aws login`, with no AWS CLI or SDK required.
 # aws: a small AWS command line
 
 `aws` is a single-file Perl command-line program for Amazon Web Services. It
-was first released in 2007, when Amazon's command-line tools were cumbersome
-and there was no unified official AWS CLI.
+was first released in 2007—when there were no AWS command-line tools!
 
 The design is deliberately austere: download one file, make it executable,
 and use it. Other than Perl and its core modules, the only runtime dependency
