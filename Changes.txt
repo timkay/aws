@@ -1,3 +1,20 @@
+aws-2.0 2026-08-29
+	* Signature Version 4 is now the default for supported AWS services
+	* added standard AWS shared credentials and config files, named profiles,
+	  regions, and credential_process
+	* added temporary credentials from environment variables, web-identity
+	  roles, ECS container endpoints, and IMDSv2 (with optional IMDSv1 fallback)
+	* added native browser/remote console login with PKCE, pure-Perl DPoP,
+	  secure local caching, and automatic credential refresh
+	* updated EC2 to API 2016-11-15 and added VPC/subnet discovery, DryRun,
+	  and IMDSv2 launch parameters
+	* added AWS CLI-style service prefixes, such as
+	  "aws ec2 describe-instances"
+	* added STS GetCallerIdentity and --version
+	* retained ~/.awssecret and explicit --signature-v2 compatibility
+	* added dependency-free offline tests, a live AWS connection smoke test,
+	  and opt-in live STS and S3 write/read/delete tests, including multipart
+
 To Do:
 	* pass sensitive data to curl via File::Temp::tempfile()
 
@@ -15,8 +32,8 @@ Notes:
 *** Switching to github: http://github.com/timkay/aws
 Future changes will be tracked there.
 
-THIS FILE REFERS TO VERSION NUMBERS.
-WE NO LONGER USE VERSION NUMBERS, AND INSTEAD RELY ON GIT TO TRACK CHANGES.
+Historical entries below refer to the 1.x releases. Version numbers returned
+with the 2.0 major update.
 
 aws-1.33
 	* don't use exec() for Windows - it runs asynchronously

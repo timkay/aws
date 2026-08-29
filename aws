@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Copyright 2007-2010 Timothy Kay
+# Copyright 2007-2026 Timothy Kay
 # http://timkay.com/aws/
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,9 @@
 
 require v5.10;
 
-$ec2_version = "2013-10-15";
+$program_version = "2.0";
+
+$ec2_version = "2016-11-15";
 $sqs_version = "2012-11-05";
 $elb_version = "2011-11-15";
 $sdb_version = "2009-04-15";
@@ -32,7 +34,8 @@ $cloudformation_version = "2010-05-15";
 $rds_version = "2013-09-09";
 
 use Digest::SHA qw(hmac_sha1_base64 sha256_hex hmac_sha256 hmac_sha256_hex hmac_sha256_base64);
-use MIME::Base64 qw(encode_base64);
+use MIME::Base64 qw(encode_base64 decode_base64);
+use Math::BigInt;
 
 #
 # Need to implement:
@@ -49,6 +52,9 @@ use MIME::Base64 qw(encode_base64);
 #
 
 @cmd = (
+    ["aws", "login", LOGIN, [
+	 ["remote" => Remote],
+     ]],
     ["aws", "xml-version", XMLVERSION, [
         ["", Service],
     ]],
@@ -169,6 +175,8 @@ use MIME::Base64 qw(encode_base64);
     ["ec2", "describe-keypairs dkey", DescribeKeyPairs, [["", KeyNameN]]],
     ["ec2", "describe-placement-groups", DescribePlacementGroups, [["", GroupNameN]]],
     ["ec2", "describe-regions dreg", DescribeRegions],
+    ["ec2", "describe-vpcs", DescribeVpcs, []],
+    ["ec2", "describe-subnets", DescribeSubnets, []],
     ["ec2", "describe-reserved-instances", DescribeReservedInstances, [
 	 ["", ReservedInstanceIdN],
      ]],
@@ -319,6 +327,10 @@ use MIME::Base64 qw(encode_base64);
 	 ["net-associate-public-ip-address" => "NetworkInterface.N.AssociatePublicIpAddress"],
 	 ["private-ip-address" => PrivateIpAddress],
 	 ["client-token" => ClientToken],
+	 ["dry-run" => DryRun],
+	 ["http-endpoint" => "MetadataOptions.HttpEndpoint"],
+	 ["http-tokens" => "MetadataOptions.HttpTokens"],
+	 ["http-put-response-hop-limit" => "MetadataOptions.HttpPutResponseHopLimit"],
      ]],
     ["ec2", "start-instances start", StartInstances, [["", InstanceIdN]]],
     ["ec2", "stop-instances stop", StopInstances, [["", InstanceIdN]]],
@@ -1091,6 +1103,7 @@ use MIME::Base64 qw(encode_base64);
 	 ["c" => Condition],
 	 ["a" => AssociateTag],
      ]],
+    ["sts", "get-caller-identity", GetCallerIdentity, []],
     );
 
 
@@ -1102,6 +1115,18 @@ $home = get_home_directory();
 # ec2 or s3 prefix) and not have to type "aws".
 unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(?:\..+)?$/ && $1 !~ /^\w*aws/;
 
+# Accept the official CLI's service prefix when it identifies one of our
+# existing commands: "aws ec2 describe-instances" as well as "aws din".
+for (my $i = 0; $i + 1 < @ARGV; $i++)
+{
+    my($service, $operation) = @ARGV[$i, $i + 1];
+    if (grep {$_->[0] eq $service && grep {$_ eq $operation} split(/\s+/, $_->[1])} @cmd)
+    {
+        splice(@ARGV, $i, 1);
+        last;
+    }
+}
+
 
 # parse meta-parameters, leaving parameters in @argv
 
@@ -1112,13 +1137,13 @@ unshift @ARGV, $1 if $0 =~ /^(?:.*[\\\/])?(?:(?:ec2|pa|s3|sqs|sdb|rds)-?)?(.+?)(
     # --foo=bar, then slurp up the next item as the value.  Thus, for example,
     #  --region=eu  and  --region eu  both work, with or without the =.
     my(%need_arg, $key_for_arg);
-    @needs_arg{qw(metadata region)} = undef;
+    @needs_arg{qw(config_file credentials_file metadata profile region)} = undef;
 
     my(%meta);
-    @meta{qw(1 assume AWS4 batch cmd0 content_length content_type credential_helper curl curl_options cut d default_curl_cipher delimiter dns_alias dump_xml
+    @meta{qw(1 assume AWS4 batch cmd0 config_file content_length content_type credential_helper credential_process credentials_file curl curl_options cut d default_curl_cipher delimiter dns_alias dump_xml
              exec expire_time fail h help http insecure insecure_signing insecure_aws insecureaws install json l limit_rate link max_keys
-	     max_time marker md5 metadata no_vhost netrc_machine parts prefix private progress public queue r region request requester retry role ruby quiet
-	     s3host sanity_check no_sanity_check secrets_file set_acl sha1 silent simple sts_host t v verbose vv vvv wait xml yaml)} = undef;
+	     max_time marker md5 metadata no_vhost netrc_machine parts prefix private profile progress public queue r region request requester retry role ruby quiet signature_v2
+	     s3host sanity_check no_sanity_check secrets_file set_acl sha1 silent simple sts_host t v verbose version vv vvv wait xml yaml)} = undef;
 
     my @awsrc = "";
     for (split(/(?:\#.*?(?=\n)|'(.*?)'|"((?:\\[\\\"]|.)*?)"|((?:\\.|\$.|[^\s\'\"\#])+))/s, load_file_silent("$home/.awsrc")))
@@ -1220,7 +1245,39 @@ $v ||= $verbose;
 $v = 2 if $vv;
 $v = 3 if $vvv;
 
+if ($version)
+{
+    print "aws $program_version\n";
+    exit 0;
+}
+
 $curl ||= "curl";
+
+$profile ||= $ENV{AWS_PROFILE} || $ENV{AWS_DEFAULT_PROFILE} || "default";
+$credentials_file ||= $ENV{AWS_SHARED_CREDENTIALS_FILE} || "$home/.aws/credentials";
+$config_file ||= $ENV{AWS_CONFIG_FILE} || "$home/.aws/config";
+
+my %profile_config = load_aws_profile($config_file, $profile, 1);
+my %profile_credentials = load_aws_profile($credentials_file, $profile, 0);
+my %shared_profile = (%profile_config, %profile_credentials);
+
+$region ||= $ENV{AWS_REGION} || $ENV{AWS_DEFAULT_REGION} || $shared_profile{region};
+$region = {eu => "eu-west-1", us => "us-east-1", uswest => "us-west-1", ap => "ap-southeast-1"}->{lc($region || "")} || $region;
+$credential_process ||= $shared_profile{credential_process};
+$AWS4 = 1 unless $signature_v2;
+
+if (($cmd || "") eq "login")
+{
+    if ($h || $help)
+    {
+	print STDERR "Usage: aws login [--profile PROFILE] [--region REGION] [--remote]\n";
+	exit 0;
+    }
+    die "Usage: aws login [--profile PROFILE] [--region REGION] [--remote]\n"
+	if grep {$_ !~ /^--remote(?:=1)?$/} @argv;
+    aws_login($profile, $config_file, $region || "us-east-1");
+    exit 0;
+}
 
 $curl_q  = "-q";
 #$curl_q .= " --cipher RC4-SHA" unless $default_curl_cipher;
@@ -1238,11 +1295,12 @@ if ($cut)
 # Exercise for the reader: why is this END block here?  (Hint: bug in Perl?)
 END {close STDOUT}
 
-# Don't know if the -gov- default for $s3host is correct... are there other GovCloud regions, and what endpoint do they use?
-$s3host ||= $ENV{S3_URL} || ($region =~ /-gov-/? "s3-$region.amazonaws.com": "s3.amazonaws.com");
+# Prefer a regional S3 endpoint so that the host and SigV4 credential scope
+# agree. Keep the classic endpoint for us-east-1 and for legacy callers.
+$s3host ||= $ENV{S3_URL} || ($region && $region ne "us-east-1" ? "s3.$region.amazonaws.com" : "s3.amazonaws.com");
 $sts_host ||= $ENV{STS_URL} || ($s3host =~ /^s3-(.*?)\.amazonaws\.com$/? "sts.$1.amazonaws.com": "sts.amazonaws.com");
 
-print STDERR "aws versions: (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, ebn: $ebn_version, cloudformation: $cloudformation_version, rds: $rds_version)\n" if $v;
+print STDERR "aws version: $program_version (ec2: $ec2_version, sqs: $sqs_version, elb: $elb_version, sdb: $sdb_version, iam: $iam_version, sts: $sts_version, ebn: $ebn_version, cloudformation: $cloudformation_version, rds: $rds_version)\n" if $v;
 
 $insecsign = "--insecure" if $insecure || $insecure_signing;
 $insecureaws = "--insecure" if $insecureaws || $insecure_aws;
@@ -1252,6 +1310,7 @@ $scheme = $http? "http": "https";
 $silent ||= !-t;
 $retry = 3 unless length($retry);
 
+$explicit_secrets_file = defined $secrets_file;
 
 $secrets_file ||= "$home/.awssecret" if -e "$home/.awssecret";
 $secrets_file ||= "$home/.s3cfg" if -e "$home/.s3cfg";
@@ -1270,21 +1329,7 @@ $netrc_machine ||= 'AWS';
 
 if ($role)
 {
-    if ($role == 1)
-    {
-	my $cmd = qq[$curl -s --max-time 2 --fail  http://169.254.169.254/latest/meta-data/iam/security-credentials/];
-	print "$cmd\n" if $v;
-	($role) = qx[$cmd];
-    }
-    if ($role)
-    {
-	my $cmd = qq[$curl -s --max-time 2 --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
-	print "$cmd\n" if $v;
-	my $json = qx[$cmd];
-	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
-	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
-	($session) = $json =~ /"Token" : "(.*?)"/;
-    }
+    ($awskey, $secret, $session) = credentials_from_imds($role);
 }
 
 unless ($awskey && $secret)
@@ -1295,6 +1340,32 @@ unless ($awskey && $secret)
 unless ($awskey && $secret)
 {
     ($awskey, $secret, $session) = @ENV{qw(EC2_ACCESS_KEY EC2_SECRET_KEY AWS_SESSION_TOKEN)};
+}
+
+unless ($awskey && $secret)
+{
+    my $web_identity_file = $ENV{AWS_WEB_IDENTITY_TOKEN_FILE} || $shared_profile{web_identity_token_file};
+    my $web_identity_role = $ENV{AWS_ROLE_ARN} || $shared_profile{role_arn};
+    if ($web_identity_file && $web_identity_role)
+    {
+        ($awskey, $secret, $session) = credentials_from_web_identity($web_identity_role, $web_identity_file);
+    }
+}
+
+unless ($awskey && $secret || $explicit_secrets_file)
+{
+    if ($shared_profile{login_session})
+    {
+        ($awskey, $secret, $session) = credentials_from_login($shared_profile{login_session});
+    }
+    elsif ($credential_process)
+    {
+        ($awskey, $secret, $session) = credentials_from_process($credential_process);
+    }
+    else
+    {
+        ($awskey, $secret, $session) = @shared_profile{qw(aws_access_key_id aws_secret_access_key aws_session_token)};
+    }
 }
 
 if ($credential_helper)
@@ -1404,42 +1475,35 @@ unless ($awskey && $secret)
 
 unless ($awskey && $secret)
 {
-    ($role) = qx[$curl -s --fail --max-time 1 http://169.254.169.254/latest/meta-data/iam/security-credentials/];
-    if ($role)
-    {
-	my $json = qx[$curl -s --fail http://169.254.169.254/latest/meta-data/iam/security-credentials/$role];
-	($awskey) = $json =~ /"AccessKeyId" : "(.*?)"/;
-	($secret) = $json =~ /"SecretAccessKey" : "(.*?)"/;
-	($session) = $json =~ /"Token" : "(.*?)"/;
-    }
+    ($awskey, $secret, $session) = credentials_from_container();
+}
+
+unless ($awskey && $secret || lc($ENV{AWS_EC2_METADATA_DISABLED} || "") eq "true")
+{
+    ($awskey, $secret, $session) = credentials_from_imds(1);
 }
 
 if ($assume)
 {
     $assume =~ s/\'//g;
-
-    my($sec, $min, $hour, $mday, $mon, $year, undef, undef, undef) = gmtime(time + $time_offset);
-    my $zulu = sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ", 1900 + $year, $mon + 1, $mday, $hour, $min, $sec;
-
     my %data = (
-	AWSAccessKeyId => $awskey, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => 2, Version => $sts_version, Timestamp => $zulu,
-	Action => AssumeRole,
-	RollSessionName => TimKayAWS,
+	Action => "AssumeRole",
+	RoleSessionName => "TimKayAWS",
 	RoleArn => $assume,
+	Version => $sts_version,
 	);
-    $data{SecurityToken} = $session if $session;
 
     my($url);
 
     for (sort keys %data)
     {
 	$url .= "&" if $url;
-	$url .= "$_=@{[encode_url($data{$_})]}";
+	$url .= "$_=@{[encode_url_slash($data{$_})]}";
     }
 
-    my $sig = sign("GET\n$sts_host\n/\n$url", $data{SignatureMethod});
-    $url = "https://$sts_host/?Signature=@{[encode_url($sig)]}&$url";
-    my $xml = qx[$curl -s '$url'];
+    my $assume_sts_host = $region ? "sts.$region.amazonaws.com" : $sts_host;
+    $url = signAWS4("sts", GET, "https://$assume_sts_host/?$url", 30, undef, undef, $region || "us-east-1");
+    my $xml = http_capture(10, $url);
 
     if ($xml !~ /<AccessKeyId>/)
     {
@@ -1488,7 +1552,7 @@ if ( !$no_sanity_check && (!-e "$home/.awsrc" || $sanity_check))
 		}
 	    }
 	}
-	elsif (($ENV{AWS_SECRET_ACCESS_KEY} && $ENV{AWS_ACCESS_KEY_ID}) || ($ENV{EC2_SECRET_KEY} && $ENV{EC2_ACCESS_KEY}))
+	elsif ($awskey && $secret)
 	{
 	}
 	elsif (!-e $secrets_file && $secrets_file !~ m/\|$/)
@@ -1673,7 +1737,7 @@ if (!$cmd_data)
 	    $output .= "\t\t$one\n";
 	}
     }
-    $output .= "aws versions: (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, ebn $ebn_version, cloudformation $cloudformation_version, rds: $rds_version)\n";
+    $output .= "aws version: $program_version (ec2 $ec2_version, sqs $sqs_version, elb $elb_version, sdb $sdb_version, sts $sts_version, ebn $ebn_version, cloudformation $cloudformation_version, rds: $rds_version)\n";
     $output .= "Documentation: Search in Google for 'aws <service>-<cmd> cli' e.g. 'aws rds-restore-db-instance-from-db-snapshot cli'\n";
     $output .= "\tThe link with 'rds-' on the front will list all the parameter shortcuts\n";
     die $output;
@@ -1724,7 +1788,7 @@ if (!$cmd_data)
     {
        if ($action eq "XMLVERSION")
        {
-          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "ebn" => $ebn_version, "cloudformation" => $cloudformation_version, "rds" => $rds_version };
+          my $versions = { "ec2" => $ec2_version, "sqs" => $sqs_version, "elb" => $elb_version, "sdb" => $sdb_version, "iam" => $iam_version, "sts" => $sts_version, "ebn" => $ebn_version, "cloudformation" => $cloudformation_version, "rds" => $rds_version };
           if ($#ARGV > 0)
           {
                print "$versions->{$argv[0]}\n";
@@ -1738,7 +1802,7 @@ if (!$cmd_data)
           }
        }
     }
-    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "pa" || $service eq "ebn" || $service eq "cloudformation"  || $service eq "rds")
+    elsif ($service eq "ec2" || $service eq "sqs" || $service eq "elb" || $service eq "sdb" || $service eq "iam" || $service eq "sts" || $service eq "pa" || $service eq "ebn" || $service eq "cloudformation"  || $service eq "rds")
     {
 	#print STDERR "(@{[join(', ', @argv)]})\n" if $v;
 
@@ -1967,10 +2031,16 @@ if (!$cmd_data)
 	    for (;;)
 	    {
 		my $r = s3($action, $marker, $bucket, $file, @head);
+		if ($request)
+		{
+		    print "$r\n";
+		    exit 0;
+		}
+		last if !length($r) && !$exit_code;
 		if ($r !~ /^<\?xml/)
 		{
 		    print $r;
-		    exit 255;
+		    exit($exit_code || 255);
 		}
 		$r =~ s/<\?xml.*?>\r?\s*//;
 		$result .= $r;
@@ -2011,17 +2081,7 @@ if (!$cmd_data)
 		last;
 	    }
 	}
-	my (@days)=(qw(Sun Mon Tue Wed Thu Fri Sat));
-	my (@months)=(qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec));
-	my ($sec, $min, $hour, $mday, $mon, $year, $dow, undef, undef) = gmtime(time + $time_offset);
-	my $zulu = sprintf ("%s, %02d %s %04d %02d:%02d:%02d GMT",
-			    $days[$dow], $mday, $months[$mon], 1900 + $year, $hour, $min, $sec);
-	my $algo = 'HmacSHA' . ($sha1 ? '1' : '256');
-	my $sig = sign ($zulu, $algo);
-	my $auth = "AWS3-HTTPS AWSAccessKeyId=$awskey,Algorithm=$algo,Signature=$sig";
-	my @curl = ('-H' => "'X-Amzn-Authorization: $auth'",
-		    '-H' => "'x-amz-date: $zulu'" );
-	push (@curl, '-H' => "x-amz-security-token:$session") if $session;
+	my @curl;
 
 	my $cmd;
 	if ($method eq 'GET')
@@ -2046,9 +2106,30 @@ if (!$cmd_data)
 		my $val = $args{$_};
 		$xmlsrc =~ s/(<$_>)/$1$val/;
 	    }
-	    $xmlsrc =~ s/'/'\\''/g;
-	    push (@curl, '--data' => "'$hdr$xmlsrc'");
+	    $content = "$hdr$xmlsrc";
+	    (my $quoted_content = $content) =~ s/'/'\\''/g;
+	    push (@curl, '--data' => "'$quoted_content'");
 	    push (@curl, '-H' => "'Content-type: text/xml'");
+	}
+
+	if ($AWS4)
+	{
+	    my @sign_headers = defined($content) ? ("Content-Type: text/xml") : ();
+	    $url = signAWS4("route53", $method, $url, 30, \@sign_headers, undef,
+	                   "us-east-1", sha256_hex(defined($content) ? $content : ""));
+	}
+	else
+	{
+	    my (@days)=(qw(Sun Mon Tue Wed Thu Fri Sat));
+	    my (@months)=(qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec));
+	    my ($sec, $min, $hour, $mday, $mon, $year, $dow, undef, undef) = gmtime(time + $time_offset);
+	    my $zulu = sprintf ("%s, %02d %s %04d %02d:%02d:%02d GMT",
+				$days[$dow], $mday, $months[$mon], 1900 + $year, $hour, $min, $sec);
+	    my $algo = 'HmacSHA' . ($sha1 ? '1' : '256');
+	    my $sig = sign ($zulu, $algo);
+	    my $auth = "AWS3-HTTPS AWSAccessKeyId=$awskey,Algorithm=$algo,Signature=$sig";
+	    push @curl, ('-H' => "'X-Amzn-Authorization: $auth'", '-H' => "'x-amz-date: $zulu'");
+	    push @curl, ('-H' => "x-amz-security-token:$session") if $session;
 	}
 
 	$cmd = qq[$curl $curl_options @curl $url];
@@ -3186,7 +3267,7 @@ sub s3
 	}
     }
 
-    push @header, "x-amz-security-token:$session" if $session;
+    push @header, "x-amz-security-token:$session" if $session && !$AWS4;
 
     my $header_sign = join("\n", map({$_->[1]} sort {$a->[0] cmp $b->[0]} map {s/^(.*?):\s*/\L$1:/s; [lc $1, $_]} grep /^x-amz-/i, @header), "") if @header;
     my $header = join(" --header ", undef, map {cq($_)} @header);
@@ -3256,6 +3337,9 @@ sub s3
 	        ap2     => "ap-southeast-2",
 	        sa      => "sa-east-1",
 	    }->{lc $region} || $region;
+	}
+	if ($region && $region ne "us-east-1")
+	{
 	    ($temp_fh, my $xml) = tempfile(UNLINK => 1);
 	    print $temp_fh qq[<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 			      <LocationConstraint>$region</LocationConstraint>
@@ -3406,6 +3490,7 @@ sub ec2
     $version .= $elb_version if $service eq "elb";
     $version .= $sdb_version if $service eq "sdb";
     $version .= $iam_version if $service eq "iam";
+    $version .= $sts_version if $service eq "sts";
     $version .= $ebn_version if $service eq "ebn";
     $version .= $cloudformation_version if $service eq "cloudformation";
     $version .= $rds_version if $service eq "rds";
@@ -3445,6 +3530,11 @@ sub ec2
 	# $endpoint = "iam.$region.amazonaws.com" if $region;
     }
 
+    if ($service eq "sts")
+    {
+	$endpoint = $region ? "sts.$region.amazonaws.com" : "sts.amazonaws.com";
+    }
+
     if ( $service eq "ebn" )
     {
 	$endpoint = "elasticbeanstalk.us-east-1.amazonaws.com";
@@ -3463,8 +3553,15 @@ sub ec2
         $endpoint = "rds.$region.amazonaws.com" if $region;
     }
 
-    my @session = (SecurityToken => $session) if $session;
-    my %data = (AWSAccessKeyId => $awskey, @session, SignatureMethod => ($sha1? HmacSHA1: HmacSHA256), SignatureVersion => $AWS4? 4: 2, Version => $version, ($expire_time? Expires: Timestamp) => $zulu, @_);
+    my %data = (Version => $version, @_);
+    unless ($AWS4)
+    {
+        $data{AWSAccessKeyId} = $awskey;
+        $data{SecurityToken} = $session if $session;
+        $data{SignatureMethod} = $sha1 ? HmacSHA1 : HmacSHA256;
+        $data{SignatureVersion} = 2;
+        $data{$expire_time ? "Expires" : "Timestamp"} = $zulu;
+    }
 
     $queue ||= "/";
 
@@ -3483,7 +3580,11 @@ sub ec2
 
 
     if ($AWS4) {
-        $url = signAWS4($service, GET, "$scheme://$endpoint$queue?$url", $expire_time);
+        my $signing_service = {elb => "elasticloadbalancing", ebn => "elasticbeanstalk"}->{$service} || $service;
+        my $signing_region = $service eq "iam" ? "us-east-1"
+                           : $service eq "sts" ? ($region || "us-east-1")
+                           : undef;
+        $url = signAWS4($signing_service, GET, "$scheme://$endpoint$queue?$url", $expire_time, undef, undef, $signing_region);
     } else {
         my $sig = sign("GET\n$endpoint\n$queue\n$url", $data{SignatureMethod});
         $url = "$scheme://$endpoint$queue?Signature=@{[encode_url($sig)]}&$url";
@@ -3586,6 +3687,553 @@ sub load_file_silent
 }
 
 
+sub load_aws_profile
+{
+    my($file, $wanted, $is_config) = @_;
+    my %value;
+    my $data = load_file_silent($file);
+    return %value unless defined $data;
+
+    my $section;
+    for my $line (split(/\r?\n/, $data))
+    {
+        $line =~ s/^\s+|\s+$//g;
+        next if $line eq "" || $line =~ /^[#;]/;
+        if ($line =~ /^\[\s*(.*?)\s*\]$/)
+        {
+            $section = $1;
+            $section =~ s/^profile\s+// if $is_config;
+            next;
+        }
+        next unless defined $section && $section eq $wanted;
+        if ($line =~ /^([A-Za-z0-9_.-]+)\s*=\s*(.*?)\s*$/)
+        {
+            (my $key = lc $1) =~ tr/-/\_/;
+            $value{$key} = $2;
+        }
+    }
+    %value;
+}
+
+
+sub json_string
+{
+    my($json, $key) = @_;
+    return unless defined $json && $json =~ /"\Q$key\E"\s*:\s*"((?:\\.|[^"\\])*)"/s;
+    my $value = $1;
+    $value =~ s/\\(["\\\/])/$1/g;
+    $value =~ s/\\n/\n/g;
+    $value =~ s/\\r/\r/g;
+    $value =~ s/\\t/\t/g;
+    $value;
+}
+
+
+sub credentials_from_json
+{
+    my($json) = @_;
+    my $key = json_string($json, "AccessKeyId");
+    my $secret = json_string($json, "SecretAccessKey");
+    my $token = json_string($json, "SessionToken");
+    $token ||= json_string($json, "Token");
+    return unless $key && $secret;
+    ($key, $secret, $token);
+}
+
+
+sub credentials_from_process
+{
+    my($command) = @_;
+    open(my $out, "-|", $command) or die "credential_process: $!\n";
+    local($/);
+    my $json = <$out>;
+    close($out) or die "credential_process failed\n";
+    my @credentials = credentials_from_json($json);
+    die "credential_process returned invalid credentials\n" unless @credentials;
+    @credentials;
+}
+
+
+sub base64url
+{
+    my($value) = @_;
+    $value = encode_base64($value, "");
+    $value =~ tr[+/][-_];
+    $value =~ s/=+$//;
+    $value;
+}
+
+
+sub secure_random
+{
+    my($length) = @_;
+    open(my $random, "<", "/dev/urandom") or die "aws login: secure random source unavailable\n";
+    binmode $random;
+    my $value = "";
+    while (length($value) < $length)
+    {
+	my $n = read($random, $value, $length - length($value), length($value));
+	die "aws login: could not read secure random data\n" unless $n;
+    }
+    close $random;
+    $value;
+}
+
+
+sub json_quote
+{
+    my($value) = @_;
+    $value = "" unless defined $value;
+    $value =~ s/(["\\])/\\$1/g;
+    $value =~ s/\n/\\n/g;
+    $value =~ s/\r/\\r/g;
+    $value =~ s/\t/\\t/g;
+    $value =~ s/([\x00-\x1f])/sprintf("\\u%04x", ord($1))/eg;
+    '"' . $value . '"';
+}
+
+
+sub ec_mod
+{
+    my($value, $modulus) = @_;
+    $value = $value->copy->bmod($modulus);
+    $value->badd($modulus) if $value->is_neg;
+    $value;
+}
+
+
+sub ec_add
+{
+    my($one, $two, $prime, $a) = @_;
+    return [$two->[0]->copy, $two->[1]->copy] unless $one;
+    return [$one->[0]->copy, $one->[1]->copy] unless $two;
+
+    my($x1, $y1) = @$one;
+    my($x2, $y2) = @$two;
+    my $slope;
+    if ($x1 == $x2)
+    {
+	return if ec_mod($y1->copy->badd($y2), $prime)->is_zero;
+	my $top = $x1->copy->bmul($x1)->bmul(3)->badd($a);
+	my $bottom = $y1->copy->bmul(2)->bmodinv($prime);
+	$slope = ec_mod($top->bmul($bottom), $prime);
+    }
+    else
+    {
+	my $top = $y2->copy->bsub($y1);
+	my $bottom = $x2->copy->bsub($x1)->bmodinv($prime);
+	$slope = ec_mod($top->bmul($bottom), $prime);
+    }
+
+    my $x3 = ec_mod($slope->copy->bmul($slope)->bsub($x1)->bsub($x2), $prime);
+    my $y3 = ec_mod($slope->copy->bmul($x1->copy->bsub($x3))->bsub($y1), $prime);
+    [$x3, $y3];
+}
+
+
+sub ec_multiply
+{
+    my($scalar) = @_;
+    my $prime = Math::BigInt->from_hex("0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff");
+    my $a = $prime->copy->bsub(3);
+    my $point = [
+	Math::BigInt->from_hex("0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"),
+	Math::BigInt->from_hex("0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5")
+    ];
+    my $result;
+    (my $bits = $scalar->as_bin) =~ s/^0b//;
+    for my $bit (split(//, $bits))
+    {
+	$result = ec_add($result, $result, $prime, $a) if $result;
+	$result = ec_add($result, $point, $prime, $a) if $bit;
+    }
+    $result;
+}
+
+
+sub bigint_bytes
+{
+    my($value, $length) = @_;
+    my $hex = $value->as_hex;
+    $hex =~ s/^0x//;
+    $hex = "0" . $hex if length($hex) % 2;
+    $hex = ("00" x ($length - length($hex) / 2)) . $hex;
+    pack("H*", $hex);
+}
+
+
+sub dpop_key
+{
+    my $order = Math::BigInt->from_hex("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+    my $private = Math::BigInt->from_hex("0x" . unpack("H*", secure_random(32)));
+    $private->bmod($order->copy->bsub(1))->badd(1);
+    $private;
+}
+
+
+sub dpop_proof
+{
+    my($private, $url) = @_;
+    my $public = ec_multiply($private);
+    my $header = '{"typ":"dpop+jwt","alg":"ES256","jwk":{"kty":"EC","crv":"P-256","x":' .
+	json_quote(base64url(bigint_bytes($public->[0], 32))) . ',"y":' .
+	json_quote(base64url(bigint_bytes($public->[1], 32))) . '}}';
+    my $payload = '{"htm":"POST","htu":' . json_quote($url) . ',"iat":' . time .
+	',"jti":' . json_quote(base64url(secure_random(18))) . '}';
+    my $unsigned = base64url($header) . "." . base64url($payload);
+
+    my $order = Math::BigInt->from_hex("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+    my $hash = pack("H*", sha256_hex($unsigned));
+    my $z = Math::BigInt->from_hex("0x" . unpack("H*", $hash));
+
+    # RFC 6979 deterministic ECDSA avoids needing another random value per signature.
+    my $x = bigint_bytes($private, 32);
+    my $h = bigint_bytes($z->copy->bmod($order), 32);
+    my $v = "\x01" x 32;
+    my $k = "\x00" x 32;
+    $k = hmac_sha256($v . "\x00" . $x . $h, $k);
+    $v = hmac_sha256($v, $k);
+    $k = hmac_sha256($v . "\x01" . $x . $h, $k);
+    $v = hmac_sha256($v, $k);
+
+    my($r, $s);
+    while (!$r || !$s || $r->is_zero || $s->is_zero)
+    {
+	$v = hmac_sha256($v, $k);
+	my $nonce = Math::BigInt->from_hex("0x" . unpack("H*", $v));
+	if (!$nonce->is_zero && $nonce < $order)
+	{
+	    my $point = ec_multiply($nonce);
+	    $r = $point->[0]->copy->bmod($order);
+	    if (!$r->is_zero)
+	    {
+		my $inverse = $nonce->copy->bmodinv($order);
+		$s = $private->copy->bmul($r)->badd($z)->bmul($inverse)->bmod($order);
+	    }
+	}
+	last if $r && $s && !$r->is_zero && !$s->is_zero;
+	$k = hmac_sha256($v . "\x00", $k);
+	$v = hmac_sha256($v, $k);
+    }
+    $unsigned . "." . base64url(bigint_bytes($r, 32) . bigint_bytes($s, 32));
+}
+
+
+sub token_request
+{
+    my($region, $private, $json) = @_;
+    my $url = "https://$region.signin.aws.amazon.com/v1/token";
+    my($body, $filename) = tempfile(UNLINK => 1);
+    chmod 0600, $filename;
+    print $body $json;
+    close $body;
+    open(my $out, "-|", $curl, "-q", "-sS", "--max-time", 30,
+	"--write-out", "\n%{http_code}",
+	"-H", "Content-Type: application/json",
+	"-H", "DPoP: " . dpop_proof($private, $url),
+	"--data-binary", "\@$filename", $url)
+	or die "aws login: could not run curl\n";
+    local($/);
+    my $reply = <$out>;
+    close $out;
+    die "aws login: token exchange failed\n" if $? || !defined $reply;
+    my $status = $reply =~ s/\n(\d{3})$// ? $1 : 200;
+    if ($status < 200 || $status >= 300)
+    {
+	my $message = json_string($reply, "message") || json_string($reply, "error_description") ||
+	    json_string($reply, "error") || "HTTP $status";
+	die "aws login: $message\n";
+    }
+    $reply;
+}
+
+
+sub token_values
+{
+    my($json) = @_;
+    my %value;
+    $value{awskey} = json_string($json, "accessKeyId");
+    $value{secret} = json_string($json, "secretAccessKey");
+    $value{session} = json_string($json, "sessionToken");
+    $value{refresh} = json_string($json, "refreshToken");
+    $value{id_token} = json_string($json, "idToken");
+    ($value{expires_in}) = $json =~ /"expiresIn"\s*:\s*(\d+)/;
+    die "aws login: invalid token response\n"
+	unless $value{awskey} && $value{secret} && $value{session} && $value{refresh} && $value{expires_in};
+    %value;
+}
+
+
+sub login_cache_directory
+{
+    $ENV{AWS_LOGIN_CACHE_DIRECTORY} || "$home/.aws/timkay-login";
+}
+
+
+sub login_cache_file
+{
+    my($login_session) = @_;
+    login_cache_directory() . "/" . sha256_hex($login_session) . ".json";
+}
+
+
+sub save_login_cache
+{
+    my($login_session, $client, $private, $expires, %token) = @_;
+    require File::Path;
+    my $directory = login_cache_directory();
+    File::Path::make_path($directory, {mode => 0700}) unless -d $directory;
+    my $file = login_cache_file($login_session);
+    my($out, $temporary) = tempfile("login-XXXXXX", DIR => $directory, UNLINK => 0);
+    chmod 0600, $temporary;
+    print $out '{"Version":1,"LoginSession":' . json_quote($login_session) .
+	',"ClientId":' . json_quote($client) .
+	',"DpopPrivateKey":' . json_quote(unpack("H*", bigint_bytes($private, 32))) .
+	',"RefreshToken":' . json_quote($token{refresh}) .
+	',"AccessKeyId":' . json_quote($token{awskey}) .
+	',"SecretAccessKey":' . json_quote($token{secret}) .
+	',"SessionToken":' . json_quote($token{session}) .
+	',"ExpiresAt":' . int($expires) . "}\n";
+    close $out or die "$temporary: $!\n";
+    rename($temporary, $file) or die "$temporary -> $file: $!\n";
+    chmod 0600, $file;
+}
+
+
+sub set_login_profile
+{
+    my($file, $profile, $login_session, $login_region) = @_;
+    my $data = load_file_silent($file);
+    $data = "" unless defined $data;
+    my $heading = $profile eq "default" ? "default" : "profile $profile";
+    my @line = split(/\r?\n/, $data, -1);
+    @line = () if @line == 1 && $line[0] eq "";
+    my($start, $end);
+    for (my $i = 0; $i < @line; $i++)
+    {
+	if ($line[$i] =~ /^\s*\[\s*\Q$heading\E\s*\]\s*$/)
+	{
+	    $start = $i;
+	    $end = scalar @line;
+	    for (my $j = $i + 1; $j < @line; $j++)
+	    {
+		if ($line[$j] =~ /^\s*\[/) {$end = $j; last}
+	    }
+	    last;
+	}
+    }
+    if (!defined $start)
+    {
+	push @line, "" if @line && $line[-1] ne "";
+	push @line, "[$heading]", "login_session = $login_session", "region = $login_region";
+    }
+    else
+    {
+	my($has_login, $has_region);
+	for (my $i = $start + 1; $i < $end; $i++)
+	{
+	    if ($line[$i] =~ /^\s*login_session\s*=/)
+	    {
+		$line[$i] = "login_session = $login_session";
+		$has_login = 1;
+	    }
+	    $has_region = 1 if $line[$i] =~ /^\s*region\s*=/;
+	}
+	splice(@line, $end, 0, "login_session = $login_session") unless $has_login;
+	splice(@line, $end, 0, "region = $login_region") unless $has_region;
+    }
+
+    my $directory = ".";
+    $directory = $1 if $file =~ m#^(.*)[/\\][^/\\]+$#;
+    require File::Path;
+    File::Path::make_path($directory, {mode => 0700}) if $directory ne $file && !-d $directory;
+    my($out, $temporary) = tempfile("config-XXXXXX", DIR => $directory, UNLINK => 0);
+    chmod 0600, $temporary;
+    print $out join("\n", @line);
+    print $out "\n" unless @line && $line[-1] eq "";
+    close $out or die "$temporary: $!\n";
+    rename($temporary, $file) or die "$temporary -> $file: $!\n";
+    chmod 0600, $file;
+}
+
+
+sub aws_login
+{
+    my($profile, $file, $login_region) = @_;
+    my $client = "arn:aws:signin:::devtools/cross-device";
+    my $redirect = "https://$login_region.signin.aws.amazon.com/v1/sessions/confirmation";
+    my $private = dpop_key();
+    my $verifier = base64url(secure_random(48));
+    my $challenge = base64url(pack("H*", sha256_hex($verifier)));
+    my $state = $ENV{TIMKAY_AWS_TESTING} && $ENV{TIMKAY_AWS_LOGIN_STATE} ?
+	$ENV{TIMKAY_AWS_LOGIN_STATE} : base64url(secure_random(18));
+    my %query = (
+	response_type => "code", client_id => $client, state => $state,
+	code_challenge_method => "SHA-256", scope => "openid",
+	redirect_uri => $redirect, code_challenge => $challenge,
+    );
+    my $url = "https://$login_region.signin.aws.amazon.com/v1/authorize?" .
+	join("&", map {encode_url_slash($_) . "=" . encode_url_slash($query{$_})}
+	    qw(response_type client_id state code_challenge_method scope redirect_uri code_challenge));
+
+    print "Open this URL in a browser:\n\n$url\n\n";
+    print STDERR "Authorization code: ";
+    my $code = <STDIN>;
+    die "aws login: no authorization code\n" unless defined $code;
+    $code =~ s/^\s+|\s+$//g;
+    die "aws login: invalid authorization code\n" unless length $code;
+    if ($code =~ m{^[A-Za-z0-9+/]+={0,2}$} && length($code) % 4 == 0)
+    {
+	my $answer = decode_base64($code);
+	if ($answer =~ /(?:^|&)code=([^&]+)/)
+	{
+	    my $given_code = decode_url($1);
+	    my($given_state) = $answer =~ /(?:^|&)state=([^&]+)/;
+	    $given_state = decode_url($given_state) if defined $given_state;
+	    die "aws login: authorization response does not match this request\n"
+		unless defined $given_state && $given_state eq $state;
+	    $code = $given_code;
+	}
+    }
+
+    my $request = '{"clientId":' . json_quote($client) .
+	',"grantType":"authorization_code","code":' . json_quote($code) .
+	',"codeVerifier":' . json_quote($verifier) .
+	',"redirectUri":' . json_quote($redirect) . '}';
+    my %token = token_values(token_request($login_region, $private, $request));
+    my @jwt = split(/\./, $token{id_token} || "");
+    die "aws login: token response has no identity\n" unless @jwt == 3;
+    $jwt[1] =~ tr[-_][+/];
+    $jwt[1] .= "=" x ((4 - length($jwt[1]) % 4) % 4);
+    my $claims = decode_base64($jwt[1]);
+    my $login_session = json_string($claims, "sub");
+    die "aws login: identity has no login session\n" unless $login_session;
+    die "aws login: invalid login session\n" if $login_session =~ /[\x00-\x1f\x7f]/;
+    my $expires = time + $token{expires_in};
+    save_login_cache($login_session, $client, $private, $expires, %token);
+    set_login_profile($file, $profile, $login_session, $login_region);
+    print "Logged in profile $profile as $login_session\n";
+}
+
+
+sub credentials_from_login
+{
+    my($login_session) = @_;
+    my $file = login_cache_file($login_session);
+    my $json = load_file_silent($file);
+    die "aws login session not found; run: aws login --profile $profile\n" unless defined $json;
+    my($expires) = $json =~ /"ExpiresAt"\s*:\s*(\d+)/;
+    my $key = json_string($json, "AccessKeyId");
+    my $secret = json_string($json, "SecretAccessKey");
+    my $token = json_string($json, "SessionToken");
+    return ($key, $secret, $token) if $key && $secret && $token && $expires && $expires > time + 60;
+
+    my $client = json_string($json, "ClientId");
+    my $refresh = json_string($json, "RefreshToken");
+    my $private_hex = json_string($json, "DpopPrivateKey");
+    die "aws login session expired; run: aws login --profile $profile\n"
+	unless $client && $refresh && $private_hex;
+    my $private = Math::BigInt->from_hex("0x$private_hex");
+    my $request = '{"clientId":' . json_quote($client) .
+	',"grantType":"refresh_token","refreshToken":' . json_quote($refresh) . '}';
+    my %fresh = token_values(token_request($region || "us-east-1", $private, $request));
+    save_login_cache($login_session, $client, $private, time + $fresh{expires_in}, %fresh);
+    ($fresh{awskey}, $fresh{secret}, $fresh{session});
+}
+
+
+sub http_capture
+{
+    my($timeout, @args) = @_;
+    open(my $out, "-|", $curl, "-q", "-s", "--fail", "--max-time", $timeout, @args) or return;
+    local($/);
+    my $data = <$out>;
+    close($out);
+    return if $?;
+    $data;
+}
+
+
+sub curl_capture
+{
+    http_capture($ENV{AWS_METADATA_SERVICE_TIMEOUT} || 2, @_);
+}
+
+
+sub credentials_from_web_identity
+{
+    my($role_arn, $token_file) = @_;
+    my $token = load_file_silent($token_file);
+    return unless defined $token;
+    $token =~ s/^\s+|\s+$//g;
+    my $session_name = $ENV{AWS_ROLE_SESSION_NAME} || "TimKayAWS";
+    my $host = $region ? "sts.$region.amazonaws.com" : "sts.amazonaws.com";
+    my $xml = http_capture(10, "-X", "POST",
+        "--data-urlencode", "Action=AssumeRoleWithWebIdentity",
+        "--data-urlencode", "Version=$sts_version",
+        "--data-urlencode", "RoleArn=$role_arn",
+        "--data-urlencode", "RoleSessionName=$session_name",
+        "--data-urlencode", "WebIdentityToken=$token",
+        "https://$host/");
+    return unless defined $xml;
+    my($key) = $xml =~ /<AccessKeyId>\s*(.*?)\s*<\/AccessKeyId>/s;
+    my($secret) = $xml =~ /<SecretAccessKey>\s*(.*?)\s*<\/SecretAccessKey>/s;
+    my($session) = $xml =~ /<SessionToken>\s*(.*?)\s*<\/SessionToken>/s;
+    return unless $key && $secret;
+    ($key, $secret, $session);
+}
+
+
+sub credentials_from_container
+{
+    my $url = $ENV{AWS_CONTAINER_CREDENTIALS_FULL_URI};
+    if (!$url && $ENV{AWS_CONTAINER_CREDENTIALS_RELATIVE_URI})
+    {
+        $url = "http://169.254.170.2$ENV{AWS_CONTAINER_CREDENTIALS_RELATIVE_URI}";
+    }
+    return unless $url;
+    die "invalid container credentials URI\n" unless $url =~ m[^https?://]i;
+
+    my $token = $ENV{AWS_CONTAINER_AUTHORIZATION_TOKEN};
+    if (!$token && $ENV{AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE})
+    {
+        $token = load_file_silent($ENV{AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE});
+        $token =~ s/[\r\n]+$// if defined $token;
+    }
+    die "invalid container authorization token\n" if defined $token && $token =~ /[\r\n]/;
+    my @header = defined $token ? ("-H", "Authorization: $token") : ();
+    credentials_from_json(curl_capture(@header, $url));
+}
+
+
+sub credentials_from_imds
+{
+    my($wanted_role) = @_;
+    return if lc($ENV{AWS_EC2_METADATA_DISABLED} || "") eq "true";
+    my $endpoint = $ENV{AWS_EC2_METADATA_SERVICE_ENDPOINT} || "http://169.254.169.254";
+    $endpoint =~ s[/$][];
+
+    my $token = curl_capture("-X", "PUT", "-H", "X-aws-ec2-metadata-token-ttl-seconds: 21600", "$endpoint/latest/api/token");
+    my @header;
+    if ($token)
+    {
+        $token =~ s/[\r\n]+$//;
+        @header = ("-H", "X-aws-ec2-metadata-token: $token");
+    }
+    elsif (lc($ENV{AWS_EC2_METADATA_V1_DISABLED} || "") eq "true")
+    {
+        return;
+    }
+
+    my $role = $wanted_role;
+    $role = curl_capture(@header, "$endpoint/latest/meta-data/iam/security-credentials/") if !defined($role) || $role eq "1";
+    return unless $role;
+    $role =~ s/[\r\n]+$//;
+    my $json = curl_capture(@header, "$endpoint/latest/meta-data/iam/security-credentials/$role");
+    credentials_from_json($json);
+}
+
+
 sub guess_is_unix
 {
     return 1 if $ENV{OS} =~ /windows/i && $ENV{OSTYPE} =~ /cygwin/i;
@@ -3603,78 +4251,67 @@ sub get_home_directory
 
 sub signAWS4
 {
-    my($service, $verb, $url, $expire_time, $headers) = @_;
+    my($service, $verb, $url, $expire_time, $headers, $fixed_timestamp, $signing_region, $payload_hash) = @_;
+    $headers ||= [];
+    die "AWS credentials not found\n" unless $awskey && $secret;
+    $signing_region ||= $region || "us-east-1";
 
-    my $region = $region || "us-east-1";
+    my $now = time + ($time_offset || 0);
+    my @gmt = gmtime($now);
+    my $date = sprintf "%04d%02d%02d", 1900 + $gmt[5], 1 + $gmt[4], $gmt[3];
+    $fixed_timestamp ||= $ENV{TIMKAY_AWS_SIGNING_TIME} if $ENV{TIMKAY_AWS_TESTING};
+    my $timestamp = $fixed_timestamp || sprintf "%sT%02d%02d%02dZ", $date, @gmt[2, 1, 0];
+    ($date) = $timestamp =~ /^(\d{8})T/ if $fixed_timestamp;
+    my $scope = lc "$date/$signing_region/$service/aws4_request";
 
-    my $date = sub {sprintf "%4d%02d%02d", 1900 + $_[5], 1 + $_[4], $_[3]}->(gmtime);
-    my $time = sub {sprintf "%02d%02d%02d", $_[2], $_[1], $_[0]}->(gmtime);
+    my($base_url, $query) = split(/\?/, $url, 2);
+    my($scheme0, $host, $canonical_uri) = $base_url =~ m[^([^:]+)://([^/]+)(/.*)?$];
+    die "AWS4: invalid URL $url\n" unless $host;
+    $canonical_uri ||= "/";
 
-    my $timestamp = join("", $date, "T", $time, "Z");
-    my $scope = lc "$date/$region/$service/aws4_request";
-
-    my($CanonicalURL, $qs) = split(/\?/, $url, 2);
-    my $CanonicalURI = $CanonicalURL;
-    $CanonicalURI =~ s[^.+?://.+?/][/];
-
-    my @qs = split(/&/, $qs);
-    s/^(.+?)(?:=(.*))?$/$1=$2/ for @qs; # add = to parameters that have no value (e.g. &acl --> &acl=)
-    if (1)
+    my %canonical_header = (host => $host);
+    for my $header (@$headers)
     {
-        push @qs, "X-Amz-Algorithm=AWS4-HMAC-SHA256";
-        push @qs, "X-Amz-Credential=$awskey/$scope";
-        push @qs, "X-Amz-Date=$timestamp";
-        push @qs, "X-Amz-Expires=$expire_time";
-        push @qs, "X-Amz-SignedHeaders=host";
+        next unless $header =~ /^([^:]+):\s*(.*)$/s;
+        my($name, $value) = (lc($1), $2);
+        $value =~ s/^\s+|\s+$//g;
+        $value =~ s/\s+/ /g;
+        $canonical_header{$name} = exists $canonical_header{$name}
+            ? "$canonical_header{$name},$value" : $value;
     }
-    @qs = sort @qs;
-    my $CanonicalQs = join("&", map {/^(.+?)=(.*)$/; encode_url_slash($1) . "=" . encode_url_slash($2)} @qs);
+    my $signed_headers = join(";", sort keys %canonical_header);
+    my $canonical_headers = join("", map {"$_:$canonical_header{$_}\n"} sort keys %canonical_header);
 
-    my($host) = $CanonicalURL =~ /^.+?:\/\/(.+?)\//;
-    push @$headers, "Host: $host";
-    if (0)
+    my @query;
+    for my $part (split(/&/, defined($query) ? $query : ""))
     {
-        push @$headers, "X-Amz-Algorithm=AWS4-HMAC-SHA256";
-        push @$headers, "X-Amz-Credential=" . encode_url("$awskey/$scope");
-        push @$headers, "X-Amz-Date=$timestamp";
-        push @$headers, "X-Amz-Expires=$expire_time";
-        push @$headers, "X-Amz-SignedHeaders=host";
+        next unless length $part;
+        my($name, $value) = split(/=/, $part, 2);
+        push @query, [decode_url($name), decode_url(defined($value) ? $value : "")];
     }
-    s/^(.+?):\s*(.*)$/\L$1\E:$2/ for @$headers;
-    my $CanonicalHeaders = join("\n", @$headers, undef);
-    my $SignedHeaders = join(";", sort map {/^(.+?):/; $1} @$headers);
+    push @query, ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"];
+    push @query, ["X-Amz-Credential", "$awskey/$scope"];
+    push @query, ["X-Amz-Date", $timestamp];
+    push @query, ["X-Amz-Expires", $expire_time] if defined $expire_time && length $expire_time;
+    push @query, ["X-Amz-Security-Token", $session] if $session;
+    push @query, ["X-Amz-SignedHeaders", $signed_headers];
 
-    my $HashedPayload = "UNSIGNED-PAYLOAD";
-    if ($service ne "s3") {
-        # S3 and the other services do not agree on this parameter.
-        # For UNSIGNED-PAYLOAD, see http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html.
-        # It doesn't work for EC2.
-        $HashedPayload = sha256_hex("")
-    };
+    my @encoded_query = map {[encode_url_slash($_->[0]), encode_url_slash($_->[1])]} @query;
+    @encoded_query = sort {$a->[0] cmp $b->[0] || $a->[1] cmp $b->[1]} @encoded_query;
+    my $canonical_query = join("&", map {"$_->[0]=$_->[1]"} @encoded_query);
 
-    my $creq = join("\n", $verb, $CanonicalURI, $CanonicalQs, $CanonicalHeaders, $SignedHeaders, $HashedPayload);
-    my $creq_hash = sha256_hex($creq);
-
-    my $sts = join("\n", "AWS4-HMAC-SHA256", $timestamp, $scope, $creq_hash);
+    $payload_hash = $service eq "s3" ? "UNSIGNED-PAYLOAD" : sha256_hex("") unless defined $payload_hash;
+    my $canonical_request = join("\n", $verb, $canonical_uri, $canonical_query,
+                                 $canonical_headers, $signed_headers, $payload_hash);
+    my $string_to_sign = join("\n", "AWS4-HMAC-SHA256", $timestamp, $scope,
+                              sha256_hex($canonical_request));
 
     my $key = "AWS4$secret";
-    for (split(/\//, $scope))
-    {
-        $key = hmac_sha256($_, $key);
-    }
-    my $sig = hmac_sha256_hex($sts, $key);
+    $key = hmac_sha256($_, $key) for ($date, $signing_region, lc($service), "aws4_request");
+    my $signature = hmac_sha256_hex($string_to_sign, $key);
 
-    my $url = $CanonicalURL;
-    $url = $url . ($url =~ /\?/? '&': '?') . $CanonicalQs;
-    $url = $url . ($url =~ /\?/? '&': '?') . "X-Amz-Signature=$sig";
-
-    if ($v)
-    {
-	(my $pretty = $s) =~ s/\n/\\n/sg;
-	print STDERR "data = [$pretty]\n";
-    }
-
-    $url;
+    print STDERR "AWS4 canonical request:\n$canonical_request\n" if $v >= 3;
+    "$base_url?$canonical_query&X-Amz-Signature=$signature";
 }
 
 sub pad4
