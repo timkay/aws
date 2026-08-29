@@ -73,11 +73,11 @@ enough information to diagnose SSL problems; `aws` used the time difference
 to correct clock skew when signing subsequent requests. After this check was
 introduced, support requests plummeted.
 
-The check was so widely exercised that requests to the bucket eventually cost
-about $400 per month on my personal AWS bill. It then took four months to
-persuade Amazon to transfer the bucket into its internal ownership. Amazon's
-services benefited from the tool, but its operation and support remained my
-responsibility.
+The check happened every time `./aws` was invoked unless the user turned it
+off. Requests to the bucket eventually cost $400 per month on my personal AWS
+bill. It then took four months to persuade Amazon to transfer the bucket into
+its internal ownership. Amazon's services benefited from the tool, but its
+operation and support remained my responsibility.
 
 The code remains useful and is also a small piece of early cloud-computing
 history.
