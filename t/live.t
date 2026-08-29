@@ -84,8 +84,8 @@ SKIP: {
     close $target;
 
     my $cleanup_needed;
-    ($status) = run_aws("--parts=3", "s3", "put", "$bucket/$key", $source_name);
-    is($status, 0, "uploaded a three-part test object to S3");
+    ($status) = run_aws("--md5", "--parts=3", "s3", "put", "$bucket/$key", $source_name);
+    is($status, 0, "uploaded a checksummed three-part test object to S3");
     $cleanup_needed = !$status;
 
     my($head_status, $head) = run_aws("s3", "head", "$bucket/$key");

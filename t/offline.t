@@ -7,7 +7,9 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use IO::File;
 use IPC::Open2;
+use IPC::Open3;
 use MIME::Base64 qw(encode_base64);
+use Symbol qw(gensym);
 use FindBin;
 
 my $aws = File::Spec->catfile($FindBin::Bin, "..", "aws");
@@ -79,9 +81,28 @@ sub run_aws_input
     ($? >> 8, defined($output) ? $output : "");
 }
 
+sub run_aws_combined
+{
+    my($environment, @argument) = @_;
+    local %ENV = %ENV;
+    @ENV{keys %$environment} = values %$environment;
+    $ENV{AWS_EC2_METADATA_DISABLED} = "true" unless exists $environment->{AWS_EC2_METADATA_DISABLED};
+    my($out, $err) = (gensym, gensym);
+    my $pid = IPC::Open3::open3(undef, $out, $err, $^X, $aws, @argument);
+    local($/);
+    my $output = (scalar <$out> || "") . (scalar <$err> || "");
+    waitpid($pid, 0);
+    ($? >> 8, $output);
+}
+
 my($status, $output) = run_aws({}, "--version");
 is($status, 0, "--version succeeds");
-is($output, "aws 2.0\n", "major version is 2.0");
+is($output, "aws 2.0.1\n", "version is 2.0.1 in the 2.x major series");
+
+($status, $output) = run_aws_combined({}, "--no-sanity-check", "s3", "put", "--help");
+is($status, 0, "command-specific help succeeds");
+like($output, qr/Common options: .*--profile=NAME.*--region=REGION/, "command help documents meta-parameters");
+like($output, qr/S3 options: .*--md5.*--parts\[=N\].*--progress/, "S3 help documents applicable switches");
 
 my $dir = tempdir(CLEANUP => 1);
 my $credentials = File::Spec->catfile($dir, "credentials");
@@ -338,5 +359,72 @@ is($output,
 is($status, 0, "explicit legacy Signature V2 request succeeds");
 like($output, qr[SignatureVersion=2], "legacy mode uses Signature V2");
 unlike($output, qr[X-Amz-Algorithm], "legacy mode does not add SigV4 parameters");
+
+($status, $output) = run_aws({
+        AWS_ACCESS_KEY_ID => "VERSIONKEY",
+        AWS_SECRET_ACCESS_KEY => "version-secret",
+        AWS_REGION => "us-east-1",
+    }, "--no-sanity-check", "--request", "s3", "get",
+       "version-test/object.txt?versionId=three%2Ftwo%2Bone");
+is($status, 0, "S3 object-version request succeeds");
+like($output, qr/(?:\?|&)versionId=three%2Ftwo%2Bone(?:&|$)/,
+     "S3 object-version request preserves and signs versionId");
+
+my $error_curl = File::Spec->catfile($dir, "error-curl");
+write_file($error_curl, <<'ERROR_CURL');
+#!/usr/bin/perl
+print '<ErrorResponse><Error><Code>SignatureDoesNotMatch</Code><Message>test error</Message></Error></ErrorResponse>';
+ERROR_CURL
+chmod 0700, $error_curl;
+($status, $output) = run_aws({
+        AWS_ACCESS_KEY_ID => "ERRORKEY",
+        AWS_SECRET_ACCESS_KEY => "error-secret",
+        AWS_REGION => "us-east-1",
+    }, "--curl=$error_curl", "--no-sanity-check", "--xml", "sqs", "send-message",
+       "https://sqs.us-east-1.amazonaws.com/123/test", "--message", "hello");
+is($status, 1, "AWS query error response returns a nonzero status");
+like($output, qr/SignatureDoesNotMatch/, "AWS query error body is still displayed");
+
+my $nodate_curl = File::Spec->catfile($dir, "nodate-curl");
+write_file($nodate_curl, <<'NODATE_CURL');
+#!/usr/bin/perl
+if (grep {$_ eq '-V'} @ARGV) {
+    print "curl 8.0.0 test\n";
+    exit;
+}
+print "HTTP/1.1 200 OK\r\nServer: test\r\n\r\n";
+NODATE_CURL
+chmod 0700, $nodate_curl;
+($status, $output) = run_aws({
+        HOME => File::Spec->catdir($dir, "nodate-home"),
+        AWS_ACCESS_KEY_ID => "NODATEKEY",
+        AWS_SECRET_ACCESS_KEY => "nodate-secret",
+        AWS_REGION => "us-east-1",
+    }, "--curl=$nodate_curl", "--request", "sts", "get-caller-identity");
+is($status, 0, "sanity check tolerates a response without a Date header");
+like($output, qr[^https://sts\.us-east-1\.amazonaws\.com/],
+     "missing Date header only skips clock correction");
+
+my $progress_curl = File::Spec->catfile($dir, "progress-curl");
+my $progress_capture = File::Spec->catfile($dir, "progress-capture");
+write_file($progress_curl, <<'PROGRESS_CURL');
+#!/usr/bin/perl
+open(my $capture, ">", $ENV{PROGRESS_CAPTURE}) or die $!;
+print $capture join("\n", @ARGV), "\n";
+close $capture;
+print "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+PROGRESS_CURL
+chmod 0700, $progress_curl;
+($status, $output) = run_aws({
+        PROGRESS_CAPTURE => $progress_capture,
+        AWS_ACCESS_KEY_ID => "PROGRESSKEY",
+        AWS_SECRET_ACCESS_KEY => "progress-secret",
+        AWS_REGION => "us-east-1",
+    }, "--curl=$progress_curl", "--no-sanity-check", "--progress",
+       "s3", "head", "progress-test/object");
+is($status, 0, "S3 progress request succeeds with a current curl interface");
+my $progress_arguments = load_file($progress_capture);
+like($progress_arguments, qr/^--progress-bar$/m, "--progress uses curl's unambiguous progress-bar option");
+unlike($progress_arguments, qr/^--progress$/m, "deprecated ambiguous curl option is not used");
 
 done_testing();

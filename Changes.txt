@@ -1,3 +1,10 @@
+aws-2.0.1 2026-08-29
+	* fixed error status propagation for AWS query services and S3 HEAD
+	* made the clock sanity check tolerate S3-compatible servers without Date
+	  response headers
+	* fixed --progress with current curl and multipart --md5 uploads
+	* documented meta-parameters and retries, and added S3 versionId access
+
 aws-2.0 2026-08-29
 	* Signature Version 4 is now the default for supported AWS services
 	* added standard AWS shared credentials and config files, named profiles,

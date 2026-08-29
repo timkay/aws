@@ -131,6 +131,42 @@ Web identity uses the standard `AWS_ROLE_ARN`,
 `AWS_WEB_IDENTITY_TOKEN_FILE`, and optional `AWS_ROLE_SESSION_NAME`
 variables (or the corresponding profile settings).
 
+### Command help and common options
+
+Run a command with `--help` to see its positional arguments, command-specific
+switches, and the most useful common options:
+
+```sh
+./aws s3 put --help
+./aws ec2 run-instances --help
+```
+
+Common options include `--profile`, `--region`, `--request`, `--retry`, and
+`--max-time`. S3 commands also document `--content-type`, `--md5`, `--parts`,
+`--progress`, `--public`, `--private`, and `--requester`. These options are
+meta-parameters: they may be placed before or after the command name and
+modify how the request is prepared or transported rather than becoming AWS
+API parameters.
+
+By default, `aws` passes `--retry 3` to the installed `curl`. Retry decisions
+therefore follow that curl version. Current curl retries timeouts and HTTP
+408, 429, 500, 502, 503, 504, 522, and 524 responses with backoff; ordinary
+client errors such as 404 are not retried. `--max-time` limits each individual
+attempt, not the combined retry period. Multipart upload additionally retries
+a part when no HTTP response was received. A checksum mismatch is reported
+but is not automatically retried.
+
+S3 subresources remain deliberately direct. For example, configure a static
+website by putting AWS's XML configuration document, and list or recover
+object versions with the standard S3 query parameters:
+
+```sh
+./aws s3 put 'my-bucket?website' website.xml
+./aws s3 get 'my-bucket?versions'
+./aws s3 get 'my-bucket/path/file?versionId=VERSION' previous-file
+./aws s3 put my-bucket/path/file previous-file
+```
+
 ### Login with console credentials
 
 `aws` can obtain short-lived credentials from an existing AWS Management

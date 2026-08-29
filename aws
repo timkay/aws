@@ -19,7 +19,7 @@
 
 require v5.10;
 
-$program_version = "2.0";
+$program_version = "2.0.1";
 
 $ec2_version = "2016-11-15";
 $sqs_version = "2012-11-05";
@@ -1585,10 +1585,15 @@ if ( !$no_sanity_check && (!-e "$home/.awsrc" || $sanity_check))
     }
 
     my $aws = qx[$curl $curl_q -s $insecureaws --include $scheme://connection.$s3host/test];
+    my $aws_status = $? >> 8;
     print $aws if $v >= 2;
     my($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
 
-    if (!$d)
+    if (!$d && !$aws_status && $aws =~ /^HTTP\/\d+(?:\.\d+)?\s+\d+/m)
+    {
+	warn "sanity-check: Server returned no Date header; skipping clock-skew correction\n" unless $silent;
+    }
+    elsif (!$d)
     {
 	$aws = qx[$curl $curl_q -s --insecure --include $scheme://connection.$s3host/test];
 	($d, $mon, $y, $h, $m, $s) = $aws =~ /^Date: ..., (..) (...) (....) (..):(..):(..) GMT\r?$/m;
@@ -1611,7 +1616,7 @@ if ( !$no_sanity_check && (!-e "$home/.awsrc" || $sanity_check))
 	}
     }
 
-    if (eval {require Time::Local})
+    if ($d && eval {require Time::Local})
     {
 	$mon = {Jan => 0, Feb => 1, Mar => 2, Apr => 3, May => 4, Jun => 5, Jul => 6, Aug => 7, Sep => 8, Oct => 9, Nov => 10, Dec => 11}->{$mon};
 	my $t = Time::Local::timegm($s, $m, $h, $d, $mon, $y);
@@ -1625,7 +1630,7 @@ $curl_options .= " --remote-time";
 $curl_options .= " --retry $retry" if length($retry);
 $curl_options .= " --fail" if $fail;
 $curl_options .= " --verbose" if $v >= 2;
-$curl_options .= $progress? " --progress": " -s";
+$curl_options .= $progress? " --progress-bar": " -s";
 $curl_options .= " --max-time $max_time" if $max_time;
 $curl_options .= " --limit-rate $limit_rate" if $limit_rate;
 
@@ -1776,7 +1781,8 @@ if (!$cmd_data)
 	    $help .= " [" . join("|", @help) . "]";
 	}
 	$help .= " BUCKET[/OBJECT] [SOURCE]" if $service eq "s3";
-	$help .= "\n";
+	$help .= "\nCommon options: --profile=NAME --region=REGION --request --retry=N --max-time=N\n";
+	$help .= "S3 options: --content-type=TYPE --md5 --parts[=N] --progress --public --private --requester\n" if $service eq "s3";
 	print STDERR $help;
 	exit;
     }
@@ -2003,6 +2009,8 @@ if (!$cmd_data)
 		my $end = $beg + $slice - 1;
 		$end = $SZ if $end > $SZ;
 		local $content_length = $end - $beg + 1;
+		my @part_head = @head;
+		push @part_head, "Content-MD5: " . file_range_md5_base64($file, $beg - 1, $content_length) if $md5;
 		local($exit_code);
 		for my $iter (0..$retry)
 		{
@@ -2011,7 +2019,7 @@ if (!$cmd_data)
 		    my $cmd = "tail -c +$beg $file |head -c $content_length";
 		    print "$cmd (bytes)\n" if $v;
 		    open STDIN, "$cmd|" or die "part @{[$i + 1]}: $!";
-		    s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-");
+		    s3(PUT, undef, "$bucket?partNumber=@{[$i + 1]}&uploadId=$uploadId", "-", @part_head);
 		    last unless $exit_code == 23;
 		}
 		if ($exit_code)
@@ -2143,6 +2151,10 @@ if (!$cmd_data)
     {
 	die;
     }
+
+    # Set the process status before choosing an output formatter.  Otherwise
+    # --xml/--yaml/--json can print an AWS error document and still exit zero.
+    $exit_code = 1 if $result =~ /<(?:ErrorResponse|Errors)(?:\s|>)/ && !$exit_code;
 
     if ($xml)
     {
@@ -2640,12 +2652,6 @@ if (!$cmd_data)
     }
     else
     {
-	# If there is an error response and we haven't yet set an error return, do it now
-	if ( $result =~ /<ErrorResponse/ && !$ExitCode)
-	{
-	    $ExitCode = 1;
-	}
-
 	print xml2tab($result) || xmlpp($result);
     }
 
@@ -3020,6 +3026,27 @@ sub xml2json
     return $coder->encode($ref);
 }
 
+sub file_range_md5_base64
+{
+    my($file, $offset, $length) = @_;
+    open(my $in, "<", $file) or die "$file: $!\n";
+    binmode $in;
+    seek($in, $offset, 0) or die "$file: seek: $!\n";
+    my $digest = Digest::MD5->new;
+    while ($length > 0)
+    {
+	my $wanted = $length > 1024 * 1024 ? 1024 * 1024 : $length;
+	my $read = read($in, my $buffer, $wanted);
+	die "$file: read: $!\n" unless defined $read;
+	die "$file: unexpected end of file\n" unless $read;
+	$digest->add($buffer);
+	$length -= $read;
+    }
+    close $in;
+    encode_base64($digest->digest, "");
+}
+
+
 sub s3
 {
     my($verb, $marker, $name, $file, @header) = @_;
@@ -3167,6 +3194,7 @@ sub s3
 							|partNumber=\d+&uploadId=[\.\-\w]+
 							|partNumber=\d+
 							|part
+							|versionId=[^&]+
 							|versioning|versions|website))?$/sx;
 
     my $uname = encode_url($ub) . "/" . encode_url($uo) . $uq if $name;
@@ -3421,6 +3449,10 @@ sub s3
 	    if ($body)
 	    {
 		$have = md5_hex($body);
+	    }
+	    elsif ($file eq "-" && $content_md5)
+	    {
+		$have = unpack("H*", decode_base64($content_md5));
 	    }
 	    else
 	    {
