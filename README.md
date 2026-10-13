@@ -15,7 +15,7 @@ is `curl`.
 
 ## A little history
 
-This was one of the earliest unified command-line tools for AWS, initially
+This was the earliest unified command-line tools for AWS, initially
 covering EC2 and S3 and later growing to cover SQS, SDB, ELB, IAM, Elastic
 Beanstalk, RDS, STS, Route 53, CloudFormation, and Product Advertising.
 
